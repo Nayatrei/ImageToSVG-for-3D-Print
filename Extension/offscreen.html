@@ -1,0 +1,19 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Offscreen SVG Converter</title>
+  </head>
+  <body>
+    <!--
+      This offscreen document loads the ImageTracer library and an offscreen
+      worker script that listens for messages from the background script. It
+      never displays any UI to the user; its sole purpose is to convert
+      raster images into SVG strings. The offscreen context has access to
+      canvas APIs and can safely handle cross-origin images when the
+      extension has appropriate host permissions.
+    -->
+    <script src="imagetracer.min.js"></script>
+    <script src="offscreen.js"></script>
+  </body>
+</html>
