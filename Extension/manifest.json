@@ -1,21 +1,27 @@
 {
   "manifest_version": 3,
-  "name": "PNG to SVG Converter",
-  "version": "1.0.0",
-  "description": "Adds a context menu item on images to convert them to SVG and download the result.",
-  "permissions": [
-    "contextMenus",
-    "downloads",
-    "offscreen",
-    "storage"
-  ],
-  "host_permissions": [
-    "<all_urls>"
-  ],
+  "name": "Image to SVG Converter",
+  "version": "1.0",
+  "description": "Convert images to SVG directly from the browser.",
+  "permissions": ["contextMenus", "downloads", "storage", "activeTab", "scripting"],
   "background": {
     "service_worker": "background.js"
   },
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
   "icons": {
-    "128": "icon128.png"
-  }
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "web_accessible_resources": [{
+    "resources": ["imagetools.js"],
+    "matches": ["<all_urls>"]
+  }]
 }
