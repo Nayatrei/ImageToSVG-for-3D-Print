@@ -1,12 +1,11 @@
 {
   "manifest_version": 3,
-  "name": "PNG to SVG Converter",
-  "version": "1.0.0",
-  "description": "Adds a context menu item on images to convert them to SVG and download the result.",
+  "name": "Image to SVG Converter",
+  "version": "1.2.0",
+  "description": "Adds a context menu item on images to convert them to SVG with advanced options.",
   "permissions": [
     "contextMenus",
     "downloads",
-    "offscreen",
     "storage"
   ],
   "host_permissions": [
@@ -16,6 +15,8 @@
     "service_worker": "background.js"
   },
   "icons": {
+    "16": "icon16.png",
+    "48": "icon48.png",
     "128": "icon128.png"
   }
 }

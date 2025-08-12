@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Image to SVG Converter</title>
+  <link rel="stylesheet" href="style.css"/>
+</head>
+<body>
+  <h1>Image to SVG Converter</h1>
+
+  <div class="main-container">
+    <div class="image-section">
+      <h2>Original Image</h2>
+      <div class="image-container">
+        <img id="source-image" alt="Original Image" style="display:none;">
+      </div>
+
+      <button id="import-btn">Import Image</button>
+      <input type="file" id="file-input" accept="image/*,image/svg+xml" style="display:none;">
+
+      <div id="status-container">
+        <div id="status-text">Initializing.</div>
+      </div>
+    </div>
+
+    <div class="controls-section">
+      <h2>Conversion Options</h2>
+
+      <table class="options-table">
+        <tr>
+          <td><label for="preset">Preset</label></td>
+          <td>
+            <select id="preset">
+              <option value="default">Default</option>
+              <option value="sharp">Sharp</option>
+              <option value="curvy">Curvy</option>
+              <option value="grayscale">Grayscale</option>
+            </select>
+          </td>
+        </tr>
+
+        <tr>
+          <td><label for="preset-strength">Preset Strength</label></td>
+          <td>
+            <input type="range" id="preset-strength" min="0" max="1" value="1" step="0.1">
+            <span id="preset-strength-value" class="slider-value">1.0</span>
+          </td>
+        </tr>
+
+        <tr>
+          <td><label for="remove-bg">Remove Background (Preview)</label></td>
+          <td><input type="checkbox" id="remove-bg"></td>
+        </tr>
+
+        <tr>
+          <td><label for="ignore-near-white">Ignore Near-White</label></td>
+          <td>
+            <input type="checkbox" id="ignore-near-white" checked>
+            <small style="margin-left:8px;color:#555;">Hide tiny anti-aliased whites from palette/exports</small>
+          </td>
+        </tr>
+
+        <!-- Single control that determines numberofcolors (via remapped tolerance) -->
+        <tr>
+          <td><label for="color-tolerance">Color Tolerance</label></td>
+          <td>
+            <input type="range" id="color-tolerance" min="0" max="1" value="0" step="0.01">
+            <span id="color-tolerance-value" class="slider-value">0.00</span>
+            <small id="color-derived" style="margin-left:8px;color:#555;"></small>
+          </td>
+        </tr>
+
+        <tr>
+          <td><label for="max-dimension">Max Dimension</label></td>
+          <td>
+            <select id="max-dimension">
+              <option value="0">None (Original Size)</option>
+              <option value="256">256px</option>
+              <option value="512">512px</option>
+              <option value="1024">1024px</option>
+              <option value="2048">2048px</option>
+            </select>
+          </td>
+        </tr>
+
+        <tr id="palette-row" style="display:none;">
+          <td><label>Color Layers</label></td>
+          <td id="palette-container"></td>
+        </tr>
+      </table>
+
+      <div class="preview-grid">
+        <div class="preview-column">
+          <h2>SVG Preview</h2>
+          <div class="image-container preview-container">
+            <object id="svg-preview" type="image/svg+xml"></object>
+          </div>
+        </div>
+
+        <div class="preview-column">
+          <h2>Filtered Preview (Selected Layers)</h2>
+          <div class="image-container preview-container">
+            <object id="svg-preview-filtered" type="image/svg+xml"></object>
+          </div>
+        </div>
+      </div>
+
+      <div class="buttons">
+        <button id="generate-btn" disabled>Generate Preview</button>
+        <button id="download-preview-btn" disabled>Download Preview SVG</button>
+        <button id="download-filtered-btn" disabled>Download Selected Layers SVG</button>
+
+        <!-- Quick exports for 3D printing -->
+        <div style="margin-top:12px; display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+          <label for="silhouette-color">Silhouette Color:</label>
+          <input type="color" id="silhouette-color" value="#000000" />
+          <button id="download-silhouette-btn" disabled>Download Silhouette SVG</button>
+          <button id="download-each-color-btn" disabled>Download Each Visible Color SVGs</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="imagetracer_v1.2.6.js"></script>
+  <script src="converter.js"></script>
+</body>
+</html>
