@@ -110,14 +110,17 @@ h1, h2 {
     flex: 1;
     padding: 12px;
     border: none;
-    border-radius: 8px;
+    border-radius: 6px;
     font-size: 16px;
+    font-weight: 600;
     cursor: pointer;
-    transition: background-color 0.2s;
+    transition: background-color 0.2s, transform 0.1s;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 #generate-btn {
-    background-color: #0073e6;
-    color: white;
+    background-color: #0062cc;
+    color: #fff;
+    font-weight: 700;
 }
 #download-btn {
     background-color: #28a745;
@@ -129,6 +132,43 @@ button:disabled {
 }
 #generate-btn:hover:not(:disabled) { background-color: #005c99; }
 #download-btn:hover:not(:disabled) { background-color: #218838; }
+
+/* Custom colors for export buttons */
+#download-preview-btn {
+    background-color: #28a745;
+    color: #fff;
+}
+#download-preview-btn:hover:not(:disabled) { background-color: #218838; }
+
+#download-filtered-btn {
+    background-color: #6f42c1;
+    color: #fff;
+}
+#download-filtered-btn:hover:not(:disabled) { background-color: #5936a2; }
+
+#download-silhouette-btn {
+    background-color: #17a2b8;
+    color: #fff;
+}
+#download-silhouette-btn:hover:not(:disabled) { background-color: #138496; }
+
+#download-each-color-btn {
+    background-color: #fd7e14;
+    color: #fff;
+}
+#download-each-color-btn:hover:not(:disabled) { background-color: #e46a0a; }
+
+#load-url-btn {
+    background-color: #20c997;
+    color: #fff;
+    padding: 8px 16px;
+    border: none;
+    border-radius: 6px;
+    font-size: 14px;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+#load-url-btn:hover { background-color: #17a983; }
 
 #import-btn {
     background-color: #ffc107;

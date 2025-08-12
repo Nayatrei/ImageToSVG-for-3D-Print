@@ -32,7 +32,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     silhouetteColor: document.getElementById('silhouette-color'),
     downloadSilhouetteBtn: document.getElementById('download-silhouette-btn'),
-    downloadEachColorBtn: document.getElementById('download-each-color-btn')
+    downloadEachColorBtn: document.getElementById('download-each-color-btn'),
+
+    // Online URL input elements
+    urlInput: document.getElementById('url-input'),
+    loadUrlBtn: document.getElementById('load-url-btn')
   };
 
   // --- Config ---
@@ -82,10 +86,12 @@ const regenFromSlider = debounce(() => {
   elements.generateBtn.click();
 }, 180);
 
-// Update continuously while dragging the slider
-elements.presetStrength.addEventListener('input', regenFromSlider);
-// And once more on release (for trackpads that coalesce events)
-elements.presetStrength.addEventListener('change', regenFromSlider);
+// Update continuously while dragging the preset strength slider
+if (elements.presetStrengthSlider) {
+  elements.presetStrengthSlider.addEventListener('input', regenFromSlider);
+  // And once more on release (for trackpads that coalesce events)
+  elements.presetStrengthSlider.addEventListener('change', regenFromSlider);
+}
 
 
   // --- Color helpers ---
@@ -187,6 +193,88 @@ elements.presetStrength.addEventListener('change', regenFromSlider);
     updateDerivedColorsHint();
     elements.generateBtn.click();
   };
+
+  // Online URL loader
+  const loadImageFromUrl = async (url) => {
+    if (!url) return;
+    elements.statusText.textContent = 'Fetching remote image...';
+    originalImageUrl = url;
+    try {
+      // If the URL is already a DataURL (base64), assign it directly
+      if (url.startsWith('data:')) {
+        elements.sourceImage.src = url;
+        elements.statusText.textContent = 'Remote image loaded.';
+        return;
+      }
+      // Use extension background fetch when available (bypassing CORS)
+      if (typeof chrome !== 'undefined' && chrome.runtime && chrome.runtime.connect) {
+        const port = chrome.runtime.connect({ name: 'fetchImagePort' });
+        return await new Promise((resolve, reject) => {
+          let handled = false;
+          port.postMessage({ type: 'fetchImage', url });
+          port.onMessage.addListener((response) => {
+            handled = true;
+            if (response.dataUrl) {
+              elements.sourceImage.src = response.dataUrl;
+              elements.statusText.textContent = 'Remote image loaded.';
+              resolve();
+            } else {
+              elements.statusText.textContent = `Error: ${response.error || 'Could not load image.'}`;
+              reject(new Error(response.error || 'Could not load image'));
+            }
+            port.disconnect();
+          });
+          // Timeout fallback (10s)
+          setTimeout(() => {
+            if (!handled) {
+              port.disconnect();
+              reject(new Error('Timeout fetching remote image.'));
+            }
+          }, 10000);
+        });
+      }
+      // Fallback: direct fetch via CORS or proxy
+      let resp;
+      try {
+        // Attempt a CORS fetch with polite headers
+        resp = await fetch(url, {
+          mode: 'cors',
+          headers: {
+            'User-Agent': 'Mozilla/5.0',
+            'Referer': url
+          }
+        });
+        if (!resp.ok) throw new Error(`Status ${resp.status}`);
+      } catch (_e) {
+        // If direct fetch fails (likely CORS), try via a CORS proxy.
+        // Use images.weserv.nl which fetches remote images when provided an encoded URL.
+        const proxied = 'https://images.weserv.nl/?url=' + encodeURIComponent(url);
+        resp = await fetch(proxied);
+        if (!resp.ok) throw new Error(`Proxy fetch failed: ${resp.status}`);
+      }
+      const blob = await resp.blob();
+      const dataUrl = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result);
+        reader.onerror = () => reject(new Error('Failed to read blob'));
+        reader.readAsDataURL(blob);
+      });
+      elements.sourceImage.src = dataUrl;
+      elements.statusText.textContent = 'Remote image loaded.';
+    } catch (err) {
+      console.error(err);
+      elements.statusText.textContent = `Error loading remote image.`;
+    }
+  };
+
+  elements.loadUrlBtn?.addEventListener('click', () => {
+    const url = elements.urlInput?.value?.trim();
+    if (!url) {
+      alert('Please enter an image URL.');
+      return;
+    }
+    loadImageFromUrl(url);
+  });
 
   // --- Background knockout utilities ---
   const estimateEdgeBackground = (imgd) => {
@@ -355,23 +443,43 @@ elements.presetStrength.addEventListener('change', regenFromSlider);
         };
 
         // --- Preset refinements ---
-
+        // Determine which preset is selected and adjust numeric options based on slider strength.
+        const preset = elements.presetSelect.value;
+        const strengthVal = parseFloat(elements.presetStrengthSlider.value);
+        // Helper for linear interpolation
+        const lerp = (a, b, t) => a + (b - a) * t;
         if (preset === 'sharp') {
-          lastOptions.ltres = 0.001;      // tighter straight line threshold
-          lastOptions.qtres = 0.001;      // tighter quadratic spline threshold
-          lastOptions.pathomit = 0;      // keep all small paths
-          lastOptions.rightangleenhance = true;  // emphasize right angles
-          lastOptions.linefilter = false;        // no smoothing filter
-          lastOptions.blurradius = 0;            // no blur
+          /*
+            Sharp preset refinement:
+            - Dramatically tighten straight and curve thresholds as the slider increases.
+            - Use extremely low ltres/qtres at full strength for razor‑sharp fidelity.
+            - Progressively lower pathomit so small paths are kept at high strength.
+            - Disable smoothing and blur entirely.
+            The range of ltres/qtres spans from 1 (no refinement) to 0.0005 for a visibly crisper trace.
+          */
+          lastOptions.ltres = lerp(1.0, 0.0005, strengthVal);
+          lastOptions.qtres = lerp(1.0, 0.0005, strengthVal);
+          lastOptions.pathomit = Math.round(lerp(12, 0, strengthVal));
+          lastOptions.rightangleenhance = true;
+          lastOptions.linefilter = false;
+          lastOptions.blurradius = 0;
           lastOptions.blurdelta = 20;
         } else if (preset === 'curvy') {
-          lastOptions.ltres = 0.001;
-          lastOptions.qtres = 0.5;      // allow some curvature simplification
-          lastOptions.pathomit = 0;
+          /*
+            Curvy preset refinement:
+            - Increase ltres/qtres dramatically as the slider increases to simplify shapes and smooth curves.
+            - At full strength the thresholds reach very high values (e.g. 20) for a soft, blob‑like look.
+            - Pathomit increases to remove tiny specks when strong smoothing is desired.
+            - Enable line filtering and apply a pre‑blur whose radius grows with the slider.
+            These ranges make the slider effect very noticeable between 0 and 1.
+          */
+          lastOptions.ltres = lerp(1.0, 20.0, strengthVal);
+          lastOptions.qtres = lerp(1.0, 18.0, strengthVal);
+          lastOptions.pathomit = Math.round(lerp(0, 25, strengthVal));
           lastOptions.rightangleenhance = false;
-          lastOptions.linefilter = true; // apply median filter for smoothing
-          lastOptions.blurradius = 1;    // slight blur to reduce noise
-          lastOptions.blurdelta = 20;
+          lastOptions.linefilter = true;
+          lastOptions.blurradius = Math.round(lerp(0, 6, strengthVal));
+          lastOptions.blurdelta = Math.round(lerp(20, 50, strengthVal));
         }
 
         tracedata = ImageTracer.imagedataToTracedata(imageData, lastOptions);
@@ -445,7 +553,8 @@ elements.presetStrength.addEventListener('change', regenFromSlider);
     if (!keep.length) return alert('No visible layers to export.');
 
     const subset = buildTracedataSubset(tracedata, keep);
-    const monoColor = hexToRGBA(elements.silhouetteColor.value);
+    // Use solid black for silhouette now that color picker is removed
+    const monoColor = { r: 0, g: 0, b: 0, a: 255 };
     const mono = { ...subset, palette: subset.palette.map(() => monoColor) };
 
     const svgString = ImageTracer.getsvgstring(mono, lastOptions || { viewbox: true });
@@ -460,15 +569,17 @@ elements.presetStrength.addEventListener('change', regenFromSlider);
     const keepAll = getVisiblePaletteIndicesAll();
     if (!keepAll.length) return alert('No visible layers to export.');
 
-    keepAll.forEach((idx) => {
+    keepAll.forEach((idx, ordinal) => {
       const single = buildTracedataSubset(tracedata, [idx]);
       const c = single.palette[0];
-      const hex = `#${[c.r, c.g, c.b].map(v => v.toString(16).padStart(2, '0')).join('')}`;
-
+      const hex = [c.r, c.g, c.b]
+        .map(v => v.toString(16).padStart(2, '0'))
+        .join('');
       const svgString = ImageTracer.getsvgstring(single, lastOptions || { viewbox: true });
       const blob = new Blob([svgString], { type: 'image/svg+xml' });
       const url = URL.createObjectURL(blob);
-      createDownload(url, defaultBaseName(`color_${hex.replace('#', '')}`));
+      // Use ordinal (1‑based) and color hex for filename: originalname_layer1_ff0000.svg
+      createDownload(url, defaultBaseName(`layer${ordinal + 1}_${hex}`));
     });
   });
 

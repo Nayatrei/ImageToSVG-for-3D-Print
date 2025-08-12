@@ -28,7 +28,14 @@ chrome.runtime.onConnect.addListener((port) => {
         port.onMessage.addListener(async (request) => {
             if (request.type === 'fetchImage' && request.url) {
                 try {
-                    const response = await fetch(request.url);
+                    // Provide custom headers to improve compatibility with some image hosts
+                    const response = await fetch(request.url, {
+                        // Some hosts require a referer or user-agent; these headers can help bypass 403s
+                        headers: {
+                            'User-Agent': 'Mozilla/5.0',
+                            'Referer': 'https://seeklogo.com/'
+                        }
+                    });
                     if (!response.ok) {
                         throw new Error(`Network error: ${response.status} ${response.statusText}`);
                     }

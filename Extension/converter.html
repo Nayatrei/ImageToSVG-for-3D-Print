@@ -19,6 +19,12 @@
       <button id="import-btn">Import Image</button>
       <input type="file" id="file-input" accept="image/*,image/svg+xml" style="display:none;">
 
+      <!-- Online image loader -->
+      <div class="online-loader" style="margin-top:12px; display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+        <input type="text" id="url-input" placeholder="Paste image URL here" style="flex:1; padding:8px; border:1px solid #ccc; border-radius:4px; min-width:200px;">
+        <button id="load-url-btn">Load URL</button>
+      </div>
+
       <div id="status-container">
         <div id="status-text">Initializing.</div>
       </div>
@@ -107,16 +113,14 @@
       </div>
 
       <div class="buttons">
-        <button id="generate-btn" disabled>Generate Preview</button>
-        <button id="download-preview-btn" disabled>Download Preview SVG</button>
-        <button id="download-filtered-btn" disabled>Download Selected Layers SVG</button>
+        <button id="generate-btn" disabled>Generate Layers</button>
+        <button id="download-preview-btn" disabled>Download Full SVG</button>
+        <button id="download-filtered-btn" disabled>Download Selected SVG</button>
 
         <!-- Quick exports for 3D printing -->
         <div style="margin-top:12px; display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
-          <label for="silhouette-color">Silhouette Color:</label>
-          <input type="color" id="silhouette-color" value="#000000" />
-          <button id="download-silhouette-btn" disabled>Download Silhouette SVG</button>
-          <button id="download-each-color-btn" disabled>Download Each Visible Color SVGs</button>
+          <button id="download-silhouette-btn" disabled>Download Silhouette</button>
+          <button id="download-each-color-btn" disabled>Download Each Layer SVG</button>
         </div>
       </div>
     </div>
