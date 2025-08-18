@@ -1,3 +1,5 @@
+Launch Editor: https://nayatrei.github.io/ImageToSVG-for-3D-Print/converter.html
+
 Image to SVG Converter - 3D Print Ready
 A Chrome extension that converts images to SVG files optimized for 3D printing and Tinkercad import.
 🚀 Features
