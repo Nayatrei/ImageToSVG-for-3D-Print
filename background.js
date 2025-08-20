@@ -6,20 +6,25 @@ const MENU_ID = 'convert_to_svg';
 chrome.runtime.onInstalled.addListener(() => {
     chrome.contextMenus.create({
         id: MENU_ID,
-        title: 'Convert image to SVG...',
+        title: 'Convert image to SVG for 3D printing...',
         contexts: ['image']
     });
 });
 
-// Handle context menu click to open converter page
-chrome.contextMenus.onClicked.addListener(async (info) => {
-    if (info.menuItemId !== MENU_ID || !info.srcUrl) {
-        return;
+// Open converter when the toolbar icon is clicked
+chrome.action.onClicked.addListener(() => {
+  chrome.tabs.create({ url: chrome.runtime.getURL('converter.html') });
+});
+
+// Handle context menu click
+chrome.contextMenus.onClicked.addListener((info, tab) => {
+    if (info.menuItemId === MENU_ID && info.srcUrl) {
+        // Store the image URL to be picked up by the converter page
+        chrome.storage.local.set({ imageUrlToConvert: info.srcUrl }, () => {
+            // Open the converter in a new tab
+            chrome.tabs.create({ url: chrome.runtime.getURL('converter.html') });
+        });
     }
-    await chrome.storage.local.set({ imageUrlToConvert: info.srcUrl });
-    chrome.tabs.create({
-        url: chrome.runtime.getURL('converter.html')
-    });
 });
 
 // Handle image fetch requests to bypass CORS
