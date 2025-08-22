@@ -191,9 +191,14 @@
 
       <div class="preview-grid">
         <div class="preview-column">
-          <h2>📐 3D Print Preview</h2>
+          <h2>📐 Preview</h2>
+          <div class="preview-toggles">
+            <button id="show-quantized-btn" class="active">Show Quantized Raster</button>
+            <button id="show-vector-btn">Show Vector Outlines</button>
+          </div>
           <div class="image-container preview-container">
-            <object id="svg-preview" type="image/svg+xml"></object>
+            <canvas id="quantized-preview" style="display: block;"></canvas>
+            <object id="svg-preview" type="image/svg+xml" style="display: none;"></object>
           </div>
           <div id="quality-indicator" class="quality-indicator"></div>
         </div>
