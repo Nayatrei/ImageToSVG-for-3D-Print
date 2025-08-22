@@ -10,10 +10,16 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // New simplified controls
     presetSelect: document.getElementById('preset'),
-    simplificationSlider: document.getElementById('simplification-level'),
-    simplificationValue: document.getElementById('simplification-value'),
-    colorCountSlider: document.getElementById('color-count'),
-    colorCountValue: document.getElementById('color-count-value'),
+    // New tri-simplification sliders
+    pathSimplificationSlider: document.getElementById('path-simplification'),
+    pathSimplificationValue: document.getElementById('path-simplification-value'),
+    cornerSharpnessSlider: document.getElementById('corner-sharpness'),
+    cornerSharpnessValue: document.getElementById('corner-sharpness-value'),
+    curveStraightnessSlider: document.getElementById('curve-straightness'),
+    curveStraightnessValue: document.getElementById('curve-straightness-value'),
+    // Color precision
+    colorPrecisionSlider: document.getElementById('color-precision'),
+    colorPrecisionValue: document.getElementById('color-precision-value'),
     colorFeedback: document.getElementById('color-feedback'),
     removeBgCheckbox: document.getElementById('remove-bg'),
     forceSolidCheckbox: document.getElementById('force-solid'),
@@ -113,8 +119,10 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
   // Setup enhanced sliders with 3D printing feedback
-  setupSlider(elements.simplificationSlider, elements.simplificationValue, 0);
-  setupSlider(elements.colorCountSlider, elements.colorCountValue, 0, updateColorFeedback);
+  setupSlider(elements.pathSimplificationSlider, elements.pathSimplificationValue, 0);
+  setupSlider(elements.cornerSharpnessSlider, elements.cornerSharpnessValue, 0);
+  setupSlider(elements.curveStraightnessSlider, elements.curveStraightnessValue, 0);
+  setupSlider(elements.colorPrecisionSlider, elements.colorPrecisionValue, 0, updateColorFeedback);
   setupSlider(elements.ltresSlider, elements.ltresValue, 1);
   setupSlider(elements.pathomitSlider, elements.pathomitValue, 0);
   setupSlider(elements.blurRadiusSlider, elements.blurRadiusValue, 1);
@@ -143,7 +151,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // Initialize color feedback
-  updateColorFeedback(parseInt(elements.colorCountSlider.value));
+  updateColorFeedback(parseInt(elements.colorPrecisionSlider.value));
 
   // --- 3D Printing Optimization Functions ---
 
@@ -184,7 +192,7 @@ document.addEventListener('DOMContentLoaded', () => {
       className = 'quality-good';
     } else {
       level = 'poor';
-      message = `⚠️ Too complex for optimal 3D printing! ${totalPaths} paths - try increasing simplification level`;
+      message = `⚠️ Too complex for optimal 3D printing! ${totalPaths} paths - try lowering Path Simplification or raising Color Precision`;
       className = 'quality-poor';
     }
     
@@ -231,7 +239,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }, 300);
 
   // Auto-regenerate on slider changes
-  [elements.simplificationSlider, elements.colorCountSlider].forEach(slider => {
+  [elements.pathSimplificationSlider, elements.cornerSharpnessSlider, elements.curveStraightnessSlider, elements.colorPrecisionSlider].forEach(slider => {
     if (slider) {
       slider.addEventListener('input', debounceGenerate);
     }
@@ -330,7 +338,7 @@ document.addEventListener('DOMContentLoaded', () => {
     tracedata = forceSolidShapes(tracedata);
     
     // 2. Merge similar colors for cleaner layers
-    const mergeThreshold = 20 + (10 - parseInt(elements.colorCountSlider.value)) * 3;
+    const mergeThreshold = Math.round(40 - (parseInt(elements.colorPrecisionSlider.value) * 0.35));
     tracedata = mergeSimilarColors(tracedata, mergeThreshold);
 
     // Display results
@@ -348,43 +356,64 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // **IMPROVED: This function now includes the advanced simplification logic**
-  function buildOptimizedOptions() {
+  
+function buildOptimizedOptions() {
     const preset = elements.presetSelect.value;
-    let colorCount = parseInt(elements.colorCountSlider.value);
-    if (isNaN(colorCount) || colorCount < 2) colorCount = 6;
-    const simplificationLevel = parseInt(elements.simplificationSlider.value);
 
-    // Start with 3D printing optimized defaults
-    let options = Object.assign({}, ImageTracer.optionpresets.default, {
-      numberofcolors: colorCount,
-      viewbox: true,
-      strokewidth: 0,
-      roundcoords: 2
-    });
+    // New tri-simplification + color precision sliders (0-100)
+    const P = Math.max(0, Math.min(100, parseInt(elements.pathSimplificationSlider?.value || 40))); // Path Simplification
+    const C = Math.max(0, Math.min(100, parseInt(elements.cornerSharpnessSlider?.value || 60)));    // Corner Sharpness
+    const S = Math.max(0, Math.min(100, parseInt(elements.curveStraightnessSlider?.value || 40))); // Curve Straightness
+    const CP = Math.max(0, Math.min(100, parseInt(elements.colorPrecisionSlider?.value || 50)));   // Color Precision
 
-    // --- NEW: INTEGRATE SIMPLIFICATION LOGIC HERE ---
-    const S = Math.max(0, Math.min(10, simplificationLevel || 0));
-    const g = (base, k = 1.18) => +(base * Math.pow(k, S)).toFixed(2);
-
-    options.ltres = g(0.8, 1.18);
-    options.qtres = g(0.8, 1.18);
+    // Helper mappers
+    const map = (t, a, b) => (a + (b - a) * (t / 100));
+    const mapInv = (t, a, b) => (a + (b - a) * (1 - (t / 100)));
 
     const w = elements.sourceImage.naturalWidth || 512;
     const h = elements.sourceImage.naturalHeight || 512;
-    const rel = Math.max(0.5, Math.sqrt(w * h) / 512);
-    options.pathomit = Math.round(Math.min(12, Math.max(1, 1 + 0.6 * S * rel)));
+    const rel = Math.max(0.5, Math.sqrt(w * h) / 512); // scale-aware pathomit
 
-    options.blurradius = S < 4 ? 0 : +(0.15 * (S - 3)).toFixed(2);
+    // Start with defaults
+    let options = Object.assign({}, ImageTracer.optionpresets.default, {
+        viewbox: true,
+        strokewidth: 0
+    });
+
+    // --- Mapping ---
+    // 1) Path Simplification
+    options.pathomit = Math.round(map(P, 0, 20) * rel);           // remove tiny paths
+    options.roundcoords = Math.round(map(P, 1, 3));               // coordinate rounding
+    options.blurradius = +map(P, 0, 1.2).toFixed(1);              // slight pre-smoothing
     options.blurdelta = 20;
-    // --- END OF NEW LOGIC ---
 
-    // Apply preset-specific optimizations
+    // 2) Corner Sharpness
+    options.qtres = +mapInv(C, 4.0, 0.2).toFixed(2);              // lower = sharper corners
+    options.rightangleenhance = (C >= 50);
+
+    // 3) Curve Straightness
+    options.ltres = +map(S, 0.2, 8.0).toFixed(2);                 // higher = straighter
+
+    // 4) Color Precision
+    options.colorsampling = 2;                                     // deterministic
+    options.colorquantcycles = Math.max(1, Math.round(map(CP, 1, 6)));
+    options.mincolorratio = +mapInv(CP, 0.05, 0.0).toFixed(3);     // keep rare colors at higher precision
+
+    // Recommend number of colors from precision (2..12) to drive quantizer;
+    // actual visible layers may be lower after filtering/merging.
+    options.numberofcolors = Math.max(2, Math.min(12, 2 + Math.round(CP * 0.10)));
+
+    // Apply preset-specific tweaks last
     if (CONFIG.PRESETS_3D[preset]) {
-      Object.assign(options, CONFIG.PRESETS_3D[preset]);
-      options.numberofcolors = colorCount; // Always override with user setting
+        Object.assign(options, CONFIG.PRESETS_3D[preset]);
+        // keep our computed numberofcolors and other params
     }
 
+    // Cache for downstream (render/getsvgstring)
+    lastOptions = options;
     return options;
+}
+
   }
 
   function updateQualityDisplay(quality) {
@@ -1044,7 +1073,7 @@ function createSolidSilhouette(tracedata, holeRemovalLevel) {
   // --- Initialize Application ---
   function initializeApp() {
     addTestImageButtons();
-    updateColorFeedback(parseInt(elements.colorCountSlider.value));
+    updateColorFeedback(parseInt(elements.colorPrecisionSlider.value));
     loadImageFromContextMenu();
     
     if (elements.presetSelect) {
