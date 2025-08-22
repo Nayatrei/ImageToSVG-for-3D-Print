@@ -1,239 +1,137 @@
 <!DOCTYPE html>
+
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Tinkercad SVG Creator - 3D Print Ready</title>
-  <link rel="stylesheet" href="style.css"/>
-  <script src="imagetracer_v1.2.6.js"></script>
-  <script src="converter.js"></script>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Tinkercad SVG Creator - 3D Print Ready (Improved)</title>
+<link href="style.css" rel="stylesheet"/>
+<script src="imagetracer_v1.2.6.js"></script>
+<script defer="" src="converter.js"></script>
+<style>
+    /* local minimal helpers in case style.css is older */
+    .controls-grid { display:grid; grid-template-columns: 220px 1fr; gap:10px; align-items:center; }
+    .small { font-size:12px; color:#555; }
+    .row-buttons { display:flex; gap:8px; flex-wrap:wrap; }
+    .togglebar button.active { font-weight:bold; }
+    object.svgframe, canvas.svgframe { width:100%; min-height:420px; border:1px solid #ddd; background:#fff; border-radius:8px; }
+  </style>
 </head>
 <body>
-  <h1 style="position:relative;">Tinkercad SVG Creator - 3D Print Ready
+<h1 style="position:relative;">Tinkercad SVG Creator - 3D Print Ready
     <span class="donate-top-right">
-      <a href="https://buymeacoffee.com/genesisframeworks" target="_blank" id="donate-link">☕ Buy me a coffee</a>
-    </span>
-  </h1>
-
-  <div class="content-wrapper">
-    <div class="quick-start-column">
-      <h3>🚀 Quick Start for 3D Printing & Tinkercad</h3>
-      <div class="guide-steps">
-        <div class="step">
-          <span class="step-number">1</span>
-          <div class="step-content">
-            <strong>Import your image</strong><br>
-            <small>Simple logos and graphics work best (Batman, Superman logos are perfect!)</small>
-          </div>
-        </div>
-        <div class="step">
-          <span class="step-number">2</span>
-          <div class="step-content">
-            <strong>Select "3D Print" preset</strong><br>
-            <small>Pre-optimized for clean Tinkercad extrusion</small>
-          </div>
-        </div>
-        <div class="step">
-          <span class="step-number">3</span>
-          <div class="step-content">
-            <strong>Adjust "Simplification Level"</strong><br>
-            <small>Higher = cleaner shapes for 3D printing</small>
-          </div>
-        </div>
-        <div class="step">
-          <span class="step-number">4</span>
-          <div class="step-content">
-            <strong>Download optimized layers</strong><br>
-            <small>Each color = separate 3D print layer</small>
-          </div>
-        </div>
-        <div class="step">
-          <span class="step-number">5</span>
-          <div class="step-content">
-            <strong>Import to Tinkercad</strong><br>
-            <small>Click "Import", upload SVG, set "Style" to "Silhouette", adjust size/height & extrude</small>
-          </div>
-        </div>
-        <div class="step">
-          <span class="step-number">6</span>
-          <div class="step-content">
-            <strong>Add More Layers</strong><br>
-            <small>Import additional SVGs, group & adjust heights, align for multi-color</small>
-          </div>
-        </div>
-        <div class="step">
-          <span class="step-number">7</span>
-          <div class="step-content">
-            <strong>Export as OBJ</strong><br>
-            <small>Select all shapes, export OBJ to preserve colors, download file</small>
-          </div>
-        </div>
-        <div class="step">
-          <span class="step-number">8</span>
-          <div class="step-content">
-            <strong>Import to Slicer & Assign Colors</strong><br>
-            <small>Open slicer (e.g., Bambu Studio), import OBJ, paint/refine colors for printing</small>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div class="main-content-column">
-      <div class="image-section content-box" style="margin-bottom: 20px;">
-        <h2>Original Image</h2>
-        <div class="image-container">
-          <img id="source-image" alt="Original Image" style="display:none;">
-        </div>
-
-        <button id="import-btn">Import Image</button>
-        <input type="file" id="file-input" accept="image/*,image/svg+xml" style="display:none;">
-
-        <!-- Online image loader -->
-        <div class="online-loader" style="margin-top:12px; display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
-          <input type="text" id="url-input" placeholder="Paste image URL here (try a Batman logo!)" style="flex:1; padding:8px; border:1px solid #ccc; border-radius:4px; min-width:200px;">
-          <button id="load-url-btn">Load URL</button>
-        </div>
-
-        <div id="status-container">
-          <div id="status-text">Ready for 3D printing magic! ✨</div>
-        </div>
-
-        <div id="original-resolution" class="resolution-info" style="margin-top:8px; font-size:14px; color:#555;"></div>
-      </div>
-
-      <div class="controls-section content-box" style="margin-bottom: 20px;">
-        <h2>3D Print Optimization</h2>
-
-        <table class="options-table">
-          <tr>
-            <td><label for="preset">Conversion Style
-              <span class="tooltip" title="Choose your conversion approach:\n\n📐 3D Print (Tinkercad Ready): Best for clean 3D printing\n🌊 Smooth Curves: Artistic, flowing shapes\n⚡ Sharp Details: Preserves crisp edges\n🎭 High Contrast: Bold silhouettes\n🎨 Multi-Color: Detailed color preservation\n🎯 Simple Colors: 4-color poster style">?</span>
-            </label></td>
-            <td>
-              <select id="preset">
-                <option value="3dprint" selected>📐 3D Print (Tinkercad Ready)</option>
-                <option value="curvy">🌊 Smooth Curves</option>
-                <option value="sharp">⚡ Sharp Details</option>
-                <option value="default">⚙️ Standard (ImageTracer Default)</option>
-              </select>
-            </td>
-          </tr>
-
-          <tr>
-            <td><label for="simplification-level">3D Print Simplification
-              <span class="tooltip" title="Higher values create simpler shapes perfect for 3D printing:\n• Low (1-3): Detailed but complex\n• Medium (4-6): Balanced quality\n• High (7-10): Simple, clean shapes\n\nRecommended: 6-8 for most logos">?</span>
-            </label></td>
-            <td>
-              <input type="range" id="simplification-level" min="1" max="10" value="6" step="1">
-              <span id="simplification-value" class="slider-value">6</span>
-              <small style="margin-left:8px;color:#007bff;">💡 Higher = cleaner 3D prints</small>
-            </td>
-          </tr>
-
-          <tr>
-            <td><label for="color-count">Color Layers
-              <span class="tooltip" title="Number of different colors/layers in your SVG:\n• 2-3: Perfect for multi-color 3D printing\n• 4-6: Good balance\n• 7+: Complex (may need more print passes)\n\nEach color becomes a separate 3D layer!">?</span>
-            </label></td>
-            <td>
-              <input type="range" id="color-count" min="2" max="12" value="4" step="1">
-              <span id="color-count-value" class="slider-value">4</span>
-              <small id="color-feedback" style="margin-left:8px;color:#28a745;">✅ Great for 3D printing</small>
-            </td>
-          </tr>
-
-          <tr>
-            <td><label for="remove-bg">Remove Background
-              <span class="tooltip" title="Automatically detect and remove the background color. Perfect for logos on white/colored backgrounds.">?</span>
-            </label></td>
-            <td><input type="checkbox" id="remove-bg"></td>
-          </tr>
-
-          <tr id="palette-row" style="display:none;">
-            <td><label>Layer Selection
-              <span class="tooltip" title="Choose which colors/layers to include in your final SVG. Uncheck layers you don't want to 3D print.">?</span>
-            </label></td>
-            <td id="palette-container"></td>
-          </tr>
-
-          <!-- Advanced controls (hidden by default) -->
-          <tr id="advanced-toggle-row" style="display:none;">
-            <td colspan="2">
-              <details>
-                <summary style="cursor:pointer;font-weight:bold;color:#007bff;">🔧 Advanced Settings (For Experts)</summary>
-                <div class="advanced-settings" style="margin-top:10px;">
-                  <div class="adv-row">
-                    <label for="ltres-slider">Curve Precision</label>
-                    <input type="range" id="ltres-slider" min="0.1" max="10" value="1" step="0.1">
-                    <span id="ltres-value" class="slider-value">1.0</span>
-                  </div>
-                  <div class="adv-row">
-                    <label for="pathomit-slider">Minimum Shape Size</label>
-                    <input type="range" id="pathomit-slider" min="0" max="30" value="8" step="1">
-                    <span id="pathomit-value" class="slider-value">8</span>
-                  </div>
-                  <div class="adv-row">
-                    <label for="blur-radius">Pre-smoothing</label>
-                    <input type="range" id="blur-radius" min="0" max="3" value="0" step="0.1">
-                    <span id="blur-radius-value" class="slider-value">0.0</span>
-                  </div>
-                </div>
-              </details>
-            </td>
-          </tr>
-        </table>
-      </div>
-
-      <div class="generation-section content-box">
-        <button id="generate-btn" class="generate-button" disabled>
-          ⚡ Generate 3D-Ready Preview
-        </button>
-      </div>
-
-      <div class="preview-grid">
-        <div class="preview-column">
-          <h2>📐 Preview</h2>
-          <div class="preview-toggles">
-            <button id="show-quantized-btn" class="active">Show Quantized Raster</button>
-            <button id="show-vector-btn">Show Vector Outlines</button>
-          </div>
-          <div class="image-container preview-container">
-            <canvas id="quantized-preview" style="display: block;"></canvas>
-            <object id="svg-preview" type="image/svg+xml" style="display: none;"></object>
-          </div>
-          <div id="quality-indicator" class="quality-indicator"></div>
-        </div>
-
-        <div class="preview-column">
-          <h2>🎯 Selected Layers Only</h2>
-          <div class="image-container preview-container">
-            <object id="svg-preview-filtered" type="image/svg+xml"></object>
-          </div>
-        </div>
-      </div>
-
-      <div id="scaled-resolution" class="resolution-info" style="margin-top:8px; font-size:14px; color:#555; text-align:center;"></div>
-
-      <div class="download-section">
-        <!-- Main 3D print downloads -->
-        <div class="download-row primary-downloads">
-          <button id="download-tinkercad-btn" disabled class="tinkercad-btn">
-            🏆 Download for Tinkercad (Auto-Optimized)
-          </button>
-          <!-- Download All Layers button removed -->
-        </div>
-
-        <!-- Secondary downloads -->
-        <div class="download-row secondary-downloads">
-          <button id="download-silhouette-btn" disabled>🎭 Silhouette (Backgroud)</button>
-          <!-- Complete SVG button removed -->
-        </div>
-
-        <!-- Dynamic color layer buttons -->
-        <div id="color-buttons-row" class="color-buttons-row"></div>
-      </div>
-    </div>
-  </div>
-
-
+<a href="https://buymeacoffee.com/genesisframeworks" id="donate-link" target="_blank">☕ Buy me a coffee</a>
+</span>
+</h1>
+<div class="content-wrapper">
+<!-- Left column: Quick Start -->
+<div class="quick-start-column">
+<h3>🚀 Quick Start</h3>
+<div class="guide-steps">
+<div class="step"><span class="step-number">1</span><div class="step-content"><strong>Import your image</strong><small>Logos / high-contrast work best.</small></div></div>
+<div class="step"><span class="step-number">2</span><div class="step-content"><strong>Quantize → Trace</strong><small>Pick Palette Size (K), then Generate.</small></div></div>
+<div class="step"><span class="step-number">3</span><div class="step-content"><strong>Tune Simplification</strong><small>Minimum feature + curve tolerance in mm.</small></div></div>
+<div class="step"><span class="step-number">4</span><div class="step-content"><strong>Download</strong><small>Tinkercad Optimized or per-layer SVGs.</small></div></div>
+</div>
+</div>
+<!-- Right column: App -->
+<div class="main-content-column">
+<!-- Source image & loaders -->
+<div class="image-section content-box" style="margin-bottom: 20px;">
+<h2>Original Image</h2>
+<div class="image-container">
+<img alt="Original Image" id="source-image" style="display:none;"/>
+</div>
+<div class="row-buttons" style="margin-top:8px;">
+<button id="import-btn">Import Image</button>
+<input accept="image/*,image/svg+xml" id="file-input" style="display:none;" type="file"/>
+</div>
+<div class="online-loader" style="margin-top:12px; display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
+<input id="url-input" placeholder="Paste image URL here" style="flex:1; padding:8px; border:1px solid #ccc; border-radius:4px; min-width:200px;" type="text"/>
+<button id="load-url-btn">Load URL</button>
+</div>
+<div id="status-container" style="margin-top:8px;">
+<div id="status-text">Ready for 3D printing magic! ✨</div>
+</div>
+<div class="resolution-info small" id="original-resolution" style="margin-top:6px;"></div>
+</div>
+<!-- Quantization controls -->
+<div class="content-box" style="margin-bottom:20px;">
+<h2>Color Quantization (Raster Stage)</h2>
+<div class="controls-grid">
+<label for="palette-size">Palette Size (K)</label>
+<div>
+<input id="palette-size" max="12" min="2" step="1" type="range" value="4"/>
+<span class="slider-value" id="palette-size-value">4</span>
+<small class="small" style="margin-left:8px;">Deterministic sampling</small>
+</div>
+<label for="deterministic-seed">Deterministic Seed</label>
+<input id="deterministic-seed" placeholder="optional" type="text">
+<label for="pick-bg-btn">Background</label>
+<div class="row-buttons">
+<button id="pick-bg-btn">Pick Background</button>
+<label class="small"><input id="remove-bg" type="checkbox"/> Treat as Transparent</label>
+</div>
+<label>Palette &amp; Area %</label>
+<div id="palette-row" style="display:none;">
+<div id="palette-container"></div>
+</div>
+</input><label for="lock-palette">Lock Palette before Tracing</label><div><input id="lock-palette" type="checkbox"/><small class="small">When locked, tracing uses exactly these colors.</small></div></div>
+</div>
+<!-- Tracing & Simplification -->
+<div class="controls-section content-box" style="margin-bottom: 20px;">
+<h2>Tracing &amp; 3D Print Simplification</h2>
+<div class="controls-grid">
+<label for="min-feature-size">Minimum Feature Size (mm²)</label>
+<div>
+<input id="min-feature-size" max="25" min="0" step="1" type="range" value="4"/>
+<span class="slider-value" id="min-feature-size-value">4</span>
+<small class="small" style="margin-left:8px;">Despeckle tiny islands/holes</small>
+</div>
+<label for="curve-tolerance">Curve Tolerance (mm)</label>
+<div>
+<input id="curve-tolerance" max="2" min="0" step="0.05" type="range" value="0.2"/>
+<span class="slider-value" id="curve-tolerance-value">0.2</span>
+<small class="small" style="margin-left:8px;">Higher → simpler curves</small>
+</div>
+<label for="corner-preservation">Corner Preservation</label>
+<div>
+<input id="corner-preservation" max="1" min="0" step="0.1" type="range" value="0.5"/>
+<span class="slider-value" id="corner-preservation-value">0.5</span>
+<small class="small" style="margin-left:8px;">Protect sharp corners</small>
+</div>
+</div>
+<div class="generation-section" style="text-align:center;">
+<button class="generate-button" id="generate-btn">Generate 3D‑Ready Preview</button>
+<div class="quality-indicator" id="quality-indicator" style="margin-top:10px;"></div>
+</div>
+<div class="togglebar row-buttons" style="margin-top:8px;">
+<button class="active" id="show-quantized-btn">Show Quantized Raster</button>
+<button id="show-vector-btn">Show Vector Outlines</button>
+</div>
+<div class="main-grid" style="margin-top:10px;">
+<canvas class="svgframe" id="quantized-preview"></canvas>
+<object class="svgframe" id="svg-preview" type="image/svg+xml"></object>
+</div>
+<div class="content-box" style="margin-top:12px;">
+<h3>Selected Layers Only</h3>
+<object class="svgframe" id="svg-preview-filtered" type="image/svg+xml"></object>
+<div class="resolution-info small" id="scaled-resolution"></div>
+</div>
+</div>
+<!-- Downloads -->
+<div class="download-section content-box">
+<h2>Downloads</h2>
+<div class="primary-downloads">
+<button class="tinkercad-btn" disabled="" id="download-tinkercad-btn">Download – Tinkercad Optimized</button>
+<button class="layers-btn" disabled="" id="download-silhouette-btn">Download – Solid Silhouette</button>
+</div>
+<div class="secondary-downloads">
+<span class="small">Per-layer exports:</span>
+</div>
+<div class="color-buttons-row" id="color-buttons-row"></div>
+</div>
+</div>
+</div>
 </body>
 </html>

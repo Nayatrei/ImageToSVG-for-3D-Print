@@ -75,7 +75,15 @@ document.addEventListener('DOMContentLoaded', () => {
 
   setupSlider(elements.minFeatureSizeSlider, elements.minFeatureSizeValue, 0);
   setupSlider(elements.curveToleranceSlider, elements.curveToleranceValue, 1);
-  setupSlider(elements.cornerPreservationSlider, elements.cornerPreservationValue, 1);
+  
+  // Reflect Palette Size value if the display exists
+  const paletteSizeValueEl = document.getElementById('palette-size-value');
+  if (elements.paletteSizeInput && paletteSizeValueEl) {
+    const updatePaletteSizeValue = () => { paletteSizeValueEl.textContent = String(elements.paletteSizeInput.value); };
+    elements.paletteSizeInput.addEventListener('input', updatePaletteSizeValue);
+    updatePaletteSizeValue();
+  }
+setupSlider(elements.cornerPreservationSlider, elements.cornerPreservationValue, 1);
 
   // --- Event Listeners ---
 
@@ -272,7 +280,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // --- Helper Functions (many are the same as before) ---
 
-  function assess3DPrintQuality(tracedata) {
+  
+  function isPaletteLocked() {
+    return elements.lockPaletteCheckbox && elements.lockPaletteCheckbox.checked;
+  }
+function assess3DPrintQuality(tracedata) {
     if (!tracedata) return { level: 'unknown', message: 'No data', className: '' };
     
     const totalPaths = tracedata.layers.reduce((sum, layer) => {
@@ -367,7 +379,8 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         
         const colorInfo = document.createElement('small');
-        colorInfo.textContent = ` Layer ${index + 1}`;
+        const percent = quantizedData && quantizedData.pixelCounts ? Math.round( (quantizedData.pixelCounts[index] / Math.max(1, quantizedData.totalPixels)) * 100 ) : 0;
+        colorInfo.textContent = ` Layer ${index + 1} — ${percent}%`;
         colorInfo.style.marginLeft = '6px';
         colorInfo.style.color = '#666';
         
