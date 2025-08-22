@@ -167,6 +167,19 @@ document.addEventListener('DOMContentLoaded', () => {
       };
 
       quantizedData = ImageTracer.colorquantization(imageData, options);
+
+      // Calculate pixel counts for each color
+      const pixelCounts = new Array(quantizedData.palette.length).fill(0);
+      const totalPixels = width * height;
+      for (let j = 0; j < height; j++) {
+        for (let i = 0; i < width; i++) {
+          const colorIndex = quantizedData.array[j + 1][i + 1];
+          pixelCounts[colorIndex]++;
+        }
+      }
+      quantizedData.pixelCounts = pixelCounts;
+      quantizedData.totalPixels = totalPixels;
+
       resolve();
     });
   }
