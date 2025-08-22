@@ -8,30 +8,28 @@ document.addEventListener('DOMContentLoaded', () => {
     statusText: document.getElementById('status-text'),
     generateBtn: document.getElementById('generate-btn'),
     
-    // Quantization controls
-    paletteSizeInput: document.getElementById('palette-size'),
-    deterministicSeedInput: document.getElementById('deterministic-seed'),
-    pickBgBtn: document.getElementById('pick-bg-btn'),
+    // New simplified controls
+    presetSelect: document.getElementById('preset'),
+    simplificationSlider: document.getElementById('simplification-level'),
+    simplificationValue: document.getElementById('simplification-value'),
+    colorCountSlider: document.getElementById('color-count'),
+    colorCountValue: document.getElementById('color-count-value'),
+    colorFeedback: document.getElementById('color-feedback'),
     removeBgCheckbox: document.getElementById('remove-bg'),
-    paletteContainer: document.getElementById('palette-container'),
-    paletteRow: document.getElementById('palette-row'),
-    lockPaletteCheckbox: document.getElementById('lock-palette'),
-
-    // Tracing controls
-    minFeatureSizeSlider: document.getElementById('min-feature-size'),
-    minFeatureSizeValue: document.getElementById('min-feature-size-value'),
-    curveToleranceSlider: document.getElementById('curve-tolerance'),
-    curveToleranceValue: document.getElementById('curve-tolerance-value'),
-    cornerPreservationSlider: document.getElementById('corner-preservation'),
-    cornerPreservationValue: document.getElementById('corner-preservation-value'),
-
+    forceSolidCheckbox: document.getElementById('force-solid'),
+    
+    // Advanced controls (hidden by default)
+    ltresSlider: document.getElementById('ltres-slider'),
+    ltresValue: document.getElementById('ltres-value'),
+    pathomitSlider: document.getElementById('pathomit-slider'),
+    pathomitValue: document.getElementById('pathomit-value'),
+    blurRadiusSlider: document.getElementById('blur-radius'),
+    blurRadiusValue: document.getElementById('blur-radius-value'),
+    
     // Preview and UI
-    quantizedPreview: document.getElementById('quantized-preview'),
     svgPreview: document.getElementById('svg-preview'),
     svgPreviewFiltered: document.getElementById('svg-preview-filtered'),
     qualityIndicator: document.getElementById('quality-indicator'),
-    showQuantizedBtn: document.getElementById('show-quantized-btn'),
-    showVectorBtn: document.getElementById('show-vector-btn'),
     
     // File handling
     importBtn: document.getElementById('import-btn'),
@@ -39,19 +37,60 @@ document.addEventListener('DOMContentLoaded', () => {
     urlInput: document.getElementById('url-input'),
     loadUrlBtn: document.getElementById('load-url-btn'),
     
-    // Download buttons
+    // Palette and layers
+    paletteContainer: document.getElementById('palette-container'),
+    paletteRow: document.getElementById('palette-row'),
+    colorButtonsRow: document.getElementById('color-buttons-row'),
+    
+    // Download buttons - Enhanced for 3D printing
     downloadTinkercadBtn: document.getElementById('download-tinkercad-btn'),
     downloadSilhouetteBtn: document.getElementById('download-silhouette-btn'),
-    colorButtonsRow: document.getElementById('color-buttons-row'),
     
     // Resolution displays
     originalResolution: document.getElementById('original-resolution'),
     scaledResolution: document.getElementById('scaled-resolution')
   };
 
+  // --- Enhanced Configuration for 3D Printing ---
+  const CONFIG = {
+    // 3D printing optimized presets
+    PRESETS_3D: {
+      '3dprint': {
+        // This preset's values will be mostly controlled by the simplification slider
+        colorsampling: 0,
+        numberofcolors: 4,
+        mincolorratio: 0.02,
+        rightangleenhance: true,
+        strokewidth: 0,
+        roundcoords: 2
+      },
+      'curvy': {
+        ltres: 4.0, qtres: 3.0, pathomit: 8, blurradius: 2.0,
+        rightangleenhance: false, linefilter: true
+      },
+      'sharp': {
+        ltres: 0.5, qtres: 0.5, pathomit: 4, blurradius: 0,
+        rightangleenhance: true, linefilter: false
+      }
+    },
+    
+    // Quality thresholds for 3D printing feedback
+    QUALITY_THRESHOLDS: {
+      EXCELLENT: 50,    // Under 50 paths = excellent
+      GOOD: 150,        // Under 150 paths = good
+      POOR: 300         // Over 300 paths = too complex
+    },
+    
+    // Color count feedback
+    COLOR_THRESHOLDS: {
+      EXCELLENT: 3,     // 2-3 colors perfect for 3D printing
+      GOOD: 6,          // 4-6 colors manageable
+      WARNING: 10       // 7-10 colors getting complex
+    }
+  };
+
   // --- State ---
   let tracedata = null;
-  let quantizedData = null;
   let originalImageUrl = null;
   let bgEstimate = null;
   let lastOptions = null;
@@ -59,7 +98,7 @@ document.addEventListener('DOMContentLoaded', () => {
   let silhouetteTracedata = null;
   let silhouetteUrl = null;
 
-  // --- UI Setup ---
+  // --- Enhanced UI Setup ---
   const setupSlider = (slider, valueDisplay, decimals = 0, callback = null) => {
     if (!slider || !valueDisplay) return;
     
@@ -73,220 +112,60 @@ document.addEventListener('DOMContentLoaded', () => {
     updateValue(); // Initialize
   };
 
-  setupSlider(elements.minFeatureSizeSlider, elements.minFeatureSizeValue, 0);
-  setupSlider(elements.curveToleranceSlider, elements.curveToleranceValue, 1);
-  
-  // Reflect Palette Size value if the display exists
-  const paletteSizeValueEl = document.getElementById('palette-size-value');
-  if (elements.paletteSizeInput && paletteSizeValueEl) {
-    const updatePaletteSizeValue = () => { paletteSizeValueEl.textContent = String(elements.paletteSizeInput.value); };
-    elements.paletteSizeInput.addEventListener('input', updatePaletteSizeValue);
-    updatePaletteSizeValue();
-  }
-setupSlider(elements.cornerPreservationSlider, elements.cornerPreservationValue, 1);
+  // Setup enhanced sliders with 3D printing feedback
+  setupSlider(elements.simplificationSlider, elements.simplificationValue, 0);
+  setupSlider(elements.colorCountSlider, elements.colorCountValue, 0, updateColorFeedback);
+  setupSlider(elements.ltresSlider, elements.ltresValue, 1);
+  setupSlider(elements.pathomitSlider, elements.pathomitValue, 0);
+  setupSlider(elements.blurRadiusSlider, elements.blurRadiusValue, 1);
 
-  // --- Event Listeners ---
-
-  elements.generateBtn.addEventListener('click', async () => {
-    if (!elements.sourceImage.src) {
-      alert('Please load an image before generating a preview.');
-      return;
-    }
-
-    elements.statusText.textContent = '⚡ Quantizing colors...';
-    elements.generateBtn.disabled = true;
-    disableDownloadButtons();
+  // Enhanced color count feedback for 3D printing
+  function updateColorFeedback(colorCount) {
+    if (!elements.colorFeedback) return;
     
-    if (elements.qualityIndicator) {
-      elements.qualityIndicator.textContent = '';
-      elements.qualityIndicator.className = 'quality-indicator';
+    let feedback, className;
+    if (colorCount <= CONFIG.COLOR_THRESHOLDS.EXCELLENT) {
+      feedback = "✅ Perfect for 3D printing";
+      className = "color-feedback-excellent";
+    } else if (colorCount <= CONFIG.COLOR_THRESHOLDS.GOOD) {
+      feedback = "👍 Good for multi-color prints";
+      className = "color-feedback-good";
+    } else if (colorCount <= CONFIG.COLOR_THRESHOLDS.WARNING) {
+      feedback = "⚠️ Complex - many print passes needed";
+      className = "color-feedback-warning";
+    } else {
+      feedback = "❌ Too complex for practical 3D printing";
+      className = "color-feedback-poor";
     }
-
-    setTimeout(async () => {
-      try {
-        await runFullProcess();
-      } catch (error) {
-        console.error('Generation error:', error);
-        elements.statusText.textContent = '❌ Error during conversion. Try adjusting settings.';
-      } finally {
-        elements.generateBtn.disabled = false;
-      }
-    }, 50);
-  });
-
-  elements.showQuantizedBtn.addEventListener('click', () => {
-    elements.quantizedPreview.style.display = 'block';
-    elements.svgPreview.style.display = 'none';
-    elements.showQuantizedBtn.classList.add('active');
-    elements.showVectorBtn.classList.remove('active');
-  });
-
-  elements.showVectorBtn.addEventListener('click', () => {
-    elements.quantizedPreview.style.display = 'none';
-    elements.svgPreview.style.display = 'block';
-    elements.showQuantizedBtn.classList.remove('active');
-    elements.showVectorBtn.classList.add('active');
-  });
-
-  // --- Main Process ---
-
-  async function runFullProcess() {
-    // 1. Quantization
-    await quantizeImage();
-    displayQuantizedPreview();
-    displayPalette();
-
-    // 2. Tracing
-    await traceImage();
-    renderPreviews();
     
-    const quality = assess3DPrintQuality(tracedata);
-    updateQualityDisplay(quality);
-    
-    elements.statusText.textContent = `✅ Preview generated! ${quality.colorCount} layers, ${quality.pathCount} paths`;
-    enableDownloadButtons();
-    renderColorButtons();
+    elements.colorFeedback.textContent = feedback;
+    elements.colorFeedback.className = className;
   }
 
-  async function quantizeImage() {
-    return new Promise((resolve, reject) => {
-      const width = elements.sourceImage.naturalWidth;
-      const height = elements.sourceImage.naturalHeight;
-      
-      if (!width || !height) {
-        return reject(new Error('Invalid image dimensions'));
-      }
+  // Initialize color feedback
+  updateColorFeedback(parseInt(elements.colorCountSlider.value));
 
-      const canvas = document.createElement('canvas');
-      canvas.width = width;
-      canvas.height = height;
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(elements.sourceImage, 0, 0, width, height);
-      const imageData = ctx.getImageData(0, 0, width, height);
+  // --- 3D Printing Optimization Functions ---
 
-      if (elements.removeBgCheckbox.checked) {
-        bgEstimate = estimateEdgeBackground(imageData);
-        knockOutBackground(imageData, bgEstimate, 30);
-      }
-
-      const options = {
-        numberofcolors: parseInt(elements.paletteSizeInput.value),
-        colorsampling: 2, // Deterministic sampling
-      };
-
-      quantizedData = ImageTracer.colorquantization(imageData, options);
-
-      // Calculate pixel counts for each color
-      const pixelCounts = new Array(quantizedData.palette.length).fill(0);
-      const totalPixels = width * height;
-      for (let j = 0; j < height; j++) {
-        for (let i = 0; i < width; i++) {
-          const colorIndex = quantizedData.array[j + 1][i + 1];
-          pixelCounts[colorIndex]++;
-        }
-      }
-      quantizedData.pixelCounts = pixelCounts;
-      quantizedData.totalPixels = totalPixels;
-
-      resolve();
-    });
+  /**
+   * Force solid shapes by merging similar colors
+   * @param {Object} tracedata - ImageTracer tracedata object
+   * @returns {Object} Solidified tracedata
+   */
+  function forceSolidShapes(tracedata) {
+    // This is now always on
+    return mergeSimilarColors(tracedata, 35); // Higher threshold = more merging
   }
 
-  function displayQuantizedPreview() {
-    if (!quantizedData) return;
-
-    const canvas = elements.quantizedPreview;
-    const ctx = canvas.getContext('2d');
-    const width = quantizedData.array[0].length - 2;
-    const height = quantizedData.array.length - 2;
-    canvas.width = width;
-    canvas.height = height;
-
-    const imageData = ctx.createImageData(width, height);
-    for (let j = 0; j < height; j++) {
-      for (let i = 0; i < width; i++) {
-        const colorIndex = quantizedData.array[j + 1][i + 1];
-        const color = quantizedData.palette[colorIndex];
-        const pixelIndex = (j * width + i) * 4;
-        imageData.data[pixelIndex] = color.r;
-        imageData.data[pixelIndex + 1] = color.g;
-        imageData.data[pixelIndex + 2] = color.b;
-        imageData.data[pixelIndex + 3] = color.a;
-      }
-    }
-    ctx.putImageData(imageData, 0, 0);
-  }
-
-  async function traceImage() {
-    if (!quantizedData) {
-      alert('Please quantize the image first.');
-      return;
-    }
-
-    elements.statusText.textContent = '🔄 Tracing paths...';
-
-    const options = buildOptimizedOptions();
-    lastOptions = options;
-
-    // Use quantized data for tracing
-    tracedata = ImageTracer.imagedataToTracedata({
-      width: quantizedData.array[0].length - 2,
-      height: quantizedData.array.length - 2,
-      data: getImageDataFromQuantized(quantizedData).data
-    }, options);
-
-    if (!tracedata || !tracedata.layers || tracedata.layers.length === 0) {
-      elements.statusText.textContent = '❌ No paths/colors found. Try different tracing settings.';
-      alert('SVG generation failed: No paths/colors found.');
-      return;
-    }
-
-    elements.statusText.textContent = '🛠️ Optimizing for 3D printing...';
-    tracedata = forceSolidShapes(tracedata);
-    tracedata = mergeSimilarColors(tracedata, 20);
-  }
-  
-  function getImageDataFromQuantized(quantizedData) {
-    const width = quantizedData.array[0].length - 2;
-    const height = quantizedData.array.length - 2;
-    const imageData = new ImageData(width, height);
-    for (let j = 0; j < height; j++) {
-        for (let i = 0; i < width; i++) {
-            const colorIndex = quantizedData.array[j + 1][i + 1];
-            const color = quantizedData.palette[colorIndex];
-            const pixelIndex = (j * width + i) * 4;
-            imageData.data[pixelIndex] = color.r;
-            imageData.data[pixelIndex + 1] = color.g;
-            imageData.data[pixelIndex + 2] = color.b;
-            imageData.data[pixelIndex + 3] = color.a;
-        }
-    }
-    return imageData;
-  }
-
-  function buildOptimizedOptions() {
-    const options = Object.assign({}, ImageTracer.optionpresets.default, {
-        numberofcolors: quantizedData.palette.length,
-        pal: quantizedData.palette,
-        viewbox: true,
-        strokewidth: 0,
-        roundcoords: 2,
-        pathomit: parseInt(elements.minFeatureSizeSlider.value),
-        ltres: parseFloat(elements.curveToleranceSlider.value),
-        qtres: parseFloat(elements.curveToleranceSlider.value),
-    });
-    return options;
-  }
-
-  // --- Helper Functions (many are the same as before) ---
-
-  
-  function isPaletteLocked() {
-    return elements.lockPaletteCheckbox && elements.lockPaletteCheckbox.checked;
-  }
-function assess3DPrintQuality(tracedata) {
+  /**
+   * Generate 3D printing quality assessment
+   * @param {Object} tracedata - ImageTracer tracedata object
+   * @returns {Object} Quality assessment
+   */
+  function assess3DPrintQuality(tracedata) {
     if (!tracedata) return { level: 'unknown', message: 'No data', className: '' };
     
+    // Count total paths across all layers
     const totalPaths = tracedata.layers.reduce((sum, layer) => {
       return sum + (Array.isArray(layer) ? layer.length : 0);
     }, 0);
@@ -295,11 +174,11 @@ function assess3DPrintQuality(tracedata) {
     
     let level, message, className;
     
-    if (totalPaths <= 50) {
+    if (totalPaths <= CONFIG.QUALITY_THRESHOLDS.EXCELLENT) {
       level = 'excellent';
       message = `🏆 Excellent for 3D printing! ${totalPaths} paths, ${visibleColors} colors - perfect for Tinkercad`;
       className = 'quality-excellent';
-    } else if (totalPaths <= 150) {
+    } else if (totalPaths <= CONFIG.QUALITY_THRESHOLDS.GOOD) {
       level = 'good';
       message = `👍 Good quality! ${totalPaths} paths, ${visibleColors} colors - should work well in Tinkercad`;
       className = 'quality-good';
@@ -312,6 +191,202 @@ function assess3DPrintQuality(tracedata) {
     return { level, message, className, pathCount: totalPaths, colorCount: visibleColors };
   }
 
+  /**
+   * Count visible layers (excluding background and filtered colors)
+   */
+  function countVisibleLayers(tracedata) {
+    if (!tracedata) return 0;
+    
+    let count = 0;
+    for (let i = 1; i < tracedata.palette.length; i++) {
+      const color = tracedata.palette[i];
+      if (!shouldHideColor(color, i) && layerHasPaths(tracedata.layers[i])) {
+        count++;
+      }
+    }
+    return count;
+  }
+
+  // --- Enhanced Preset Handling ---
+  elements.presetSelect.addEventListener('change', () => {
+    // Auto-regenerate if image is loaded
+    if (elements.sourceImage.src && !elements.generateBtn.disabled) {
+      debounceGenerate();
+    }
+  });
+
+  // --- Enhanced Generation with 3D Optimizations ---
+  const debounce = (fn, ms = 300) => {
+    let timeout;
+    return (...args) => {
+      clearTimeout(timeout);
+      timeout = setTimeout(() => fn(...args), ms);
+    };
+  };
+
+  const debounceGenerate = debounce(() => {
+    if (!elements.generateBtn.disabled) {
+      elements.generateBtn.click();
+    }
+  }, 300);
+
+  // Auto-regenerate on slider changes
+  [elements.simplificationSlider, elements.colorCountSlider].forEach(slider => {
+    if (slider) {
+      slider.addEventListener('input', debounceGenerate);
+    }
+  });
+
+  // --- Main Generation Function ---
+  elements.generateBtn.addEventListener('click', async () => {
+    if (!elements.sourceImage.src) {
+      alert('Please load an image before generating a preview.');
+      return;
+    }
+
+    elements.statusText.textContent = '⚡ Generating 3D-ready preview...';
+    elements.generateBtn.disabled = true;
+    disableDownloadButtons();
+    
+    // Clear quality indicator
+    if (elements.qualityIndicator) {
+      elements.qualityIndicator.textContent = '';
+      elements.qualityIndicator.className = 'quality-indicator';
+    }
+
+    // Use setTimeout to allow UI update
+    setTimeout(async () => {
+      try {
+        await generateSVGOptimized();
+      } catch (error) {
+        console.error('Generation error:', error);
+        elements.statusText.textContent = '❌ Error during conversion. Try adjusting settings.';
+      } finally {
+        elements.generateBtn.disabled = false;
+      }
+    }, 50);
+  });
+
+  async function generateSVGOptimized() {
+    // Prepare canvas at original resolution
+    const width = elements.sourceImage.naturalWidth;
+    const height = elements.sourceImage.naturalHeight;
+    
+    if (!width || !height) {
+      throw new Error('Invalid image dimensions');
+    }
+
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d');
+    
+    // High quality rendering
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(elements.sourceImage, 0, 0, width, height);
+    
+    const imageData = ctx.getImageData(0, 0, width, height);
+
+    // Update resolution display
+    if (elements.scaledResolution) {
+      elements.scaledResolution.textContent = `Processing: ${width}×${height} pixels`;
+    }
+
+    // Optional background removal
+    bgEstimate = null;
+    if (elements.removeBgCheckbox && elements.removeBgCheckbox.checked) {
+      bgEstimate = estimateEdgeBackground(imageData);
+      knockOutBackground(imageData, bgEstimate, 30);
+    }
+
+    // Build optimized options based on preset and user settings
+    const options = buildOptimizedOptions();
+    lastOptions = options;
+
+    console.log('ImageTracer options:', options);
+
+    // Check if ImageTracer is loaded
+    if (typeof ImageTracer === 'undefined' || typeof ImageTracer.imagedataToTracedata !== 'function') {
+      elements.statusText.textContent = '❌ ImageTracer library not loaded!';
+      alert('ImageTracer library is missing or not loaded.');
+      return;
+    }
+
+    // Generate initial tracedata
+    elements.statusText.textContent = '🔄 Tracing paths...';
+    tracedata = ImageTracer.imagedataToTracedata(imageData, options);
+
+    if (!tracedata || !tracedata.layers || tracedata.layers.length === 0) {
+      elements.statusText.textContent = '❌ No paths/colors found. Try lowering simplification, increasing color count, or using a different preset.';
+      alert('SVG generation failed: No paths/colors found. Try adjusting the settings or using a simpler image.');
+      return;
+    }
+
+    // Apply 3D printing optimizations
+    elements.statusText.textContent = '🛠️ Optimizing for 3D printing...';
+    
+    // 1. Force solid shapes if enabled
+    tracedata = forceSolidShapes(tracedata);
+    
+    // 2. Merge similar colors for cleaner layers
+    const mergeThreshold = 20 + (10 - parseInt(elements.colorCountSlider.value)) * 3;
+    tracedata = mergeSimilarColors(tracedata, mergeThreshold);
+
+    // Display results
+    displayPalette();
+    renderPreviews();
+    
+    // Quality assessment for 3D printing
+    const quality = assess3DPrintQuality(tracedata);
+    updateQualityDisplay(quality);
+    
+    // Update status and enable downloads
+    elements.statusText.textContent = `✅ 3D-ready preview generated! ${quality.colorCount} layers, ${quality.pathCount} paths`;
+    enableDownloadButtons();
+    renderColorButtons();
+  }
+
+  // **IMPROVED: This function now includes the advanced simplification logic**
+  function buildOptimizedOptions() {
+    const preset = elements.presetSelect.value;
+    let colorCount = parseInt(elements.colorCountSlider.value);
+    if (isNaN(colorCount) || colorCount < 2) colorCount = 6;
+    const simplificationLevel = parseInt(elements.simplificationSlider.value);
+
+    // Start with 3D printing optimized defaults
+    let options = Object.assign({}, ImageTracer.optionpresets.default, {
+      numberofcolors: colorCount,
+      viewbox: true,
+      strokewidth: 0,
+      roundcoords: 2
+    });
+
+    // --- NEW: INTEGRATE SIMPLIFICATION LOGIC HERE ---
+    const S = Math.max(0, Math.min(10, simplificationLevel || 0));
+    const g = (base, k = 1.18) => +(base * Math.pow(k, S)).toFixed(2);
+
+    options.ltres = g(0.8, 1.18);
+    options.qtres = g(0.8, 1.18);
+
+    const w = elements.sourceImage.naturalWidth || 512;
+    const h = elements.sourceImage.naturalHeight || 512;
+    const rel = Math.max(0.5, Math.sqrt(w * h) / 512);
+    options.pathomit = Math.round(Math.min(12, Math.max(1, 1 + 0.6 * S * rel)));
+
+    options.blurradius = S < 4 ? 0 : +(0.15 * (S - 3)).toFixed(2);
+    options.blurdelta = 20;
+    // --- END OF NEW LOGIC ---
+
+    // Apply preset-specific optimizations
+    if (CONFIG.PRESETS_3D[preset]) {
+      Object.assign(options, CONFIG.PRESETS_3D[preset]);
+      options.numberofcolors = colorCount; // Always override with user setting
+    }
+
+    return options;
+  }
+
   function updateQualityDisplay(quality) {
     if (!elements.qualityIndicator) return;
     
@@ -319,9 +394,47 @@ function assess3DPrintQuality(tracedata) {
     elements.qualityIndicator.className = `quality-indicator ${quality.className}`;
   }
 
+  // More aggressive & sliver-aware solid base for Background (Layer 0)
+function createSolidSilhouette(tracedata, holeRemovalLevel) {
+  if (!tracedata) return null;
+
+  const visibleIndices = getVisiblePaletteIndices();
+  if (!visibleIndices.length) return null;
+
+  const subset = buildTracedataSubset(tracedata, visibleIndices);
+
+  // Merge all visible paths
+  let mergedPaths = [];
+  subset.layers.forEach(layer => { if (Array.isArray(layer)) mergedPaths = mergedPaths.concat(layer); });
+
+  const w = tracedata.width || 512;
+  const h = tracedata.height || 512;
+
+  // Aggressive hole removal tuned for “no white hairlines”
+  if (holeRemovalLevel > 0) {
+    const f = (holeRemovalLevel / 10);             // 0..1
+    const areaThreshold = w * h * (0.005 + 0.05 * f * f); // up to ~2.5% of image area at level 10
+    const minGapPx = Math.max(1, Math.round(1 + 6 * f));  // remove slivers thinner than ~1..7px
+    mergedPaths = removeSmallHoles(mergedPaths, {
+      areaThreshold,
+      minGapPx,
+      imageW: w,
+      imageH: h
+    });
+  }
+
+  return {
+    width: subset.width,
+    height: subset.height,
+    layers: [mergedPaths],
+    palette: [{ r: 0, g: 0, b: 0, a: 255 }]
+  };
+}
+
   function renderPreviews() {
     if (!tracedata) return;
     
+    // Main preview with all visible layers
     const visibleIndices = getVisiblePaletteIndices();
     const previewData = visibleIndices.length 
       ? buildTracedataSubset(tracedata, visibleIndices)
@@ -331,7 +444,8 @@ function assess3DPrintQuality(tracedata) {
     const blob = new Blob([svgString], { type: 'image/svg+xml' });
     elements.svgPreview.data = URL.createObjectURL(blob);
 
-    const holeRemovalLevel = 1;
+    // Generate solid silhouette for background layer
+    const holeRemovalLevel = 1; // Default to level 1
     silhouetteTracedata = createSolidSilhouette(tracedata, holeRemovalLevel);
     
     if (silhouetteTracedata) {
@@ -340,292 +454,83 @@ function assess3DPrintQuality(tracedata) {
       silhouetteUrl = URL.createObjectURL(silhouetteBlob);
     }
 
+    // after we build silhouetteUrl, before updateFilteredPreview()
     selectBackgroundLayerOnly();
+    // Update filtered preview
     updateFilteredPreview();
   }
 
-  function displayPalette() {
-    if (!quantizedData || !elements.paletteContainer) return;
+  // --- Enhanced Download Functions ---
+  
+  elements.downloadTinkercadBtn?.addEventListener('click', () => {
+    if (!tracedata) return alert('Generate a preview first.');
+    const visibleIndices = getVisiblePaletteIndices();
+    if (!visibleIndices.length) return alert('No visible layers to export.');
+
+    let imageName = 'image';
+    if (originalImageUrl) {
+      imageName = originalImageUrl.split(/[\\/]/).pop().replace(/\.[^/.]+$/, '') || 'image';
+    }
+
+    // 1. Download Silhouette / Merged Base
+    const subset = buildTracedataSubset(tracedata, visibleIndices);
+    const silhouette = {
+      ...subset,
+      palette: subset.palette.map(() => ({ r: 0, g: 0, b: 0, a: 255 }))
+    };
+    const svgStringSilhouette = ImageTracer.getsvgstring(silhouette, lastOptions);
+    downloadSVG(svgStringSilhouette, `${imageName}_layer_background`);
+
+    // 2. Download all visible layers individually
+    visibleIndices.forEach((idx, ordinal) => {
+      const singleLayer = buildTracedataSubset(tracedata, [idx]);
+      const svgString = ImageTracer.getsvgstring(singleLayer, lastOptions);
+      downloadSVG(svgString, `${imageName}_layer${ordinal + 1}`);
+    });
+
+    elements.statusText.textContent = `🎭 Silhouette and ${visibleIndices.length} layer files downloaded!`;
+  });
+
+  elements.downloadSilhouetteBtn?.addEventListener('click', () => {
+    if (!tracedata) return alert('Generate a preview first.');
     
-    elements.paletteContainer.innerHTML = '';
-    
-    if (quantizedData.palette.length === 0) {
-      elements.paletteRow.style.display = 'none';
+    // Use the processed solid silhouette if available
+    if (silhouetteTracedata) {
+      const svgString = ImageTracer.getsvgstring(silhouetteTracedata, lastOptions);
+      downloadSVG(svgString, 'solid-base-silhouette');
+      elements.statusText.textContent = '🎭 Solid base downloaded! Import as bottom layer in Tinkercad.';
       return;
     }
-
-    quantizedData.palette.forEach((color, index) => {
-        const label = document.createElement('label');
-        label.style.display = 'inline-block';
-        label.style.margin = '4px 8px';
-        label.style.cursor = 'pointer';
-        
-        const checkbox = document.createElement('input');
-        checkbox.type = 'checkbox';
-        checkbox.checked = true;
-        checkbox.dataset.index = index;
-        checkbox.style.marginRight = '6px';
-        
-        const swatch = document.createElement('span');
-        Object.assign(swatch.style, {
-            display: 'inline-block',
-            width: '20px',
-            height: '20px',
-            backgroundColor: `rgba(${color.r},${color.g},${color.b},${color.a/255})`,
-            border: '2px solid #333',
-            borderRadius: '3px',
-            verticalAlign: 'middle',
-            marginLeft: '4px'
-        });
-        
-        const colorInfo = document.createElement('small');
-        const percent = quantizedData && quantizedData.pixelCounts ? Math.round( (quantizedData.pixelCounts[index] / Math.max(1, quantizedData.totalPixels)) * 100 ) : 0;
-        colorInfo.textContent = ` Layer ${index + 1} — ${percent}%`;
-        colorInfo.style.marginLeft = '6px';
-        colorInfo.style.color = '#666';
-        
-        label.appendChild(checkbox);
-        label.appendChild(swatch);
-        label.appendChild(colorInfo);
-        elements.paletteContainer.appendChild(label);
-    });
     
-    elements.paletteRow.style.display = 'table-row';
+    // Fallback: create silhouette on demand
+    const holeRemovalLevel = 1; // Default to level 1
+    const solidSilhouette = createSolidSilhouette(tracedata, holeRemovalLevel);
     
-    elements.paletteContainer.addEventListener('change', (e) => {
-      if (e.target.type !== 'checkbox') return;
-      updateFilteredPreview();
-    });
-  }
-
-  function updateFilteredPreview() {
-    if (!tracedata || !elements.svgPreviewFiltered) return;
-    const paletteEl = elements.paletteContainer;
-    if (!paletteEl) return;
-
-    const selectedCheckboxes = Array.from(paletteEl.querySelectorAll('input[type="checkbox"]:checked'));
-
-    if (selectedCheckboxes.length === 0) {
-        elements.svgPreviewFiltered.data = '';
-        return;
-    }
-
-    const indicesToRender = selectedCheckboxes
-        .map(cb => parseInt(cb.dataset.index, 10))
-        .filter(idx => !isNaN(idx));
-
-    const filteredData = buildTracedataSubset(tracedata, indicesToRender);
-
-    if (filteredData && filteredData.layers.length > 0 && filteredData.layers.some(layer => layer.length > 0)) {
-        const svgString = ImageTracer.getsvgstring(filteredData, lastOptions);
-        const blob = new Blob([svgString], { type: 'image/svg+xml' });
-        elements.svgPreviewFiltered.data = URL.createObjectURL(blob);
+    if (solidSilhouette) {
+      const svgString = ImageTracer.getsvgstring(solidSilhouette, lastOptions);
+      downloadSVG(svgString, 'solid-base-silhouette');
+      elements.statusText.textContent = '🎭 Solid base downloaded! Import as bottom layer in Tinkercad.';
     } else {
-        elements.svgPreviewFiltered.data = '';
+      alert('Unable to create silhouette. Try generating a preview first.');
     }
+  });
+
+  // --- Utility Functions ---
+  
+  function downloadSVG(svgContent, baseName) {
+    const blob = new Blob([svgContent], { type: 'image/svg+xml' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${baseName || 'converted'}.svg`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   }
 
-  function getVisiblePaletteIndices() {
-    if (!tracedata) return [];
-    
-    const indices = [];
-    for (let i = 0; i < tracedata.palette.length; i++) {
-      const color = tracedata.palette[i];
-      if (layerHasPaths(tracedata.layers[i])) {
-        indices.push(i);
-      }
-    }
-    return indices;
-  }
-
-  function layerHasPaths(layer) {
-    return Array.isArray(layer) && layer.length > 0;
-  }
-
-  function buildTracedataSubset(sourceTracedata, indices) {
-    if (!sourceTracedata) return null;
-    
-    const layers = [];
-    const palette = [];
-    
-    indices.forEach(idx => {
-      if (sourceTracedata.layers[idx] && sourceTracedata.palette[idx]) {
-        layers.push(JSON.parse(JSON.stringify(sourceTracedata.layers[idx])));
-        palette.push(sourceTracedata.palette[idx]);
-      }
-    });
-    
-    return { ...sourceTracedata, layers, palette };
-  }
-
-  function countVisibleLayers(tracedata) {
-    if (!tracedata) return 0;
-    
-    let count = 0;
-    for (let i = 0; i < tracedata.palette.length; i++) {
-      if (layerHasPaths(tracedata.layers[i])) {
-        count++;
-      }
-    }
-    return count;
-  }
-
-  function forceSolidShapes(tracedata) {
-    return mergeSimilarColors(tracedata, 35);
-  }
-
-  function mergeSimilarColors(tracedata, threshold) {
-    if (!tracedata || !tracedata.palette) return tracedata;
-    
-    const { palette, layers } = tracedata;
-    const used = new Array(palette.length).fill(false);
-    const groups = [];
-    
-    for (let i = 0; i < palette.length; i++) {
-      if (used[i]) continue;
-      
-      const group = [i];
-      used[i] = true;
-      const color1 = palette[i];
-      
-      for (let j = i + 1; j < palette.length; j++) {
-        if (used[j]) continue;
-        
-        const color2 = palette[j];
-        const distance = Math.sqrt(
-          Math.pow(color1.r - color2.r, 2) +
-          Math.pow(color1.g - color2.g, 2) +
-          Math.pow(color1.b - color2.b, 2)
-        );
-        
-        if (distance <= threshold) {
-          group.push(j);
-          used[j] = true;
-        }
-      }
-      groups.push(group);
-    }
-    
-    const newPalette = [];
-    const newLayers = [];
-    
-    groups.forEach(group => {
-      const repColor = palette[group[0]];
-      const mergedPaths = [];
-      group.forEach(idx => {
-        if (Array.isArray(layers[idx])) {
-          mergedPaths.push(...layers[idx]);
-        }
-      });
-      
-      newPalette.push(repColor);
-      newLayers.push(mergedPaths);
-    });
-    
-    return { ...tracedata, palette: newPalette, layers: newLayers };
-  }
-
-  function createSolidSilhouette(tracedata, holeRemovalLevel) {
-    if (!tracedata) return null;
-
-    const visibleIndices = getVisiblePaletteIndices();
-    if (!visibleIndices.length) return null;
-
-    const subset = buildTracedataSubset(tracedata, visibleIndices);
-
-    let mergedPaths = [];
-    subset.layers.forEach(layer => { if (Array.isArray(layer)) mergedPaths = mergedPaths.concat(layer); });
-
-    const w = tracedata.width || 512;
-    const h = tracedata.height || 512;
-
-    if (holeRemovalLevel > 0) {
-      const f = (holeRemovalLevel / 10);
-      const areaThreshold = w * h * (0.005 + 0.05 * f * f);
-      const minGapPx = Math.max(1, Math.round(1 + 6 * f));
-      mergedPaths = removeSmallHoles(mergedPaths, {
-        areaThreshold,
-        minGapPx,
-        imageW: w,
-        imageH: h
-      });
-    }
-
-    return {
-      width: subset.width,
-      height: subset.height,
-      layers: [mergedPaths],
-      palette: [{ r: 0, g: 0, b: 0, a: 255 }]
-    };
-  }
-
-  function removeSmallHoles(paths, opts = {}) {
-    const { areaThreshold = 0, minGapPx = 1 } = opts;
-    const maxSlenderness = 1800;
-
-    const out = [];
-    for (const p of paths) {
-      if (p && p.isholepath) {
-        const pts = getPathPoints(p);
-        if (pts.length < 3) continue;
-        const area = Math.abs(polygonArea(pts));
-        const bbox = pathBBox(pts);
-        const perim = approxPerimeter(pts);
-        const slender = (perim * perim) / (area + 1);
-        const minDim = Math.min(bbox.w, bbox.h);
-
-        if (area < areaThreshold || minDim <= minGapPx || slender > maxSlenderness) {
-          continue;
-        }
-      }
-      out.push(p);
-    }
-    return out;
-  }
-
-  function getPathPoints(path) {
-    const pts = [];
-    if (!path || !Array.isArray(path.segments) || !path.segments.length) return pts;
-    pts.push([path.segments[0].x1, path.segments[0].y1]);
-    for (const seg of path.segments) pts.push([seg.x2, seg.y2]);
-    return pts;
-  }
-
-  function polygonArea(pts) {
-    let a = 0;
-    for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
-      const [xi, yi] = pts[i];
-      const [xj, yj] = pts[j];
-      a += (xj + xi) * (yj - yi);
-    }
-    return a / 2;
-  }
-
-  function pathBBox(pts) {
-    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-    for (const [x, y] of pts) {
-      if (x < minX) minX = x;
-      if (y < minY) minY = y;
-      if (x > maxX) maxX = x;
-      if (y > maxY) maxY = y;
-    }
-    return { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
-  }
-
-  function approxPerimeter(pts) {
-    let p = 0;
-    for (let i = 1; i < pts.length; i++) {
-      p += Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]);
-    }
-    p += Math.hypot(pts[0][0] - pts[pts.length - 1][0], pts[0][1] - pts[pts.length - 1][1]);
-    return p;
-  }
-
-  function selectBackgroundLayerOnly() {
-    const container = elements.paletteContainer;
-    if (!container) return;
-    const cbs = container.querySelectorAll('input[type="checkbox"]');
-    cbs.forEach(cb => { cb.checked = (cb.dataset.index === 'bg'); });
+  function rgbToHex(r, g, b) {
+    return [r, g, b].map(x => x.toString(16).padStart(2, '0')).join('');
   }
 
   function enableDownloadButtons() {
@@ -640,63 +545,8 @@ function assess3DPrintQuality(tracedata) {
     });
   }
 
-  function renderColorButtons() {
-    if (!elements.colorButtonsRow || !tracedata) {
-      if (elements.colorButtonsRow) {
-        elements.colorButtonsRow.style.display = 'none';
-        elements.colorButtonsRow.innerHTML = '';
-      }
-      return;
-    }
-    
-    const visibleIndices = getVisiblePaletteIndices();
-    elements.colorButtonsRow.innerHTML = '';
-    
-    if (visibleIndices.length === 0) {
-      elements.colorButtonsRow.style.display = 'none';
-      return;
-    }
-    
-    elements.colorButtonsRow.style.display = 'flex';
-    
-    visibleIndices.forEach((idx, ordinal) => {
-      const color = tracedata.palette[idx];
-      const button = document.createElement('button');
-      
-      button.innerHTML = `Layer ${ordinal + 1}<br>Download`;
-      button.style.backgroundColor = `rgba(${color.r},${color.g},${color.b},${color.a/255})`;
-      
-      const luminance = 0.2126 * color.r + 0.7152 * color.g + 0.0722 * color.b;
-      button.style.color = luminance > 140 ? '#000' : '#fff';
-      
-      button.addEventListener('click', () => {
-        const singleLayer = buildTracedataSubset(tracedata, [idx]);
-        const hex = rgbToHex(color.r, color.g, color.b);
-        const svgString = ImageTracer.getsvgstring(singleLayer, lastOptions);
-        downloadSVG(svgString, `layer_${ordinal + 1}_${hex}`);
-        elements.statusText.textContent = `📐 Layer ${ordinal + 1} downloaded for 3D printing!`;
-      });
-      
-      elements.colorButtonsRow.appendChild(button);
-    });
-  }
-
-  function rgbToHex(r, g, b) {
-    return [r, g, b].map(x => x.toString(16).padStart(2, '0')).join('');
-  }
-
-  function downloadSVG(svgContent, baseName) {
-    const blob = new Blob([svgContent], { type: 'image/svg+xml' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `${baseName || 'converted'}.svg`;
-    document.body.appendChild(a);
-a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  }
-
+  // --- Image Loading Functions ---
+  
   elements.importBtn?.addEventListener('click', () => {
     elements.fileInput?.click();
   });
@@ -745,6 +595,7 @@ a.click();
         return;
       }
 
+      // Try background script fetch if available (Chrome extension)
       if (typeof chrome !== 'undefined' && chrome.runtime?.connect) {
         const port = chrome.runtime.connect({ name: 'fetchImagePort' });
         
@@ -769,6 +620,7 @@ a.click();
         });
       }
 
+      // Fallback: direct fetch or CORS proxy
       let response;
       try {
         response = await fetch(url, { mode: 'cors' });
@@ -826,6 +678,9 @@ a.click();
     if (!autoGeneratedOnce) {
       autoGeneratedOnce = true;
       setTimeout(() => {
+        if (elements.presetSelect.value !== '3dprint') {
+          elements.presetSelect.value = '3dprint';
+        }
         elements.generateBtn.click();
       }, 100);
     }
@@ -835,9 +690,11 @@ a.click();
     autoGeneratedOnce = false;
   }
 
+  // --- Helper Functions ---
+  
   function detectTransparency(img) {
     const canvas = document.createElement('canvas');
-    canvas.width = Math.min(img.naturalWidth, 100);
+    canvas.width = Math.min(img.naturalWidth, 100); // Sample for performance
     canvas.height = Math.min(img.naturalHeight, 100);
     const ctx = canvas.getContext('2d');
     
@@ -882,11 +739,282 @@ a.click();
                        Math.abs(data[i + 1] - bgColor.g) + 
                        Math.abs(data[i + 2] - bgColor.b);
       if (distance <= threshold) {
-        data[i + 3] = 0;
+        data[i + 3] = 0; // Make transparent
       }
     }
   }
 
+  function mergeSimilarColors(tracedata, threshold) {
+    if (!tracedata || !tracedata.palette) return tracedata;
+    
+    const { palette, layers } = tracedata;
+    const used = new Array(palette.length).fill(false);
+    const groups = [];
+    
+    for (let i = 1; i < palette.length; i++) { // Skip background
+      if (used[i]) continue;
+      
+      const group = [i];
+      used[i] = true;
+      const color1 = palette[i];
+      
+      for (let j = i + 1; j < palette.length; j++) {
+        if (used[j]) continue;
+        
+        const color2 = palette[j];
+        const distance = Math.sqrt(
+          Math.pow(color1.r - color2.r, 2) +
+          Math.pow(color1.g - color2.g, 2) +
+          Math.pow(color1.b - color2.b, 2)
+        );
+        
+        if (distance <= threshold) {
+          group.push(j);
+          used[j] = true;
+        }
+      }
+      groups.push(group);
+    }
+    
+    const newPalette = [palette[0]]; // Keep background
+    const newLayers = [layers[0]];
+    
+    groups.forEach(group => {
+      const repColor = palette[group[0]]; // Use first color as representative
+      const mergedPaths = [];
+      group.forEach(idx => {
+        if (Array.isArray(layers[idx])) {
+          mergedPaths.push(...layers[idx]);
+        }
+      });
+      
+      newPalette.push(repColor);
+      newLayers.push(mergedPaths);
+    });
+    
+    return { ...tracedata, palette: newPalette, layers: newLayers };
+  }
+
+  function shouldHideColor(color, index) {
+    if (index === 0) return true; // Always hide background layer by default
+    
+    const luma = 0.2126 * color.r + 0.7152 * color.g + 0.0722 * color.b;
+    if (color.a > 180 && luma >= 245) return true; // Hide near-white
+    
+    if (bgEstimate) {
+      const distance = Math.abs(color.r - bgEstimate.r) + 
+                       Math.abs(color.g - bgEstimate.g) + 
+                       Math.abs(color.b - bgEstimate.b);
+      if (distance <= 30) return true;
+    }
+    
+    return false;
+  }
+
+  function layerHasPaths(layer) {
+    return Array.isArray(layer) && layer.length > 0;
+  }
+
+  function buildTracedataSubset(sourceTracedata, indices) {
+    if (!sourceTracedata) return null;
+    
+    // This function can now correctly handle index 0 for the background
+    const layers = [];
+    const palette = [];
+    
+    indices.forEach(idx => {
+      if (sourceTracedata.layers[idx] && sourceTracedata.palette[idx]) {
+        layers.push(JSON.parse(JSON.stringify(sourceTracedata.layers[idx])));
+        palette.push(sourceTracedata.palette[idx]);
+      }
+    });
+    
+    return { ...sourceTracedata, layers, palette };
+  }
+
+  function getVisiblePaletteIndices() {
+    if (!tracedata) return [];
+    
+    const indices = [];
+    for (let i = 1; i < tracedata.palette.length; i++) { // Start at 1 to skip background
+      const color = tracedata.palette[i];
+      if (!shouldHideColor(color, i) && layerHasPaths(tracedata.layers[i])) {
+        indices.push(i);
+      }
+    }
+    return indices;
+  }
+
+  function displayPalette() {
+    if (!tracedata || !elements.paletteContainer) return;
+    
+    elements.paletteContainer.innerHTML = '';
+    const visibleIndices = getVisiblePaletteIndices();
+    
+    if (visibleIndices.length === 0 && !layerHasPaths(tracedata.layers[0])) {
+      elements.paletteRow.style.display = 'none';
+      return;
+    }
+
+    // Add Background (Layer 0) option
+    const bgLabel = document.createElement('label');
+    bgLabel.style.display = 'inline-block';
+    bgLabel.style.margin = '4px 8px';
+    bgLabel.style.cursor = 'pointer';
+    const bgCheckbox = document.createElement('input');
+    bgCheckbox.type = 'checkbox';
+    bgCheckbox.dataset.index = 'bg';
+    bgCheckbox.checked = false; 
+    bgCheckbox.style.marginRight = '6px';
+    const bgSwatch = document.createElement('span');
+    Object.assign(bgSwatch.style, { display: 'inline-block', width: '20px', height: '20px', backgroundColor: '#000', border: '2px solid #333', borderRadius: '3px', verticalAlign: 'middle', marginLeft: '4px' });
+    const bgInfo = document.createElement('small');
+    bgInfo.textContent = ' Layer 0 (Background)';
+    Object.assign(bgInfo.style, { marginLeft: '6px', color: '#666' });
+    bgLabel.appendChild(bgCheckbox);
+    bgLabel.appendChild(bgSwatch);
+    bgLabel.appendChild(bgInfo);
+    elements.paletteContainer.appendChild(bgLabel);
+
+    visibleIndices.forEach(index => {
+        const color = tracedata.palette[index];
+        const label = document.createElement('label');
+        label.style.display = 'inline-block';
+        label.style.margin = '4px 8px';
+        label.style.cursor = 'pointer';
+        
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.checked = true;
+        checkbox.dataset.index = index;
+        checkbox.style.marginRight = '6px';
+        
+        const swatch = document.createElement('span');
+        Object.assign(swatch.style, { display: 'inline-block', width: '20px', height: '20px', backgroundColor: `rgba(${color.r},${color.g},${color.b},${color.a/255})`, border: '2px solid #333', borderRadius: '3px', verticalAlign: 'middle', marginLeft: '4px' });
+        
+        const colorInfo = document.createElement('small');
+        colorInfo.textContent = ` Layer ${visibleIndices.indexOf(index) + 1}`;
+        colorInfo.style.marginLeft = '6px';
+        colorInfo.style.color = '#666';
+        
+        label.appendChild(checkbox);
+        label.appendChild(swatch);
+        label.appendChild(colorInfo);
+        elements.paletteContainer.appendChild(label);
+    });
+    
+    elements.paletteRow.style.display = 'table-row';
+    
+    // Add change listener with mutual exclusivity for background layer
+    elements.paletteContainer.addEventListener('change', (e) => {
+      if (e.target.type !== 'checkbox') return;
+      const bgCb = elements.paletteContainer.querySelector('input[data-index="bg"]');
+      const otherCbs = elements.paletteContainer.querySelectorAll('input[type="checkbox"]:not([data-index="bg"])');
+      if (e.target.dataset.index === 'bg' && e.target.checked) {
+        otherCbs.forEach(cb => cb.checked = false);
+      } else if (e.target.dataset.index !== 'bg' && e.target.checked && bgCb) {
+        bgCb.checked = false;
+      }
+      updateFilteredPreview();
+    });
+  }
+
+  // **IMPROVED: This function now correctly previews the background layer**
+  function updateFilteredPreview() {
+    if (!tracedata || !elements.svgPreviewFiltered) return;
+    const paletteEl = elements.paletteContainer;
+    if (!paletteEl) return;
+
+    const selectedCheckboxes = Array.from(paletteEl.querySelectorAll('input[type="checkbox"]:checked'));
+
+    if (selectedCheckboxes.length === 0) {
+        elements.svgPreviewFiltered.data = '';
+        return;
+    }
+
+    // Check if background layer is selected
+    if (selectedCheckboxes.some(cb => cb.dataset.index === 'bg')) {
+        // Use the processed solid silhouette if available
+        if (silhouetteUrl) {
+            elements.svgPreviewFiltered.data = silhouetteUrl;
+        } else {
+            // Fallback: create black silhouette from all visible layers
+            const visibleIndices = getVisiblePaletteIndices();
+            if (visibleIndices.length > 0) {
+                const holeRemovalLevel = 1; // Default to level 1
+                const solidSilhouette = createSolidSilhouette(tracedata, holeRemovalLevel);
+                if (solidSilhouette) {
+                    const svgString = ImageTracer.getsvgstring(solidSilhouette, lastOptions);
+                    const blob = new Blob([svgString], { type: 'image/svg+xml' });
+                    elements.svgPreviewFiltered.data = URL.createObjectURL(blob);
+                } else {
+                    elements.svgPreviewFiltered.data = '';
+                }
+            } else {
+                elements.svgPreviewFiltered.data = '';
+            }
+        }
+        return;
+    }
+
+    // Handle regular layer selection
+    const indicesToRender = selectedCheckboxes
+        .map(cb => parseInt(cb.dataset.index, 10))
+        .filter(idx => !isNaN(idx));
+
+    const filteredData = buildTracedataSubset(tracedata, indicesToRender);
+
+    if (filteredData && filteredData.layers.length > 0 && filteredData.layers.some(layer => layer.length > 0)) {
+        const svgString = ImageTracer.getsvgstring(filteredData, lastOptions);
+        const blob = new Blob([svgString], { type: 'image/svg+xml' });
+        elements.svgPreviewFiltered.data = URL.createObjectURL(blob);
+    } else {
+        elements.svgPreviewFiltered.data = '';
+    }
+  }
+
+  function renderColorButtons() {
+    if (!elements.colorButtonsRow || !tracedata) {
+      if (elements.colorButtonsRow) {
+        elements.colorButtonsRow.style.display = 'none';
+        elements.colorButtonsRow.innerHTML = '';
+      }
+      return;
+    }
+    
+    const visibleIndices = getVisiblePaletteIndices();
+    elements.colorButtonsRow.innerHTML = '';
+    
+    if (visibleIndices.length === 0) {
+      elements.colorButtonsRow.style.display = 'none';
+      return;
+    }
+    
+    elements.colorButtonsRow.style.display = 'flex';
+    
+    visibleIndices.forEach((idx, ordinal) => {
+      const color = tracedata.palette[idx];
+      const button = document.createElement('button');
+      
+      button.innerHTML = `Layer ${ordinal + 1}<br>Download`;
+      button.style.backgroundColor = `rgba(${color.r},${color.g},${color.b},${color.a/255})`;
+      
+      const luminance = 0.2126 * color.r + 0.7152 * color.g + 0.0722 * color.b;
+      button.style.color = luminance > 140 ? '#000' : '#fff';
+      
+      button.addEventListener('click', () => {
+        const singleLayer = buildTracedataSubset(tracedata, [idx]);
+        const hex = rgbToHex(color.r, color.g, color.b);
+        const svgString = ImageTracer.getsvgstring(singleLayer, lastOptions);
+        downloadSVG(svgString, `layer_${ordinal + 1}_${hex}`);
+        elements.statusText.textContent = `📐 Layer ${ordinal + 1} downloaded for 3D printing!`;
+      });
+      
+      elements.colorButtonsRow.appendChild(button);
+    });
+  }
+
+  // --- Initialize Extension Context Menu Loading ---
   async function loadImageFromContextMenu() {
     if (typeof chrome === 'undefined' || !chrome.storage) return;
     
@@ -906,10 +1034,99 @@ a.click();
     }
   }
 
+  // --- Test with Sample Images ---
+  function addTestImageButtons() {
+    if (elements.urlInput) {
+      elements.urlInput.placeholder = 'Try: Batman logo, Superman logo, or any simple graphic URL';
+    }
+  }
+
+  // --- Initialize Application ---
   function initializeApp() {
+    addTestImageButtons();
+    updateColorFeedback(parseInt(elements.colorCountSlider.value));
     loadImageFromContextMenu();
+    
+    if (elements.presetSelect) {
+      elements.presetSelect.value = '3dprint';
+    }
+    
     console.log('🚀 3D Print SVG Converter initialized!');
   }
 
+  // Start the application
   initializeApp();
+
+  // Remove small holes and hairline slivers from a merged path set
+function removeSmallHoles(paths, opts = {}) {
+  const { areaThreshold = 0, minGapPx = 1 } = opts;
+  const maxSlenderness = 1800; // larger = more aggressive
+
+  const out = [];
+  for (const p of paths) {
+    if (p && p.isholepath) {
+      const pts = getPathPoints(p);
+      if (pts.length < 3) continue; // drop degenerate holes
+      const area = Math.abs(polygonArea(pts));      // pixel^2
+      const bbox = pathBBox(pts);
+      const perim = approxPerimeter(pts);
+      const slender = (perim * perim) / (area + 1); // high => skinny sliver
+      const minDim = Math.min(bbox.w, bbox.h);
+
+      // nuke tiny holes & hairline white seams
+      if (area < areaThreshold || minDim <= minGapPx || slender > maxSlenderness) {
+        continue; // skip this hole -> it gets filled
+      }
+    }
+    out.push(p);
+  }
+  return out;
+}
+
+// Convert traced path segments to a point list
+function getPathPoints(path) {
+  const pts = [];
+  if (!path || !Array.isArray(path.segments) || !path.segments.length) return pts;
+  pts.push([path.segments[0].x1, path.segments[0].y1]);
+  for (const seg of path.segments) pts.push([seg.x2, seg.y2]);
+  return pts;
+}
+
+// Shoelace area (signed)
+function polygonArea(pts) {
+  let a = 0;
+  for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
+    const [xi, yi] = pts[i];
+    const [xj, yj] = pts[j];
+    a += (xj + xi) * (yj - yi);
+  }
+  return a / 2;
+}
+
+function pathBBox(pts) {
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (const [x, y] of pts) {
+    if (x < minX) minX = x;
+    if (y < minY) minY = y;
+    if (x > maxX) maxX = x;
+    if (y > maxY) maxY = y;
+  }
+  return { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
+}
+
+function approxPerimeter(pts) {
+  let p = 0;
+  for (let i = 1; i < pts.length; i++) {
+    p += Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]);
+  }
+  p += Math.hypot(pts[0][0] - pts[pts.length - 1][0], pts[0][1] - pts[pts.length - 1][1]);
+  return p;
+}
+
+function selectBackgroundLayerOnly() {
+  const container = elements.paletteContainer;
+  if (!container) return;
+  const cbs = container.querySelectorAll('input[type="checkbox"]');
+  cbs.forEach(cb => { cb.checked = (cb.dataset.index === 'bg'); });
+}
 });
