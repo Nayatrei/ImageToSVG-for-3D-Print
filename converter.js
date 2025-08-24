@@ -1,366 +1,1147 @@
+/* Enhanced converter.js with 3D printing optimizations */
+/* global ImageTracer, chrome */
 
-(function(){
-  'use strict';
-
-  var el = function(id){ return document.getElementById(id); };
-  var elements = {
-    sourceImage: el('source-image'),
-    statusText: el('status-text'),
-    generateBtn: el('generate-btn'),
-    presetSelect: el('preset'),
-    pathSimplificationSlider: el('path-simplification'),
-    pathSimplificationValue: el('path-simplification-value'),
-    cornerSharpnessSlider: el('corner-sharpness'),
-    cornerSharpnessValue: el('corner-sharpness-value'),
-    curveStraightnessSlider: el('curve-straightness'),
-    curveStraightnessValue: el('curve-straightness-value'),
-    colorPrecisionSlider: el('color-precision'),
-    colorPrecisionValue: el('color-precision-value'),
-    colorFeedback: el('color-feedback'),
-    removeBgCheckbox: el('remove-bg'),
-    importBtn: el('import-btn'),
-    fileInput: el('file-input'),
-    urlInput: el('url-input'),
-    loadUrlBtn: el('load-url-btn'),
-    svgPreview: el('svg-preview'),
-    svgPreviewFiltered: el('svg-preview-filtered'),
-    qualityIndicator: el('quality-indicator'),
-    colorButtonsRow: el('color-buttons-row'),
-    downloadTinkercadBtn: el('download-tinkercad-btn'),
-    downloadSilhouetteBtn: el('download-silhouette-btn'),
-    originalResolution: el('original-resolution'),
-    scaledResolution: el('scaled-resolution')
+document.addEventListener('DOMContentLoaded', () => {
+  // --- DOM elements ---
+  const elements = {
+    sourceImage: document.getElementById('source-image'),
+    statusText: document.getElementById('status-text'),
+    generateBtn: document.getElementById('generate-btn'),
+    
+    // New simplified controls
+    presetSelect: document.getElementById('preset'),
+    // New tri-simplification sliders
+    pathSimplificationSlider: document.getElementById('path-simplification'),
+    pathSimplificationValue: document.getElementById('path-simplification-value'),
+    cornerSharpnessSlider: document.getElementById('corner-sharpness'),
+    cornerSharpnessValue: document.getElementById('corner-sharpness-value'),
+    curveStraightnessSlider: document.getElementById('curve-straightness'),
+    curveStraightnessValue: document.getElementById('curve-straightness-value'),
+    // Color precision
+    colorPrecisionSlider: document.getElementById('color-precision'),
+    colorPrecisionValue: document.getElementById('color-precision-value'),
+    colorFeedback: document.getElementById('color-feedback'),
+    removeBgCheckbox: document.getElementById('remove-bg'),// Advanced controls (hidden by default)    
+    // Preview and UI
+    svgPreview: document.getElementById('svg-preview'),
+    svgPreviewFiltered: document.getElementById('svg-preview-filtered'),
+    qualityIndicator: document.getElementById('quality-indicator'),
+    
+    // File handling
+    importBtn: document.getElementById('import-btn'),
+    fileInput: document.getElementById('file-input'),
+    urlInput: document.getElementById('url-input'),
+    loadUrlBtn: document.getElementById('load-url-btn'),
+    
+    // Palette and layers
+    paletteContainer: document.getElementById('palette-container'),
+    paletteRow: document.getElementById('palette-row'),
+    colorButtonsRow: document.getElementById('color-buttons-row'),
+    
+    // Download buttons - Enhanced for 3D printing
+    downloadTinkercadBtn: document.getElementById('download-tinkercad-btn'),
+    downloadSilhouetteBtn: document.getElementById('download-silhouette-btn'),
+    
+    // Resolution displays
+    originalResolution: document.getElementById('original-resolution'),
+    scaledResolution: document.getElementById('scaled-resolution')
   };
 
-  var originalImageUrl = '';
-  var tracedata = null;
-  var lastOptions = null;
-  var visibleLayerIndices = [];
-  var MAX_DIM = 2048;
-
-  function setStatus(msg){ if(elements.statusText){ elements.statusText.textContent = msg; } }
-  function clamp(v, min, max){ return Math.max(min, Math.min(max, v)); }
-  function map01(v){ return clamp(v/100, 0, 1); }
-
-  function setupSlider(slider, display, decimals){
-    if(!slider || !display) return;
-    var dec = (typeof decimals === 'number') ? decimals : 0;
-    function update(){
-      var val = parseFloat(slider.value||'0');
-      display.textContent = val.toFixed(dec);
-    }
-    slider.addEventListener('input', update);
-    update();
-  }
-
-  function dataURLFromBlob(blob){
-    return new Promise(function(resolve, reject){
-      var fr = new FileReader();
-      fr.onload = function(){ resolve(fr.result); };
-      fr.onerror = reject;
-      fr.readAsDataURL(blob);
-    });
-  }
-
-  function loadImageFromDataURL(url){
-    return new Promise(function(resolve, reject){
-      var img = elements.sourceImage;
-      img.onload = function(){ resolve(img); };
-      img.onerror = reject;
-      img.src = url;
-    });
-  }
-
-  async function loadImageFromUrl(url){
-    setStatus('🌐 Fetching image from URL...');
-    try{
-      var resp = await fetch(url, {mode:'cors'});
-      if(!resp.ok) throw new Error('HTTP '+resp.status);
-      var blob = await resp.blob();
-      var dataURL = await dataURLFromBlob(blob);
-      await loadImageFromDataURL(dataURL);
-      originalImageUrl = url;
-      setStatus('✅ Image loaded from URL.');
-      if(elements.generateBtn) elements.generateBtn.disabled = false;
-      showOriginalResolution();
-    }catch(e){
-      try{
-        elements.sourceImage.crossOrigin = 'anonymous';
-        await new Promise(function(res, rej){
-          elements.sourceImage.onload = res;
-          elements.sourceImage.onerror = rej;
-          elements.sourceImage.src = url;
-        });
-        originalImageUrl = url;
-        setStatus('⚠️ Loaded image directly (canvas may be tainted by CORS).');
-        if(elements.generateBtn) elements.generateBtn.disabled = false;
-        showOriginalResolution();
-      }catch(err){
-        console.error(err);
-        setStatus('❌ Failed to load URL image. Try downloading and using Import.');
+  // --- Enhanced Configuration for 3D Printing ---
+  const CONFIG = {
+    // 3D printing optimized presets
+    PRESETS_3D: {
+      '3dprint': {
+        // This preset's values will be mostly controlled by the simplification slider
+        colorsampling: 0,
+        numberofcolors: 4,
+        mincolorratio: 0.02,
+        rightangleenhance: true,
+        strokewidth: 0,
+        roundcoords: 2
+      },
+      'curvy': {
+        ltres: 4.0, qtres: 3.0, pathomit: 8, blurradius: 2.0,
+        rightangleenhance: false, linefilter: true
+      },
+      'sharp': {
+        ltres: 0.5, qtres: 0.5, pathomit: 4, blurradius: 0,
+        rightangleenhance: true, linefilter: false
       }
+    },
+    
+    // Quality thresholds for 3D printing feedback
+    QUALITY_THRESHOLDS: {
+      EXCELLENT: 50,    // Under 50 paths = excellent
+      GOOD: 150,        // Under 150 paths = good
+      POOR: 300         // Over 300 paths = too complex
+    },
+    
+    // Color count feedback
+    COLOR_THRESHOLDS: {
+      EXCELLENT: 3,     // 2-3 colors perfect for 3D printing
+      GOOD: 6,          // 4-6 colors manageable
+      WARNING: 10       // 7-10 colors getting complex
     }
-  }
+  };
 
-  function showOriginalResolution(){
-    if(!elements.originalResolution || !elements.sourceImage.naturalWidth) return;
-    elements.originalResolution.textContent =
-      'Original: ' + elements.sourceImage.naturalWidth + '×' + elements.sourceImage.naturalHeight + ' px';
-  }
+  // --- State ---
+  let tracedata = null;
+  let originalImageUrl = null;
+  let bgEstimate = null;
+  let lastOptions = null;
+  let autoGeneratedOnce = false;
+  let silhouetteTracedata = null;
+  let silhouetteUrl = null;
 
-  function autoscaleToCanvas(img){
-    var w = img.naturalWidth, h = img.naturalHeight;
-    var scale = 1;
-    if(Math.max(w,h) > MAX_DIM){ scale = MAX_DIM / Math.max(w,h); }
-    var sw = Math.round(w*scale), sh = Math.round(h*scale);
-    var c = document.createElement('canvas');
-    c.width = sw; c.height = sh;
-    var ctx = c.getContext('2d');
-    ctx.drawImage(img, 0, 0, sw, sh);
-    if(elements.scaledResolution){
-      if(scale < 1) elements.scaledResolution.textContent = 'Scaled: ' + sw + '×' + sh + ' px (auto for stability)';
-      else elements.scaledResolution.textContent = 'Scaled: ' + sw + '×' + sh + ' px';
-    }
-    return c;
-  }
-
-  function buildOptions(){
-    var ps = parseFloat(elements.pathSimplificationSlider ? elements.pathSimplificationSlider.value : 60);
-    var cs = parseFloat(elements.cornerSharpnessSlider ? elements.cornerSharpnessSlider.value : 50);
-    var st = parseFloat(elements.curveStraightnessSlider ? elements.curveStraightnessSlider.value : 50);
-    var cp = parseFloat(elements.colorPrecisionSlider ? elements.colorPrecisionSlider.value : 60);
-
-    var ncolors = 2 + Math.round(map01(cp) * 6);
-    var ltres = 4.0 - 3.5*map01(cs);
-    var qtres = 4.0 - 3.5*map01(st);
-    var pathomit = Math.round(ps/4);
-
-    var preset = elements.presetSelect ? elements.presetSelect.value : '3dprint';
-    var base = {
-      scale: 1,
-      roundcoords: 2,
-      viewbox: true,
-      rightangleenhance: preset !== 'curvy',
-      colorsampling: 0,
-      numberofcolors: ncolors,
-      ltres: ltres,
-      qtres: qtres,
-      pathomit: pathomit
+  // --- Enhanced UI Setup ---
+  const setupSlider = (slider, valueDisplay, decimals = 0, callback = null) => {
+    if (!slider || !valueDisplay) return;
+    
+    const updateValue = () => {
+      const value = parseFloat(slider.value);
+      valueDisplay.textContent = value.toFixed(decimals);
+      if (callback) callback(value);
     };
-    if(preset === 'curvy'){
-      base.rightangleenhance = false;
-    }else if(preset === 'sharp'){
-      base.ltres = Math.max(0.5, ltres*0.7);
-      base.qtres = Math.max(0.5, qtres*0.7);
-      base.pathomit = Math.max(0, pathomit-2);
-    }
-    return base;
-  }
+    
+    slider.addEventListener('input', updateValue);
+    updateValue(); // Initialize
+  };
 
-  function tracedataSubset(td, keepIndices){
-    var subset = { width: td.width, height: td.height, palette: [], layers: [] };
-    subset.palette = td.palette.slice();
-    for(var i=0;i<td.layers.length;i++){
-      if(keepIndices.indexOf(i) !== -1){
-        subset.layers.push(td.layers[i]);
-      }else{
-        subset.layers.push({lines:[], paths:[]});
-      }
-    }
-    return subset;
-  }
-
-  function countPaths(td){
-    var total = 0;
-    for(var i=0;i<td.layers.length;i++){
-      var layer = td.layers[i];
-      if(layer && layer.paths) total += layer.paths.length;
-    }
-    return total;
-  }
-
-  function updateQuality(td){
-    if(!elements.qualityIndicator) return;
-    var total = countPaths(td);
-    var msg = 'Paths: '+total;
-    if(total > 300) msg += '  |  ⚠️ Complex – consider higher Simplification.';
-    elements.qualityIndicator.textContent = msg;
-  }
-
-  function renderPreviews(td, options){
-    var svgAll = ImageTracer.getsvgstring(td, options);
-    if(elements.svgPreview) elements.svgPreview.data = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgAll);
-
-    var subset = tracedataSubset(td, visibleLayerIndices.length ? visibleLayerIndices : []);
-    var svgSel = ImageTracer.getsvgstring(subset, options);
-    if(elements.svgPreviewFiltered) elements.svgPreviewFiltered.data = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgSel);
-  }
-
-  function buildLayerButtons(td){
-    if(!elements.colorButtonsRow) return;
-    elements.colorButtonsRow.innerHTML = '';
-    visibleLayerIndices = [];
-    for(var i=0; i<td.layers.length; i++){
-      (function(idx){
-        var btn = document.createElement('button');
-        btn.textContent = 'Layer ' + (idx+1);
-        btn.dataset.active = '1';
-        btn.style.marginRight = '6px';
-        btn.addEventListener('click', function(){
-          if(btn.dataset.active === '1'){
-            btn.dataset.active = '0';
-            btn.style.opacity = '0.5';
-            var p = visibleLayerIndices.indexOf(idx);
-            if(p !== -1) visibleLayerIndices.splice(p,1);
-          }else{
-            btn.dataset.active = '1';
-            btn.style.opacity = '1';
-            if(visibleLayerIndices.indexOf(idx) === -1) visibleLayerIndices.push(idx);
-          }
-          renderPreviews(tracedata, lastOptions);
-        });
-        visibleLayerIndices.push(idx);
-        elements.colorButtonsRow.appendChild(btn);
-      })(i);
-    }
-  }
-
-  function downloadSVGString(svgString, filename){
-    var blob = new Blob([svgString], {type: 'image/svg+xml'});
-    var a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = filename + '.svg';
-    document.body.appendChild(a);
-    a.click();
-    setTimeout(function(){ URL.revokeObjectURL(a.href); a.remove(); }, 1000);
-  }
-
-  function createSilhouette(td){
-    var merged = tracedataSubset(td, []);
-    merged.layers = td.layers.map(function(l){ return l; });
-    merged.palette = td.palette.map(function(){ return {r:0,g:0,b:0,a:255}; });
-    return merged;
-  }
-
-  if(elements.importBtn){
-    elements.importBtn.addEventListener('click', function(){
-      if(elements.fileInput) elements.fileInput.click();
-    });
-  }
-  if(elements.fileInput){
-    elements.fileInput.addEventListener('change', function(e){
-      var file = e.target.files && e.target.files[0];
-      if(!file) return;
-      if(!file.type || !file.type.startsWith('image/')){
-        alert('Please select an image file.');
-        return;
-      }
-      setStatus('📁 Loading your image...');
-      var fr = new FileReader();
-      fr.onload = function(ev){
-        loadImageFromDataURL(ev.target.result).then(function(){
-          setStatus('✅ Image loaded.');
-          if(elements.generateBtn) elements.generateBtn.disabled = false;
-          if(elements.originalResolution) elements.originalResolution.textContent =
-            'Original: ' + elements.sourceImage.naturalWidth + '×' + elements.sourceImage.naturalHeight + ' px';
-        }).catch(function(err){
-          console.error(err);
-          setStatus('❌ Failed to load the image.');
-        });
-      };
-      fr.readAsDataURL(file);
-    });
-  }
-
-  if(elements.loadUrlBtn){
-    elements.loadUrlBtn.addEventListener('click', function(){
-      var url = elements.urlInput ? (elements.urlInput.value||'').trim() : '';
-      if(!url){ alert('Enter an image URL.'); return; }
-      loadImageFromUrl(url);
-    });
-  }
-
+  // Setup enhanced sliders with 3D printing feedback
   setupSlider(elements.pathSimplificationSlider, elements.pathSimplificationValue, 0);
   setupSlider(elements.cornerSharpnessSlider, elements.cornerSharpnessValue, 0);
   setupSlider(elements.curveStraightnessSlider, elements.curveStraightnessValue, 0);
-  setupSlider(elements.colorPrecisionSlider, elements.colorPrecisionValue, 0);
+  setupSlider(elements.colorPrecisionSlider, elements.colorPrecisionValue, 0, updateColorFeedback);
+  // Enhanced color count feedback for 3D printing
+  function updateColorFeedback(colorCount) {
+    if (!elements.colorFeedback) return;
+    
+    let feedback, className;
+    if (colorCount <= CONFIG.COLOR_THRESHOLDS.EXCELLENT) {
+      feedback = "✅ Perfect for 3D printing";
+      className = "color-feedback-excellent";
+    } else if (colorCount <= CONFIG.COLOR_THRESHOLDS.GOOD) {
+      feedback = "👍 Good for multi-color prints";
+      className = "color-feedback-good";
+    } else if (colorCount <= CONFIG.COLOR_THRESHOLDS.WARNING) {
+      feedback = "⚠️ Complex - many print passes needed";
+      className = "color-feedback-warning";
+    } else {
+      feedback = "❌ Too complex for practical 3D printing";
+      className = "color-feedback-poor";
+    }
+    
+    elements.colorFeedback.textContent = feedback;
+    elements.colorFeedback.className = className;
+  }
 
-  if(elements.generateBtn){
-    elements.generateBtn.addEventListener('click', function(){
-      if(!elements.sourceImage || !elements.sourceImage.naturalWidth){
-        alert('Load an image first.'); return;
+  // Initialize color feedback
+  updateColorFeedback(parseInt(elements.colorPrecisionSlider.value));
+
+  // --- 3D Printing Optimization Functions ---
+
+  /**
+   * Force solid shapes by merging similar colors
+   * @param {Object} tracedata - ImageTracer tracedata object
+   * @returns {Object} Solidified tracedata
+   */
+  function forceSolidShapes(tracedata) {
+    // This is now always on
+    return mergeSimilarColors(tracedata, 35); // Higher threshold = more merging
+  }
+
+  /**
+   * Generate 3D printing quality assessment
+   * @param {Object} tracedata - ImageTracer tracedata object
+   * @returns {Object} Quality assessment
+   */
+  function assess3DPrintQuality(tracedata) {
+    if (!tracedata) return { level: 'unknown', message: 'No data', className: '' };
+    
+    // Count total paths across all layers
+    const totalPaths = tracedata.layers.reduce((sum, layer) => {
+      return sum + (Array.isArray(layer) ? layer.length : 0);
+    }, 0);
+    
+    const visibleColors = countVisibleLayers(tracedata);
+    
+    let level, message, className;
+    
+    if (totalPaths <= CONFIG.QUALITY_THRESHOLDS.EXCELLENT) {
+      level = 'excellent';
+      message = `🏆 Excellent for 3D printing! ${totalPaths} paths, ${visibleColors} colors - perfect for Tinkercad`;
+      className = 'quality-excellent';
+    } else if (totalPaths <= CONFIG.QUALITY_THRESHOLDS.GOOD) {
+      level = 'good';
+      message = `👍 Good quality! ${totalPaths} paths, ${visibleColors} colors - should work well in Tinkercad`;
+      className = 'quality-good';
+    } else {
+      level = 'poor';
+      message = `⚠️ Too complex for optimal 3D printing! ${totalPaths} paths - try lowering Path Simplification or raising Color Precision`;
+      className = 'quality-poor';
+    }
+    
+    return { level, message, className, pathCount: totalPaths, colorCount: visibleColors };
+  }
+
+  /**
+   * Count visible layers (excluding background and filtered colors)
+   */
+  function countVisibleLayers(tracedata) {
+    if (!tracedata) return 0;
+    
+    let count = 0;
+    for (let i = 1; i < tracedata.palette.length; i++) {
+      const color = tracedata.palette[i];
+      if (!shouldHideColor(color, i) && layerHasPaths(tracedata.layers[i])) {
+        count++;
       }
-      setStatus('🧠 Converting...');
-      try{
-        var canvas = autoscaleToCanvas(elements.sourceImage);
-        var imgd = ImageTracer.getImgdata(canvas);
-        var options = buildOptions();
-        lastOptions = options;
-        tracedata = ImageTracer.imagedataToTracedata(imgd, options);
+    }
+    return count;
+  }
 
-        visibleLayerIndices = [];
-        for(var i=0;i<tracedata.layers.length;i++) visibleLayerIndices.push(i);
+  // --- Enhanced Preset Handling ---
+  elements.presetSelect.addEventListener('change', () => {
+    // Auto-regenerate if image is loaded
+    if (elements.sourceImage.src && !elements.generateBtn.disabled) {
+      debounceGenerate();
+    }
+  });
 
-        buildLayerButtons(tracedata);
-        renderPreviews(tracedata, options);
-        updateQuality(tracedata);
-        setStatus('✅ Preview ready. Use Download buttons to export.');
-        if(elements.downloadTinkercadBtn) elements.downloadTinkercadBtn.disabled = false;
-        if(elements.downloadSilhouetteBtn) elements.downloadSilhouetteBtn.disabled = false;
-      }catch(err){
-        console.error(err);
-        setStatus('❌ Conversion failed. Try a simpler or smaller image.');
+  // --- Enhanced Generation with 3D Optimizations ---
+  const debounce = (fn, ms = 300) => {
+    let timeout;
+    return (...args) => {
+      clearTimeout(timeout);
+      timeout = setTimeout(() => fn(...args), ms);
+    };
+  };
+
+  const debounceGenerate = debounce(() => {
+    if (!elements.generateBtn.disabled) {
+      elements.generateBtn.click();
+    }
+  }, 300);
+
+  // Auto-regenerate on slider changes
+  [elements.pathSimplificationSlider, elements.cornerSharpnessSlider, elements.curveStraightnessSlider, elements.colorPrecisionSlider].forEach(slider => {
+    if (slider) {
+      slider.addEventListener('input', debounceGenerate);
+    }
+  });
+
+  // --- Main Generation Function ---
+  elements.generateBtn.addEventListener('click', async () => {
+    if (!elements.sourceImage.src) {
+      alert('Please load an image before generating a preview.');
+      return;
+    }
+
+    elements.statusText.textContent = '⚡ Generating 3D-ready preview...';
+    elements.generateBtn.disabled = true;
+    disableDownloadButtons();
+    
+    // Clear quality indicator
+    if (elements.qualityIndicator) {
+      elements.qualityIndicator.textContent = '';
+      elements.qualityIndicator.className = 'quality-indicator';
+    }
+
+    // Use setTimeout to allow UI update
+    setTimeout(async () => {
+      try {
+        await generateSVGOptimized();
+      } catch (error) {
+        console.error('Generation error:', error);
+        elements.statusText.textContent = '❌ Error during conversion. Try adjusting settings.';
+      } finally {
+        elements.generateBtn.disabled = false;
       }
+    }, 50);
+  });
+
+  async function generateSVGOptimized() {
+    // Prepare canvas at original resolution
+    const width = elements.sourceImage.naturalWidth;
+    const height = elements.sourceImage.naturalHeight;
+    
+    if (!width || !height) {
+      throw new Error('Invalid image dimensions');
+    }
+
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d');
+    
+    // High quality rendering
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(elements.sourceImage, 0, 0, width, height);
+    
+    const imageData = ctx.getImageData(0, 0, width, height);
+
+    // Update resolution display
+    if (elements.scaledResolution) {
+      elements.scaledResolution.textContent = `Processing: ${width}×${height} pixels`;
+    }
+
+    // Optional background removal
+    bgEstimate = null;
+    if (elements.removeBgCheckbox && elements.removeBgCheckbox.checked) {
+      bgEstimate = estimateEdgeBackground(imageData);
+      knockOutBackground(imageData, bgEstimate, 30);
+    }
+
+    // Build optimized options based on preset and user settings
+    const options = buildOptimizedOptions();
+    lastOptions = options;
+
+    console.log('ImageTracer options:', options);
+
+    // Check if ImageTracer is loaded
+    if (typeof ImageTracer === 'undefined' || typeof ImageTracer.imagedataToTracedata !== 'function') {
+      elements.statusText.textContent = '❌ ImageTracer library not loaded!';
+      alert('ImageTracer library is missing or not loaded.');
+      return;
+    }
+
+    // Generate initial tracedata
+    elements.statusText.textContent = '🔄 Tracing paths...';
+    tracedata = ImageTracer.imagedataToTracedata(imageData, options);
+
+    if (!tracedata || !tracedata.layers || tracedata.layers.length === 0) {
+      elements.statusText.textContent = '❌ No paths/colors found. Try lowering simplification, increasing color count, or using a different preset.';
+      alert('SVG generation failed: No paths/colors found. Try adjusting the settings or using a simpler image.');
+      return;
+    }
+
+    // Apply 3D printing optimizations
+    elements.statusText.textContent = '🛠️ Optimizing for 3D printing...';
+    
+    // 1. Force solid shapes if enabled
+    tracedata = forceSolidShapes(tracedata);
+    
+    // 2. Merge similar colors for cleaner layers
+    const mergeThreshold = Math.round(40 - (parseInt(elements.colorPrecisionSlider.value) * 0.35));
+    tracedata = mergeSimilarColors(tracedata, mergeThreshold);
+
+    // Display results
+    displayPalette();
+    renderPreviews();
+    
+    // Quality assessment for 3D printing
+    const quality = assess3DPrintQuality(tracedata);
+    updateQualityDisplay(quality);
+    
+    // Update status and enable downloads
+    elements.statusText.textContent = `✅ 3D-ready preview generated! ${quality.colorCount} layers, ${quality.pathCount} paths`;
+    enableDownloadButtons();
+    renderColorButtons();
+  }
+
+  // **IMPROVED: This function now includes the advanced simplification logic**
+  
+function buildOptimizedOptions() {
+    const preset = elements.presetSelect.value;
+
+    // New tri-simplification + color precision sliders (0-100)
+    const P = Math.max(0, Math.min(100, parseInt(elements.pathSimplificationSlider?.value || 40))); // Path Simplification
+    const C = Math.max(0, Math.min(100, parseInt(elements.cornerSharpnessSlider?.value || 60)));    // Corner Sharpness
+    const S = Math.max(0, Math.min(100, parseInt(elements.curveStraightnessSlider?.value || 40))); // Curve Straightness
+    const CP = Math.max(0, Math.min(100, parseInt(elements.colorPrecisionSlider?.value || 50)));   // Color Precision
+
+    // Helper mappers
+    const map = (t, a, b) => (a + (b - a) * (t / 100));
+    const mapInv = (t, a, b) => (a + (b - a) * (1 - (t / 100)));
+
+    const w = elements.sourceImage.naturalWidth || 512;
+    const h = elements.sourceImage.naturalHeight || 512;
+    const rel = Math.max(0.5, Math.sqrt(w * h) / 512); // scale-aware pathomit
+
+    // Start with defaults
+    let options = Object.assign({}, ImageTracer.optionpresets.default, {
+        viewbox: true,
+        strokewidth: 0
+    });
+
+    // --- Mapping ---
+    // 1) Path Simplification
+    options.pathomit = Math.round(map(P, 0, 20) * rel);           // remove tiny paths
+    options.roundcoords = Math.round(map(P, 1, 3));               // coordinate rounding
+    options.blurradius = +map(P, 0, 1.2).toFixed(1);              // slight pre-smoothing
+    options.blurdelta = 20;
+
+    // 2) Corner Sharpness
+    options.qtres = +mapInv(C, 4.0, 0.2).toFixed(2);              // lower = sharper corners
+    options.rightangleenhance = (C >= 50);
+
+    // 3) Curve Straightness
+    options.ltres = +map(S, 0.2, 8.0).toFixed(2);                 // higher = straighter
+
+    // 4) Color Precision
+    options.colorsampling = 2;                                     // deterministic
+    options.colorquantcycles = Math.max(1, Math.round(map(CP, 1, 6)));
+    options.mincolorratio = +mapInv(CP, 0.05, 0.0).toFixed(3);     // keep rare colors at higher precision
+
+    // Recommend number of colors from precision (2..12) to drive quantizer;
+    // actual visible layers may be lower after filtering/merging.
+    options.numberofcolors = Math.max(2, Math.min(12, 2 + Math.round(CP * 0.10)));
+
+    // Apply preset-specific tweaks last
+    if (CONFIG.PRESETS_3D[preset]) {
+        Object.assign(options, CONFIG.PRESETS_3D[preset]);
+        // keep our computed numberofcolors and other params
+    }
+
+    // Cache for downstream (render/getsvgstring)
+    lastOptions = options;
+    return options;
+}
+
+  }
+
+  function updateQualityDisplay(quality) {
+    if (!elements.qualityIndicator) return;
+    
+    elements.qualityIndicator.textContent = quality.message;
+    elements.qualityIndicator.className = `quality-indicator ${quality.className}`;
+  }
+
+  // More aggressive & sliver-aware solid base for Background (Layer 0)
+function createSolidSilhouette(tracedata, holeRemovalLevel) {
+  if (!tracedata) return null;
+
+  const visibleIndices = getVisiblePaletteIndices();
+  if (!visibleIndices.length) return null;
+
+  const subset = buildTracedataSubset(tracedata, visibleIndices);
+
+  // Merge all visible paths
+  let mergedPaths = [];
+  subset.layers.forEach(layer => { if (Array.isArray(layer)) mergedPaths = mergedPaths.concat(layer); });
+
+  const w = tracedata.width || 512;
+  const h = tracedata.height || 512;
+
+  // Aggressive hole removal tuned for “no white hairlines”
+  if (holeRemovalLevel > 0) {
+    const f = (holeRemovalLevel / 10);             // 0..1
+    const areaThreshold = w * h * (0.005 + 0.05 * f * f); // up to ~2.5% of image area at level 10
+    const minGapPx = Math.max(1, Math.round(1 + 6 * f));  // remove slivers thinner than ~1..7px
+    mergedPaths = removeSmallHoles(mergedPaths, {
+      areaThreshold,
+      minGapPx,
+      imageW: w,
+      imageH: h
     });
   }
 
-  if(elements.downloadTinkercadBtn){
-    elements.downloadTinkercadBtn.addEventListener('click', function(){
-      if(!tracedata || !lastOptions){
-        alert('Generate a preview first.'); return;
-      }
-      var base = 'image';
-      if(originalImageUrl){
-        try{
-          var parts = originalImageUrl.split(/[\\/]/);
-          base = parts[parts.length-1].replace(/\.[^/.]+$/, '') || 'image';
-        }catch(e){}
+  return {
+    width: subset.width,
+    height: subset.height,
+    layers: [mergedPaths],
+    palette: [{ r: 0, g: 0, b: 0, a: 255 }]
+  };
+}
+
+  function renderPreviews() {
+    if (!tracedata) return;
+    
+    // Main preview with all visible layers
+    const visibleIndices = getVisiblePaletteIndices();
+    const previewData = visibleIndices.length 
+      ? buildTracedataSubset(tracedata, visibleIndices)
+      : Object.assign({}, tracedata, { layers: [], palette: [] });
+
+    const svgString = ImageTracer.getsvgstring(previewData, lastOptions);
+    const blob = new Blob([svgString], { type: 'image/svg+xml' });
+    elements.svgPreview.data = URL.createObjectURL(blob);
+
+    // Generate solid silhouette for background layer
+    const holeRemovalLevel = 1; // Default to level 1
+    silhouetteTracedata = createSolidSilhouette(tracedata, holeRemovalLevel);
+    
+    if (silhouetteTracedata) {
+      const silhouetteSvg = ImageTracer.getsvgstring(silhouetteTracedata, lastOptions);
+      const silhouetteBlob = new Blob([silhouetteSvg], { type: 'image/svg+xml' });
+      silhouetteUrl = URL.createObjectURL(silhouetteBlob);
+    }
+
+    // after we build silhouetteUrl, before updateFilteredPreview()
+    selectBackgroundLayerOnly();
+    // Update filtered preview
+    updateFilteredPreview();
+  }
+
+  // --- Enhanced Download Functions ---
+  
+  elements.downloadTinkercadBtn?.addEventListener('click', () => {
+    if (!tracedata) return alert('Generate a preview first.');
+    const visibleIndices = getVisiblePaletteIndices();
+    if (!visibleIndices.length) return alert('No visible layers to export.');
+
+    let imageName = 'image';
+    if (originalImageUrl) {
+      imageName = originalImageUrl.split(/[\\/]/).pop().replace(/\.[^/.]+$/, '') || 'image';
+    }
+
+    // 1. Download Silhouette / Merged Base
+    const subset = buildTracedataSubset(tracedata, visibleIndices);
+    const silhouette = {
+      ...subset,
+      palette: subset.palette.map(() => ({ r: 0, g: 0, b: 0, a: 255 }))
+    };
+    const svgStringSilhouette = ImageTracer.getsvgstring(silhouette, lastOptions);
+    downloadSVG(svgStringSilhouette, `${imageName}_layer_background`);
+
+    // 2. Download all visible layers individually
+    visibleIndices.forEach((idx, ordinal) => {
+      const singleLayer = buildTracedataSubset(tracedata, [idx]);
+      const svgString = ImageTracer.getsvgstring(singleLayer, lastOptions);
+      downloadSVG(svgString, `${imageName}_layer${ordinal + 1}`);
+    });
+
+    elements.statusText.textContent = `🎭 Background and ${visibleIndices.length} layer files downloaded.`;
+  });
+
+  elements.downloadSilhouetteBtn?.addEventListener('click', () => {
+    if (!tracedata) return alert('Generate a preview first.');
+    
+    // Use the processed solid silhouette if available
+    if (silhouetteTracedata) {
+      const svgString = ImageTracer.getsvgstring(silhouetteTracedata, lastOptions);
+      downloadSVG(svgString, 'solid-base-silhouette');
+      elements.statusText.textContent = '🎭 Solid base downloaded! Import as bottom layer in Tinkercad.';
+      return;
+    }
+    
+    // Fallback: create silhouette on demand
+    const holeRemovalLevel = 1; // Default to level 1
+    const solidSilhouette = createSolidSilhouette(tracedata, holeRemovalLevel);
+    
+    if (solidSilhouette) {
+      const svgString = ImageTracer.getsvgstring(solidSilhouette, lastOptions);
+      downloadSVG(svgString, 'solid-base-silhouette');
+      elements.statusText.textContent = '🎭 Solid base downloaded! Import as bottom layer in Tinkercad.';
+    } else {
+      alert('Unable to create silhouette. Try generating a preview first.');
+    }
+  });
+
+  // --- Utility Functions ---
+  
+  function downloadSVG(svgContent, baseName) {
+    const blob = new Blob([svgContent], { type: 'image/svg+xml' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${baseName || 'converted'}.svg`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  function rgbToHex(r, g, b) {
+    return [r, g, b].map(x => x.toString(16).padStart(2, '0')).join('');
+  }
+
+  function enableDownloadButtons() {
+    [elements.downloadTinkercadBtn, elements.downloadSilhouetteBtn].forEach(btn => {
+      if (btn) btn.disabled = false;
+    });
+  }
+
+  function disableDownloadButtons() {
+    [elements.downloadTinkercadBtn, elements.downloadSilhouetteBtn].forEach(btn => {
+      if (btn) btn.disabled = true;
+    });
+  }
+
+  // --- Image Loading Functions ---
+  
+  elements.importBtn?.addEventListener('click', () => {
+    elements.fileInput?.click();
+  });
+
+  elements.fileInput?.addEventListener('change', (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      alert('Please select a valid image file.');
+      return;
+    }
+
+    elements.statusText.textContent = '📁 Loading your image...';
+    const reader = new FileReader();
+    
+    reader.onload = (e) => {
+      resetAutoGenerateFlag();
+      elements.sourceImage.src = e.target.result;
+      originalImageUrl = file.name;
+    };
+    
+    reader.onerror = () => {
+      elements.statusText.textContent = '❌ Error loading image file.';
+    };
+    
+    reader.readAsDataURL(file);
+  });
+
+  elements.loadUrlBtn?.addEventListener('click', async () => {
+    const url = elements.urlInput?.value?.trim();
+    if (!url) {
+      alert('Please enter an image URL.');
+      return;
+    }
+    await loadImageFromUrl(url);
+  });
+
+  async function loadImageFromUrl(url) {
+    elements.statusText.textContent = '🌐 Fetching image from URL...';
+    originalImageUrl = url;
+    
+    try {
+      if (url.startsWith('data:')) {
+        elements.sourceImage.src = url;
+        return;
       }
 
-      var sil = createSilhouette(tracedata);
-      var svgSil = ImageTracer.getsvgstring(sil, lastOptions);
-      downloadSVGString(svgSil, base + '_layer_background');
+      // Try background script fetch if available (Chrome extension)
+      if (typeof chrome !== 'undefined' && chrome.runtime?.connect) {
+        const port = chrome.runtime.connect({ name: 'fetchImagePort' });
+        
+        return new Promise((resolve, reject) => {
+          const timeout = setTimeout(() => {
+            port.disconnect();
+            reject(new Error('Timeout'));
+          }, 10000);
 
-      var selected = visibleLayerIndices.length ? visibleLayerIndices.slice() : [];
-      if(selected.length === 0){
-        for(var i=0;i<tracedata.layers.length;i++){
-          var sub = tracedataSubset(tracedata, [i]);
-          var svg = ImageTracer.getsvgstring(sub, lastOptions);
-          downloadSVGString(svg, base + '_layer' + (i+1));
+          port.postMessage({ type: 'fetchImage', url });
+          port.onMessage.addListener((response) => {
+            clearTimeout(timeout);
+            if (response.dataUrl) {
+              resetAutoGenerateFlag();
+              elements.sourceImage.src = response.dataUrl;
+              resolve();
+            } else {
+              reject(new Error(response.error || 'Failed to fetch'));
+            }
+            port.disconnect();
+          });
+        });
+      }
+
+      // Fallback: direct fetch or CORS proxy
+      let response;
+      try {
+        response = await fetch(url, { mode: 'cors' });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      } catch (corsError) {
+        const proxyUrl = 'https://images.weserv.nl/?url=' + encodeURIComponent(url);
+        response = await fetch(proxyUrl);
+        if (!response.ok) throw new Error(`Proxy failed: HTTP ${response.status}`);
+      }
+
+      const blob = await response.blob();
+      const dataUrl = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+
+      elements.sourceImage.src = dataUrl;
+      resetAutoGenerateFlag();
+      elements.statusText.textContent = '✅ Image loaded successfully!';
+
+    } catch (error) {
+      console.error('URL load error:', error);
+      elements.statusText.textContent = '❌ Failed to load image from URL. Try downloading and importing locally.';
+    }
+  }
+
+  elements.sourceImage.onload = () => {
+    elements.sourceImage.style.display = 'block';
+    elements.generateBtn.disabled = false;
+    
+    if (elements.originalResolution) {
+      const w = elements.sourceImage.naturalWidth;
+      const h = elements.sourceImage.naturalHeight;
+      elements.originalResolution.textContent = `Original: ${w}×${h} pixels`;
+    }
+
+    if (elements.scaledResolution) {
+      elements.scaledResolution.textContent = '';
+    }
+
+    if (elements.removeBgCheckbox) {
+      const hasTransparency = detectTransparency(elements.sourceImage);
+      elements.removeBgCheckbox.disabled = hasTransparency;
+      elements.removeBgCheckbox.checked = !hasTransparency;
+      
+      if (hasTransparency) {
+        elements.statusText.textContent = '🖼️ Image loaded! (Transparency detected - background removal disabled)';
+      } else {
+        elements.statusText.textContent = '🖼️ Image loaded! Auto-generating 3D-ready preview...';
+      }
+    }
+
+    if (!autoGeneratedOnce) {
+      autoGeneratedOnce = true;
+      setTimeout(() => {
+        if (elements.presetSelect.value !== '3dprint') {
+          elements.presetSelect.value = '3dprint';
         }
-      }else{
-        for(var k=0;k<selected.length;k++){
-          var idx = selected[k];
-          var sub2 = tracedataSubset(tracedata, [idx]);
-          var svg2 = ImageTracer.getsvgstring(sub2, lastOptions);
-          downloadSVGString(svg2, base + '_layer' + (idx+1));
+        elements.generateBtn.click();
+      }, 100);
+    }
+  };
+
+  function resetAutoGenerateFlag() {
+    autoGeneratedOnce = false;
+  }
+
+  // --- Helper Functions ---
+  
+  function detectTransparency(img) {
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.min(img.naturalWidth, 100); // Sample for performance
+    canvas.height = Math.min(img.naturalHeight, 100);
+    const ctx = canvas.getContext('2d');
+    
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+
+    for (let i = 3; i < data.length; i += 4) {
+      if (data[i] < 250) return true;
+    }
+    return false;
+  }
+
+  function estimateEdgeBackground(imageData) {
+    const { width, height, data } = imageData;
+    let r = 0, g = 0, b = 0, count = 0;
+    const step = Math.max(1, Math.floor(Math.min(width, height) / 50));
+    
+    const sample = (x, y) => {
+      const i = (y * width + x) * 4;
+      r += data[i]; g += data[i + 1]; b += data[i + 2]; count++;
+    };
+    
+    for (let x = 0; x < width; x += step) {
+      sample(x, 0); sample(x, height - 1);
+    }
+    for (let y = 0; y < height; y += step) {
+      sample(0, y); sample(width - 1, y);
+    }
+    
+    return { 
+      r: Math.round(r / count), 
+      g: Math.round(g / count), 
+      b: Math.round(b / count), 
+      a: 255 
+    };
+  }
+
+  function knockOutBackground(imageData, bgColor, threshold = 30) {
+    const data = imageData.data;
+    for (let i = 0; i < data.length; i += 4) {
+      const distance = Math.abs(data[i] - bgColor.r) + 
+                       Math.abs(data[i + 1] - bgColor.g) + 
+                       Math.abs(data[i + 2] - bgColor.b);
+      if (distance <= threshold) {
+        data[i + 3] = 0; // Make transparent
+      }
+    }
+  }
+
+  function mergeSimilarColors(tracedata, threshold) {
+    if (!tracedata || !tracedata.palette) return tracedata;
+    
+    const { palette, layers } = tracedata;
+    const used = new Array(palette.length).fill(false);
+    const groups = [];
+    
+    for (let i = 1; i < palette.length; i++) { // Skip background
+      if (used[i]) continue;
+      
+      const group = [i];
+      used[i] = true;
+      const color1 = palette[i];
+      
+      for (let j = i + 1; j < palette.length; j++) {
+        if (used[j]) continue;
+        
+        const color2 = palette[j];
+        const distance = Math.sqrt(
+          Math.pow(color1.r - color2.r, 2) +
+          Math.pow(color1.g - color2.g, 2) +
+          Math.pow(color1.b - color2.b, 2)
+        );
+        
+        if (distance <= threshold) {
+          group.push(j);
+          used[j] = true;
         }
       }
-      setStatus('🎭 Background and layer files downloaded.');
+      groups.push(group);
+    }
+    
+    const newPalette = [palette[0]]; // Keep background
+    const newLayers = [layers[0]];
+    
+    groups.forEach(group => {
+      const repColor = palette[group[0]]; // Use first color as representative
+      const mergedPaths = [];
+      group.forEach(idx => {
+        if (Array.isArray(layers[idx])) {
+          mergedPaths.push(...layers[idx]);
+        }
+      });
+      
+      newPalette.push(repColor);
+      newLayers.push(mergedPaths);
     });
+    
+    return { ...tracedata, palette: newPalette, layers: newLayers };
   }
 
-  if(elements.downloadSilhouetteBtn){
-    elements.downloadSilhouetteBtn.addEventListener('click', function(){
-      if(!tracedata || !lastOptions){
-        alert('Generate a preview first.'); return;
+  function shouldHideColor(color, index) {
+    if (index === 0) return true; // Always hide background layer by default
+    
+    const luma = 0.2126 * color.r + 0.7152 * color.g + 0.0722 * color.b;
+    if (color.a > 180 && luma >= 245) return true; // Hide near-white
+    
+    if (bgEstimate) {
+      const distance = Math.abs(color.r - bgEstimate.r) + 
+                       Math.abs(color.g - bgEstimate.g) + 
+                       Math.abs(color.b - bgEstimate.b);
+      if (distance <= 30) return true;
+    }
+    
+    return false;
+  }
+
+  function layerHasPaths(layer) {
+    return Array.isArray(layer) && layer.length > 0;
+  }
+
+  function buildTracedataSubset(sourceTracedata, indices) {
+    if (!sourceTracedata) return null;
+    
+    // This function can now correctly handle index 0 for the background
+    const layers = [];
+    const palette = [];
+    
+    indices.forEach(idx => {
+      if (sourceTracedata.layers[idx] && sourceTracedata.palette[idx]) {
+        layers.push(JSON.parse(JSON.stringify(sourceTracedata.layers[idx])));
+        palette.push(sourceTracedata.palette[idx]);
       }
-      var sil = createSilhouette(tracedata);
-      var svg = ImageTracer.getsvgstring(sil, lastOptions);
-      downloadSVGString(svg, 'solid-base-silhouette');
-      setStatus('🎭 Solid background downloaded.');
+    });
+    
+    return { ...sourceTracedata, layers, palette };
+  }
+
+  function getVisiblePaletteIndices() {
+    if (!tracedata) return [];
+    
+    const indices = [];
+    for (let i = 1; i < tracedata.palette.length; i++) { // Start at 1 to skip background
+      const color = tracedata.palette[i];
+      if (!shouldHideColor(color, i) && layerHasPaths(tracedata.layers[i])) {
+        indices.push(i);
+      }
+    }
+    return indices;
+  }
+
+  function displayPalette() {
+    if (!tracedata || !elements.paletteContainer) return;
+    
+    elements.paletteContainer.innerHTML = '';
+    const visibleIndices = getVisiblePaletteIndices();
+    
+    if (visibleIndices.length === 0 && !layerHasPaths(tracedata.layers[0])) {
+      elements.paletteRow.style.display = 'none';
+      return;
+    }
+
+    // Add Background (Layer 0) option
+    const bgLabel = document.createElement('label');
+    bgLabel.style.display = 'inline-block';
+    bgLabel.style.margin = '4px 8px';
+    bgLabel.style.cursor = 'pointer';
+    const bgCheckbox = document.createElement('input');
+    bgCheckbox.type = 'checkbox';
+    bgCheckbox.dataset.index = 'bg';
+    bgCheckbox.checked = false; 
+    bgCheckbox.style.marginRight = '6px';
+    const bgSwatch = document.createElement('span');
+    Object.assign(bgSwatch.style, { display: 'inline-block', width: '20px', height: '20px', backgroundColor: '#000', border: '2px solid #333', borderRadius: '3px', verticalAlign: 'middle', marginLeft: '4px' });
+    const bgInfo = document.createElement('small');
+    bgInfo.textContent = ' Layer 0 (Background)';
+    Object.assign(bgInfo.style, { marginLeft: '6px', color: '#666' });
+    bgLabel.appendChild(bgCheckbox);
+    bgLabel.appendChild(bgSwatch);
+    bgLabel.appendChild(bgInfo);
+    elements.paletteContainer.appendChild(bgLabel);
+
+    visibleIndices.forEach(index => {
+        const color = tracedata.palette[index];
+        const label = document.createElement('label');
+        label.style.display = 'inline-block';
+        label.style.margin = '4px 8px';
+        label.style.cursor = 'pointer';
+        
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.checked = true;
+        checkbox.dataset.index = index;
+        checkbox.style.marginRight = '6px';
+        
+        const swatch = document.createElement('span');
+        Object.assign(swatch.style, { display: 'inline-block', width: '20px', height: '20px', backgroundColor: `rgba(${color.r},${color.g},${color.b},${color.a/255})`, border: '2px solid #333', borderRadius: '3px', verticalAlign: 'middle', marginLeft: '4px' });
+        
+        const colorInfo = document.createElement('small');
+        colorInfo.textContent = ` Layer ${visibleIndices.indexOf(index) + 1}`;
+        colorInfo.style.marginLeft = '6px';
+        colorInfo.style.color = '#666';
+        
+        label.appendChild(checkbox);
+        label.appendChild(swatch);
+        label.appendChild(colorInfo);
+        elements.paletteContainer.appendChild(label);
+    });
+    
+    elements.paletteRow.style.display = 'table-row';
+    
+    // Add change listener with mutual exclusivity for background layer
+    elements.paletteContainer.addEventListener('change', (e) => {
+      if (e.target.type !== 'checkbox') return;
+      const bgCb = elements.paletteContainer.querySelector('input[data-index="bg"]');
+      const otherCbs = elements.paletteContainer.querySelectorAll('input[type="checkbox"]:not([data-index="bg"])');
+      if (e.target.dataset.index === 'bg' && e.target.checked) {
+        otherCbs.forEach(cb => cb.checked = false);
+      } else if (e.target.dataset.index !== 'bg' && e.target.checked && bgCb) {
+        bgCb.checked = false;
+      }
+      updateFilteredPreview();
     });
   }
 
-  setStatus('Ready for 3D printing magic! ✨');
-})();
+  // **IMPROVED: This function now correctly previews the background layer**
+  function updateFilteredPreview() {
+    if (!tracedata || !elements.svgPreviewFiltered) return;
+    const paletteEl = elements.paletteContainer;
+    if (!paletteEl) return;
+
+    const selectedCheckboxes = Array.from(paletteEl.querySelectorAll('input[type="checkbox"]:checked'));
+
+    if (selectedCheckboxes.length === 0) {
+        elements.svgPreviewFiltered.data = '';
+        return;
+    }
+
+    // Check if background layer is selected
+    if (selectedCheckboxes.some(cb => cb.dataset.index === 'bg')) {
+        // Use the processed solid silhouette if available
+        if (silhouetteUrl) {
+            elements.svgPreviewFiltered.data = silhouetteUrl;
+        } else {
+            // Fallback: create black silhouette from all visible layers
+            const visibleIndices = getVisiblePaletteIndices();
+            if (visibleIndices.length > 0) {
+                const holeRemovalLevel = 1; // Default to level 1
+                const solidSilhouette = createSolidSilhouette(tracedata, holeRemovalLevel);
+                if (solidSilhouette) {
+                    const svgString = ImageTracer.getsvgstring(solidSilhouette, lastOptions);
+                    const blob = new Blob([svgString], { type: 'image/svg+xml' });
+                    elements.svgPreviewFiltered.data = URL.createObjectURL(blob);
+                } else {
+                    elements.svgPreviewFiltered.data = '';
+                }
+            } else {
+                elements.svgPreviewFiltered.data = '';
+            }
+        }
+        return;
+    }
+
+    // Handle regular layer selection
+    const indicesToRender = selectedCheckboxes
+        .map(cb => parseInt(cb.dataset.index, 10))
+        .filter(idx => !isNaN(idx));
+
+    const filteredData = buildTracedataSubset(tracedata, indicesToRender);
+
+    if (filteredData && filteredData.layers.length > 0 && filteredData.layers.some(layer => layer.length > 0)) {
+        const svgString = ImageTracer.getsvgstring(filteredData, lastOptions);
+        const blob = new Blob([svgString], { type: 'image/svg+xml' });
+        elements.svgPreviewFiltered.data = URL.createObjectURL(blob);
+    } else {
+        elements.svgPreviewFiltered.data = '';
+    }
+  }
+
+  function renderColorButtons() {
+    if (!elements.colorButtonsRow || !tracedata) {
+      if (elements.colorButtonsRow) {
+        elements.colorButtonsRow.style.display = 'none';
+        elements.colorButtonsRow.innerHTML = '';
+      }
+      return;
+    }
+    
+    const visibleIndices = getVisiblePaletteIndices();
+    elements.colorButtonsRow.innerHTML = '';
+    
+    if (visibleIndices.length === 0) {
+      elements.colorButtonsRow.style.display = 'none';
+      return;
+    }
+    
+    elements.colorButtonsRow.style.display = 'flex';
+    
+    visibleIndices.forEach((idx, ordinal) => {
+      const color = tracedata.palette[idx];
+      const button = document.createElement('button');
+      
+      button.innerHTML = `Layer ${ordinal + 1}<br>Download`;
+      button.style.backgroundColor = `rgba(${color.r},${color.g},${color.b},${color.a/255})`;
+      
+      const luminance = 0.2126 * color.r + 0.7152 * color.g + 0.0722 * color.b;
+      button.style.color = luminance > 140 ? '#000' : '#fff';
+      
+      button.addEventListener('click', () => {
+        const singleLayer = buildTracedataSubset(tracedata, [idx]);
+        const hex = rgbToHex(color.r, color.g, color.b);
+        const svgString = ImageTracer.getsvgstring(singleLayer, lastOptions);
+        downloadSVG(svgString, `layer_${ordinal + 1}_${hex}`);
+        elements.statusText.textContent = `📐 Layer ${ordinal + 1} downloaded for 3D printing!`;
+      });
+      
+      elements.colorButtonsRow.appendChild(button);
+    });
+  }
+
+  // --- Initialize Extension Context Menu Loading ---
+  async function loadImageFromContextMenu() {
+    if (typeof chrome === 'undefined' || !chrome.storage) return;
+    
+    try {
+      elements.statusText.textContent = '🔍 Checking for context menu image...';
+      const data = await chrome.storage.local.get('imageUrlToConvert');
+      
+      if (data.imageUrlToConvert) {
+        await loadImageFromUrl(data.imageUrlToConvert);
+        chrome.storage.local.remove('imageUrlToConvert');
+      } else {
+        elements.statusText.textContent = '🎯 Ready for 3D printing magic! Import an image to start.';
+      }
+    } catch (error) {
+      console.log('Not in extension context or no stored image');
+      elements.statusText.textContent = '🎯 Ready for 3D printing magic! Import an image to start.';
+    }
+  }
+
+  // --- Test with Sample Images ---
+  function addTestImageButtons() {
+    if (elements.urlInput) {
+      elements.urlInput.placeholder = 'Try: Batman logo, Superman logo, or any simple graphic URL';
+    }
+  }
+
+  // --- Initialize Application ---
+  function initializeApp() {
+    addTestImageButtons();
+    updateColorFeedback(parseInt(elements.colorPrecisionSlider.value));
+    loadImageFromContextMenu();
+    
+    if (elements.presetSelect) {
+      elements.presetSelect.value = '3dprint';
+    }
+    
+    console.log('🚀 3D Print SVG Converter initialized!');
+  }
+
+  // Start the application
+  initializeApp();
+
+  // Remove small holes and hairline slivers from a merged path set
+function removeSmallHoles(paths, opts = {}) {
+  const { areaThreshold = 0, minGapPx = 1 } = opts;
+  const maxSlenderness = 1800; // larger = more aggressive
+
+  const out = [];
+  for (const p of paths) {
+    if (p && p.isholepath) {
+      const pts = getPathPoints(p);
+      if (pts.length < 3) continue; // drop degenerate holes
+      const area = Math.abs(polygonArea(pts));      // pixel^2
+      const bbox = pathBBox(pts);
+      const perim = approxPerimeter(pts);
+      const slender = (perim * perim) / (area + 1); // high => skinny sliver
+      const minDim = Math.min(bbox.w, bbox.h);
+
+      // nuke tiny holes & hairline white seams
+      if (area < areaThreshold || minDim <= minGapPx || slender > maxSlenderness) {
+        continue; // skip this hole -> it gets filled
+      }
+    }
+    out.push(p);
+  }
+  return out;
+}
+
+// Convert traced path segments to a point list
+function getPathPoints(path) {
+  const pts = [];
+  if (!path || !Array.isArray(path.segments) || !path.segments.length) return pts;
+  pts.push([path.segments[0].x1, path.segments[0].y1]);
+  for (const seg of path.segments) pts.push([seg.x2, seg.y2]);
+  return pts;
+}
+
+// Shoelace area (signed)
+function polygonArea(pts) {
+  let a = 0;
+  for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
+    const [xi, yi] = pts[i];
+    const [xj, yj] = pts[j];
+    a += (xj + xi) * (yj - yi);
+  }
+  return a / 2;
+}
+
+function pathBBox(pts) {
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (const [x, y] of pts) {
+    if (x < minX) minX = x;
+    if (y < minY) minY = y;
+    if (x > maxX) maxX = x;
+    if (y > maxY) maxY = y;
+  }
+  return { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
+}
+
+function approxPerimeter(pts) {
+  let p = 0;
+  for (let i = 1; i < pts.length; i++) {
+    p += Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]);
+  }
+  p += Math.hypot(pts[0][0] - pts[pts.length - 1][0], pts[0][1] - pts[pts.length - 1][1]);
+  return p;
+}
+
+function selectBackgroundLayerOnly() {
+  const container = elements.paletteContainer;
+  if (!container) return;
+  const cbs = container.querySelectorAll('input[type="checkbox"]');
+  cbs.forEach(cb => { cb.checked = (cb.dataset.index === 'bg'); });
+}
+});
