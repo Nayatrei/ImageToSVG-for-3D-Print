@@ -21,17 +21,7 @@ document.addEventListener('DOMContentLoaded', () => {
     colorPrecisionSlider: document.getElementById('color-precision'),
     colorPrecisionValue: document.getElementById('color-precision-value'),
     colorFeedback: document.getElementById('color-feedback'),
-    removeBgCheckbox: document.getElementById('remove-bg'),
-    forceSolidCheckbox: document.getElementById('force-solid'),
-    
-    // Advanced controls (hidden by default)
-    ltresSlider: document.getElementById('ltres-slider'),
-    ltresValue: document.getElementById('ltres-value'),
-    pathomitSlider: document.getElementById('pathomit-slider'),
-    pathomitValue: document.getElementById('pathomit-value'),
-    blurRadiusSlider: document.getElementById('blur-radius'),
-    blurRadiusValue: document.getElementById('blur-radius-value'),
-    
+    removeBgCheckbox: document.getElementById('remove-bg'),// Advanced controls (hidden by default)    
     // Preview and UI
     svgPreview: document.getElementById('svg-preview'),
     svgPreviewFiltered: document.getElementById('svg-preview-filtered'),
@@ -123,10 +113,6 @@ document.addEventListener('DOMContentLoaded', () => {
   setupSlider(elements.cornerSharpnessSlider, elements.cornerSharpnessValue, 0);
   setupSlider(elements.curveStraightnessSlider, elements.curveStraightnessValue, 0);
   setupSlider(elements.colorPrecisionSlider, elements.colorPrecisionValue, 0, updateColorFeedback);
-  setupSlider(elements.ltresSlider, elements.ltresValue, 1);
-  setupSlider(elements.pathomitSlider, elements.pathomitValue, 0);
-  setupSlider(elements.blurRadiusSlider, elements.blurRadiusValue, 1);
-
   // Enhanced color count feedback for 3D printing
   function updateColorFeedback(colorCount) {
     if (!elements.colorFeedback) return;
@@ -517,7 +503,7 @@ function createSolidSilhouette(tracedata, holeRemovalLevel) {
       downloadSVG(svgString, `${imageName}_layer${ordinal + 1}`);
     });
 
-    elements.statusText.textContent = `🎭 Silhouette and ${visibleIndices.length} layer files downloaded!`;
+    elements.statusText.textContent = `🎭 Background and ${visibleIndices.length} layer files downloaded.`;
   });
 
   elements.downloadSilhouetteBtn?.addEventListener('click', () => {

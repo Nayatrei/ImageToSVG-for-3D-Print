@@ -8,7 +8,6 @@ A Chrome extension that converts images to SVG files optimized for 3D printing a
 Tinkercad Ready: Auto-optimized exports that import perfectly into Tinkercad
 Multi-Color Support: Export individual layers for multi-color 3D printing
 Beginner Friendly: Quick start guide and smart defaults
-Expert Controls: Advanced options for power users
 Real-time Preview: See results instantly with quality feedback
 
 📐 Perfect For
@@ -39,7 +38,7 @@ For Multi-Color 3D Printing
 
 Follow quick start steps above
 Adjust "Color Layers" slider (2-4 recommended)
-Use "Download All Layers" for separate color files
+Use "Download Layers for Tinkercad (multiple files)" for separate color files
 Print each layer in different colored filament
 
 Advanced Usage
