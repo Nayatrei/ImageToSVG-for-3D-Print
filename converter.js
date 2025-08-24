@@ -1,341 +1,366 @@
 
-/* Converter.js — minimal, working build aligned to converter.html (clean version) */
-/* global ImageTracer */
+(function(){
+  'use strict';
 
-document.addEventListener('DOMContentLoaded', () => {
-  // ---- Elements ----
-  const el = {
-    img: document.getElementById('source-image'),
-    status: document.getElementById('status-text'),
-    gen: document.getElementById('generate-btn'),
-    preset: document.getElementById('preset'),
-    simp: document.getElementById('path-simplification'),
-    simpVal: document.getElementById('path-simplification-value'),
-    sharp: document.getElementById('corner-sharpness'),
-    sharpVal: document.getElementById('corner-sharpness-value'),
-    straight: document.getElementById('curve-straightness'),
-    straightVal: document.getElementById('curve-straightness-value'),
-    cprec: document.getElementById('color-precision'),
-    cprecVal: document.getElementById('color-precision-value'),
-    cprecFeedback: document.getElementById('color-feedback'),
-    removeBg: document.getElementById('remove-bg'),
-    prevAll: document.getElementById('svg-preview'),
-    prevSel: document.getElementById('svg-preview-filtered'),
-    qinfo: document.getElementById('quality-indicator'),
-    importBtn: document.getElementById('import-btn'),
-    file: document.getElementById('file-input'),
-    urlText: document.getElementById('url-input'),
-    urlBtn: document.getElementById('load-url-btn'),
-    dlZip: document.getElementById('download-tinkercad-btn'),
-    dlSil: document.getElementById('download-silhouette-btn'),
-    colorRow: document.getElementById('color-buttons-row'),
-    origRes: document.getElementById('original-resolution'),
-    scaledRes: document.getElementById('scaled-resolution')
+  var el = function(id){ return document.getElementById(id); };
+  var elements = {
+    sourceImage: el('source-image'),
+    statusText: el('status-text'),
+    generateBtn: el('generate-btn'),
+    presetSelect: el('preset'),
+    pathSimplificationSlider: el('path-simplification'),
+    pathSimplificationValue: el('path-simplification-value'),
+    cornerSharpnessSlider: el('corner-sharpness'),
+    cornerSharpnessValue: el('corner-sharpness-value'),
+    curveStraightnessSlider: el('curve-straightness'),
+    curveStraightnessValue: el('curve-straightness-value'),
+    colorPrecisionSlider: el('color-precision'),
+    colorPrecisionValue: el('color-precision-value'),
+    colorFeedback: el('color-feedback'),
+    removeBgCheckbox: el('remove-bg'),
+    importBtn: el('import-btn'),
+    fileInput: el('file-input'),
+    urlInput: el('url-input'),
+    loadUrlBtn: el('load-url-btn'),
+    svgPreview: el('svg-preview'),
+    svgPreviewFiltered: el('svg-preview-filtered'),
+    qualityIndicator: el('quality-indicator'),
+    colorButtonsRow: el('color-buttons-row'),
+    downloadTinkercadBtn: el('download-tinkercad-btn'),
+    downloadSilhouetteBtn: el('download-silhouette-btn'),
+    originalResolution: el('original-resolution'),
+    scaledResolution: el('scaled-resolution')
   };
 
-  // ---- State ----
-  let imageURL = null;
-  let tracedata = null;
-  let lastOptions = null;
-  let visibleSet = new Set(); // palette indices that are visible
+  var originalImageUrl = '';
+  var tracedata = null;
+  var lastOptions = null;
+  var visibleLayerIndices = [];
+  var MAX_DIM = 2048;
 
-  // ---- Helpers ----
-  const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+  function setStatus(msg){ if(elements.statusText){ elements.statusText.textContent = msg; } }
+  function clamp(v, min, max){ return Math.max(min, Math.min(max, v)); }
+  function map01(v){ return clamp(v/100, 0, 1); }
 
-  function createBlobURL(text, type='image/svg+xml') {
-    const blob = new Blob([text], { type });
-    return URL.createObjectURL(blob);
-  }
-
-  function setObjectData(obj, svgString) {
-    const url = createBlobURL(svgString);
-    obj.setAttribute('data', url);
-  }
-
-  function setStatus(msg) {
-    if (el.status) el.status.textContent = msg;
-  }
-
-  function enableGenerate() {
-    if (el.gen) el.gen.disabled = !el.img.src;
-  }
-
-  function mapOptions() {
-    // Slider inputs 0..100 -> ImageTracer options
-    const simp = Number(el.simp?.value || 60); // higher -> simpler
-    const straight = Number(el.straight?.value || 50);
-    const sharp = Number(el.sharp?.value || 50);
-    const cprec = Number(el.cprec?.value || 60);
-
-    // Derive core thresholds
-    const ltres = 0.5 + (simp/100) * 5.0;    // line threshold
-    const qtres = 0.2 + (straight/100) * 3.8; // curve threshold
-    const pathomit = Math.round((simp/100) * 20); // omit tiny paths
-
-    // Colors: map 0..100 -> 2..9 colors
-    const numberofcolors = Math.round(2 + (cprec/100)*7);
-
-    const opts = {
-      ltres, qtres, pathomit,
-      numberofcolors,
-      mincolorratio: 0.01,
-      rightangleenhance: sharp >= 50,
-      scale: 1,
-      strokewidth: 0,
-      linefilter: true,
-      roundcoords: 2
-    };
-
-    // Preset adjustments
-    const p = el.preset?.value || '3dprint';
-    if (p === '3dprint') {
-      opts.numberofcolors = clamp(numberofcolors, 2, 6);
-      opts.rightangleenhance = true;
-      opts.linefilter = true;
-    } else if (p === 'curvy') {
-      opts.ltres = Math.max(3, ltres);
-      opts.qtres = Math.max(2.5, qtres);
-      opts.rightangleenhance = false;
-    } else if (p === 'sharp') {
-      opts.ltres = Math.max(0.8, ltres*0.7);
-      opts.qtres = Math.max(0.5, qtres*0.6);
-      opts.rightangleenhance = true;
-    } else if (p === 'standard') {
-      // ImageTracer defaults mostly
+  function setupSlider(slider, display, decimals){
+    if(!slider || !display) return;
+    var dec = (typeof decimals === 'number') ? decimals : 0;
+    function update(){
+      var val = parseFloat(slider.value||'0');
+      display.textContent = val.toFixed(dec);
     }
-
-    return opts;
+    slider.addEventListener('input', update);
+    update();
   }
 
-  function getCanvasFromImage(img) {
-    const maxDim = 2048; // simple safeguard
-    const w0 = img.naturalWidth || img.width;
-    const h0 = img.naturalHeight || img.height;
-    el.origRes.textContent = `Original: ${w0}×${h0}px`;
+  function dataURLFromBlob(blob){
+    return new Promise(function(resolve, reject){
+      var fr = new FileReader();
+      fr.onload = function(){ resolve(fr.result); };
+      fr.onerror = reject;
+      fr.readAsDataURL(blob);
+    });
+  }
 
-    let w = w0, h = h0;
-    if (Math.max(w0,h0) > maxDim) {
-      const s = maxDim / Math.max(w0,h0);
-      w = Math.round(w0*s);
-      h = Math.round(h0*s);
-      el.scaledRes.textContent = `Scaled: ${w}×${h}px (auto)`;
-    } else {
-      el.scaledRes.textContent = `Scaled: ${w}×${h}px`;
+  function loadImageFromDataURL(url){
+    return new Promise(function(resolve, reject){
+      var img = elements.sourceImage;
+      img.onload = function(){ resolve(img); };
+      img.onerror = reject;
+      img.src = url;
+    });
+  }
+
+  async function loadImageFromUrl(url){
+    setStatus('🌐 Fetching image from URL...');
+    try{
+      var resp = await fetch(url, {mode:'cors'});
+      if(!resp.ok) throw new Error('HTTP '+resp.status);
+      var blob = await resp.blob();
+      var dataURL = await dataURLFromBlob(blob);
+      await loadImageFromDataURL(dataURL);
+      originalImageUrl = url;
+      setStatus('✅ Image loaded from URL.');
+      if(elements.generateBtn) elements.generateBtn.disabled = false;
+      showOriginalResolution();
+    }catch(e){
+      try{
+        elements.sourceImage.crossOrigin = 'anonymous';
+        await new Promise(function(res, rej){
+          elements.sourceImage.onload = res;
+          elements.sourceImage.onerror = rej;
+          elements.sourceImage.src = url;
+        });
+        originalImageUrl = url;
+        setStatus('⚠️ Loaded image directly (canvas may be tainted by CORS).');
+        if(elements.generateBtn) elements.generateBtn.disabled = false;
+        showOriginalResolution();
+      }catch(err){
+        console.error(err);
+        setStatus('❌ Failed to load URL image. Try downloading and using Import.');
+      }
     }
+  }
 
-    const c = document.createElement('canvas');
-    c.width = w; c.height = h;
-    const ctx = c.getContext('2d');
-    ctx.drawImage(img, 0, 0, w, h);
+  function showOriginalResolution(){
+    if(!elements.originalResolution || !elements.sourceImage.naturalWidth) return;
+    elements.originalResolution.textContent =
+      'Original: ' + elements.sourceImage.naturalWidth + '×' + elements.sourceImage.naturalHeight + ' px';
+  }
+
+  function autoscaleToCanvas(img){
+    var w = img.naturalWidth, h = img.naturalHeight;
+    var scale = 1;
+    if(Math.max(w,h) > MAX_DIM){ scale = MAX_DIM / Math.max(w,h); }
+    var sw = Math.round(w*scale), sh = Math.round(h*scale);
+    var c = document.createElement('canvas');
+    c.width = sw; c.height = sh;
+    var ctx = c.getContext('2d');
+    ctx.drawImage(img, 0, 0, sw, sh);
+    if(elements.scaledResolution){
+      if(scale < 1) elements.scaledResolution.textContent = 'Scaled: ' + sw + '×' + sh + ' px (auto for stability)';
+      else elements.scaledResolution.textContent = 'Scaled: ' + sw + '×' + sh + ' px';
+    }
     return c;
   }
 
-  function buildSubset(td, indices) {
-    // Keep only layers whose 'colorindex' is in indices
-    const layers = td.layers.map(layer => ({
-      paths: layer.paths.filter(p => indices.has(p.colorindex))
-    }));
-    // Palette unchanged (renderer ignores unused colors)
-    return { ...td, layers };
+  function buildOptions(){
+    var ps = parseFloat(elements.pathSimplificationSlider ? elements.pathSimplificationSlider.value : 60);
+    var cs = parseFloat(elements.cornerSharpnessSlider ? elements.cornerSharpnessSlider.value : 50);
+    var st = parseFloat(elements.curveStraightnessSlider ? elements.curveStraightnessSlider.value : 50);
+    var cp = parseFloat(elements.colorPrecisionSlider ? elements.colorPrecisionSlider.value : 60);
+
+    var ncolors = 2 + Math.round(map01(cp) * 6);
+    var ltres = 4.0 - 3.5*map01(cs);
+    var qtres = 4.0 - 3.5*map01(st);
+    var pathomit = Math.round(ps/4);
+
+    var preset = elements.presetSelect ? elements.presetSelect.value : '3dprint';
+    var base = {
+      scale: 1,
+      roundcoords: 2,
+      viewbox: true,
+      rightangleenhance: preset !== 'curvy',
+      colorsampling: 0,
+      numberofcolors: ncolors,
+      ltres: ltres,
+      qtres: qtres,
+      pathomit: pathomit
+    };
+    if(preset === 'curvy'){
+      base.rightangleenhance = false;
+    }else if(preset === 'sharp'){
+      base.ltres = Math.max(0.5, ltres*0.7);
+      base.qtres = Math.max(0.5, qtres*0.7);
+      base.pathomit = Math.max(0, pathomit-2);
+    }
+    return base;
   }
 
-  function guessBackgroundIndex(td) {
-    // rough heuristic: color index with the most paths
-    const counts = new Map();
-    td.layers.forEach(layer => {
-      layer.paths.forEach(p => {
-        counts.set(p.colorindex, (counts.get(p.colorindex)||0)+1);
-      });
-    });
-    let best = 0, bestk = 0;
-    counts.forEach((v,k)=>{ if (v>best) { best=v; bestk=k; } });
-    return bestk;
+  function tracedataSubset(td, keepIndices){
+    var subset = { width: td.width, height: td.height, palette: [], layers: [] };
+    subset.palette = td.palette.slice();
+    for(var i=0;i<td.layers.length;i++){
+      if(keepIndices.indexOf(i) !== -1){
+        subset.layers.push(td.layers[i]);
+      }else{
+        subset.layers.push({lines:[], paths:[]});
+      }
+    }
+    return subset;
   }
 
-  function refreshColorToggles(td) {
-    el.colorRow.innerHTML = '';
-    const unique = new Set();
-    td.layers.forEach(layer => layer.paths.forEach(p => unique.add(p.colorindex)));
-    const indices = Array.from(unique).sort((a,b)=>a-b);
-    if (visibleSet.size === 0) indices.forEach(i => visibleSet.add(i));
-
-    indices.forEach((idx, i) => {
-      const btn = document.createElement('button');
-      btn.className = 'color-btn active';
-      btn.textContent = `Layer ${i+1}`;
-      btn.dataset.index = String(idx);
-      btn.addEventListener('click', () => {
-        if (visibleSet.has(idx)) {
-          visibleSet.delete(idx);
-          btn.classList.remove('active');
-        } else {
-          visibleSet.add(idx);
-          btn.classList.add('active');
-        }
-        updateFilteredPreview();
-      });
-      el.colorRow.appendChild(btn);
-    });
+  function countPaths(td){
+    var total = 0;
+    for(var i=0;i<td.layers.length;i++){
+      var layer = td.layers[i];
+      if(layer && layer.paths) total += layer.paths.length;
+    }
+    return total;
   }
 
-  function updateFilteredPreview() {
-    if (!tracedata) return;
-    const subset = buildSubset(tracedata, visibleSet);
-    const svg = ImageTracer.getsvgstring(subset, lastOptions);
-    setObjectData(el.prevSel, svg);
-
-    // quality indicator: path count
-    let paths = 0;
-    subset.layers.forEach(l => paths += l.paths.length);
-    el.qinfo.textContent = `Visible paths: ${paths}`;
+  function updateQuality(td){
+    if(!elements.qualityIndicator) return;
+    var total = countPaths(td);
+    var msg = 'Paths: '+total;
+    if(total > 300) msg += '  |  ⚠️ Complex – consider higher Simplification.';
+    elements.qualityIndicator.textContent = msg;
   }
 
-  function updateAllPreview() {
-    if (!tracedata) return;
-    const svg = ImageTracer.getsvgstring(tracedata, lastOptions);
-    setObjectData(el.prevAll, svg);
+  function renderPreviews(td, options){
+    var svgAll = ImageTracer.getsvgstring(td, options);
+    if(elements.svgPreview) elements.svgPreview.data = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgAll);
 
-    let paths = 0;
-    tracedata.layers.forEach(l => paths += l.paths.length);
-    el.qinfo.textContent = `Total paths: ${paths}`;
+    var subset = tracedataSubset(td, visibleLayerIndices.length ? visibleLayerIndices : []);
+    var svgSel = ImageTracer.getsvgstring(subset, options);
+    if(elements.svgPreviewFiltered) elements.svgPreviewFiltered.data = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgSel);
   }
 
-  function download(filename, text, mime='image/svg+xml') {
-    const url = createBlobURL(text, mime);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
+  function buildLayerButtons(td){
+    if(!elements.colorButtonsRow) return;
+    elements.colorButtonsRow.innerHTML = '';
+    visibleLayerIndices = [];
+    for(var i=0; i<td.layers.length; i++){
+      (function(idx){
+        var btn = document.createElement('button');
+        btn.textContent = 'Layer ' + (idx+1);
+        btn.dataset.active = '1';
+        btn.style.marginRight = '6px';
+        btn.addEventListener('click', function(){
+          if(btn.dataset.active === '1'){
+            btn.dataset.active = '0';
+            btn.style.opacity = '0.5';
+            var p = visibleLayerIndices.indexOf(idx);
+            if(p !== -1) visibleLayerIndices.splice(p,1);
+          }else{
+            btn.dataset.active = '1';
+            btn.style.opacity = '1';
+            if(visibleLayerIndices.indexOf(idx) === -1) visibleLayerIndices.push(idx);
+          }
+          renderPreviews(tracedata, lastOptions);
+        });
+        visibleLayerIndices.push(idx);
+        elements.colorButtonsRow.appendChild(btn);
+      })(i);
+    }
+  }
+
+  function downloadSVGString(svgString, filename){
+    var blob = new Blob([svgString], {type: 'image/svg+xml'});
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = filename + '.svg';
     document.body.appendChild(a);
     a.click();
-    setTimeout(()=>{
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    }, 0);
+    setTimeout(function(){ URL.revokeObjectURL(a.href); a.remove(); }, 1000);
   }
 
-  // ---- Actions ----
-
-  // file import
-  el.importBtn?.addEventListener('click', () => el.file?.click());
-
-  el.file?.addEventListener('change', (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    const url = URL.createObjectURL(file);
-    el.img.onload = () => {
-      imageURL = url;
-      enableGenerate();
-      setStatus('Image loaded. Ready to generate.');
-    };
-    el.img.crossOrigin = 'anonymous';
-    el.img.src = url;
-  });
-
-  // url import
-  el.urlBtn?.addEventListener('click', () => {
-    const url = (el.urlText?.value || '').trim();
-    if (!url) return alert('Paste an image URL first.');
-    el.img.onload = () => {
-      imageURL = url;
-      enableGenerate();
-      setStatus('Image loaded from URL. Ready to generate.');
-    };
-    el.img.crossOrigin = 'anonymous';
-    el.img.src = url;
-  });
-
-  // slider labels
-  function bindSlider(input, label, cb){
-    if (!input || !label) return;
-    const f = () => { label.textContent = `${input.value}%`; if (cb) cb(); };
-    input.addEventListener('input', f);
-    f();
+  function createSilhouette(td){
+    var merged = tracedataSubset(td, []);
+    merged.layers = td.layers.map(function(l){ return l; });
+    merged.palette = td.palette.map(function(){ return {r:0,g:0,b:0,a:255}; });
+    return merged;
   }
-  bindSlider(el.simp, el.simpVal);
-  bindSlider(el.sharp, el.sharpVal);
-  bindSlider(el.straight, el.straightVal);
-  bindSlider(el.cprec, el.cprecVal, () => {
-    const v = Number(el.cprec.value);
-    let text = 'Balanced detail for layered prints.';
-    if (v < 30) text = 'Fewer colors → fewer layers.';
-    else if (v > 80) text = 'More colors → more layers (slower).';
-    el.cprecFeedback.textContent = text;
-  });
 
-  // generate
-  el.gen?.addEventListener('click', () => {
-    if (!el.img.src) return alert('Load an image first.');
-    setStatus('Processing...');
-    const canvas = getCanvasFromImage(el.img);
-    const ctx = canvas.getContext('2d');
-    const imgd = ctx.getImageData(0,0,canvas.width, canvas.height);
-    lastOptions = mapOptions();
-
-    tracedata = ImageTracer.imagedataToTracedata(imgd, lastOptions);
-
-    // optional remove bg
-    if (el.removeBg?.checked) {
-      const bg = guessBackgroundIndex(tracedata);
-      visibleSet = new Set(Array.from(new Set(
-        [].concat(...tracedata.layers.map(l => l.paths.map(p=>p.colorindex)))
-      )).filter(i => i !== bg));
-    } else {
-      visibleSet = new Set(
-        [].concat(...tracedata.layers.map(l => l.paths.map(p=>p.colorindex)))
-      );
-    }
-
-    refreshColorToggles(tracedata);
-    updateAllPreview();
-    updateFilteredPreview();
-    el.dlZip.disabled = false;
-    el.dlSil.disabled = false;
-    setStatus('Preview generated. You can download layers for Tinkercad.');
-  });
-
-  // download silhouette
-  el.dlSil?.addEventListener('click', () => {
-    if (!tracedata) return alert('Generate a preview first.');
-    const subset = buildSubset(tracedata, visibleSet.size?visibleSet:new Set([0]));
-    // map all palette colors to black to ensure solid background feel
-    const td = JSON.parse(JSON.stringify(subset));
-    td.palette = td.palette.map(()=>({r:0,g:0,b:0,a:255}));
-    const svg = ImageTracer.getsvgstring(td, lastOptions);
-    download('solid-base-silhouette.svg', svg);
-    setStatus('🎭 Solid background downloaded (use as base in Tinkercad).');
-  });
-
-  // download all layers (multiple files)
-  el.dlZip?.addEventListener('click', async () => {
-    if (!tracedata) return alert('Generate a preview first.');
-    const indices = Array.from(visibleSet.values()).sort((a,b)=>a-b);
-    if (indices.length === 0) return alert('No visible layers to export.');
-
-    // base name
-    let base = 'image';
-    if (imageURL) {
-      try { base = imageURL.split('/').pop().split('?')[0].replace(/\.[^/.]+$/,'') || 'image'; } catch {}
-    }
-
-    // 1) Background silhouette
-    const subset = buildSubset(tracedata, new Set(indices));
-    const silTd = JSON.parse(JSON.stringify(subset));
-    silTd.palette = silTd.palette.map(()=>({r:0,g:0,b:0,a:255}));
-    const svgSil = ImageTracer.getsvgstring(silTd, lastOptions);
-
-    // 2) Each layer separately
-    const svgs = indices.map((idx, i) => {
-      const single = buildSubset(tracedata, new Set([idx]));
-      return { name: `${base}_layer${i+1}.svg`, text: ImageTracer.getsvgstring(single, lastOptions) };
+  if(elements.importBtn){
+    elements.importBtn.addEventListener('click', function(){
+      if(elements.fileInput) elements.fileInput.click();
     });
+  }
+  if(elements.fileInput){
+    elements.fileInput.addEventListener('change', function(e){
+      var file = e.target.files && e.target.files[0];
+      if(!file) return;
+      if(!file.type || !file.type.startsWith('image/')){
+        alert('Please select an image file.');
+        return;
+      }
+      setStatus('📁 Loading your image...');
+      var fr = new FileReader();
+      fr.onload = function(ev){
+        loadImageFromDataURL(ev.target.result).then(function(){
+          setStatus('✅ Image loaded.');
+          if(elements.generateBtn) elements.generateBtn.disabled = false;
+          if(elements.originalResolution) elements.originalResolution.textContent =
+            'Original: ' + elements.sourceImage.naturalWidth + '×' + elements.sourceImage.naturalHeight + ' px';
+        }).catch(function(err){
+          console.error(err);
+          setStatus('❌ Failed to load the image.');
+        });
+      };
+      fr.readAsDataURL(file);
+    });
+  }
 
-    // Download each separately (simple approach per UI copy)
-    download(`${base}_background.svg`, svgSil);
-    svgs.forEach(f => download(f.name, f.text));
-    setStatus(`🎭 Background and ${indices.length} layer files downloaded.`);
-  });
+  if(elements.loadUrlBtn){
+    elements.loadUrlBtn.addEventListener('click', function(){
+      var url = elements.urlInput ? (elements.urlInput.value||'').trim() : '';
+      if(!url){ alert('Enter an image URL.'); return; }
+      loadImageFromUrl(url);
+    });
+  }
 
-  // initial
-  enableGenerate();
+  setupSlider(elements.pathSimplificationSlider, elements.pathSimplificationValue, 0);
+  setupSlider(elements.cornerSharpnessSlider, elements.cornerSharpnessValue, 0);
+  setupSlider(elements.curveStraightnessSlider, elements.curveStraightnessValue, 0);
+  setupSlider(elements.colorPrecisionSlider, elements.colorPrecisionValue, 0);
+
+  if(elements.generateBtn){
+    elements.generateBtn.addEventListener('click', function(){
+      if(!elements.sourceImage || !elements.sourceImage.naturalWidth){
+        alert('Load an image first.'); return;
+      }
+      setStatus('🧠 Converting...');
+      try{
+        var canvas = autoscaleToCanvas(elements.sourceImage);
+        var imgd = ImageTracer.getImgdata(canvas);
+        var options = buildOptions();
+        lastOptions = options;
+        tracedata = ImageTracer.imagedataToTracedata(imgd, options);
+
+        visibleLayerIndices = [];
+        for(var i=0;i<tracedata.layers.length;i++) visibleLayerIndices.push(i);
+
+        buildLayerButtons(tracedata);
+        renderPreviews(tracedata, options);
+        updateQuality(tracedata);
+        setStatus('✅ Preview ready. Use Download buttons to export.');
+        if(elements.downloadTinkercadBtn) elements.downloadTinkercadBtn.disabled = false;
+        if(elements.downloadSilhouetteBtn) elements.downloadSilhouetteBtn.disabled = false;
+      }catch(err){
+        console.error(err);
+        setStatus('❌ Conversion failed. Try a simpler or smaller image.');
+      }
+    });
+  }
+
+  if(elements.downloadTinkercadBtn){
+    elements.downloadTinkercadBtn.addEventListener('click', function(){
+      if(!tracedata || !lastOptions){
+        alert('Generate a preview first.'); return;
+      }
+      var base = 'image';
+      if(originalImageUrl){
+        try{
+          var parts = originalImageUrl.split(/[\\/]/);
+          base = parts[parts.length-1].replace(/\.[^/.]+$/, '') || 'image';
+        }catch(e){}
+      }
+
+      var sil = createSilhouette(tracedata);
+      var svgSil = ImageTracer.getsvgstring(sil, lastOptions);
+      downloadSVGString(svgSil, base + '_layer_background');
+
+      var selected = visibleLayerIndices.length ? visibleLayerIndices.slice() : [];
+      if(selected.length === 0){
+        for(var i=0;i<tracedata.layers.length;i++){
+          var sub = tracedataSubset(tracedata, [i]);
+          var svg = ImageTracer.getsvgstring(sub, lastOptions);
+          downloadSVGString(svg, base + '_layer' + (i+1));
+        }
+      }else{
+        for(var k=0;k<selected.length;k++){
+          var idx = selected[k];
+          var sub2 = tracedataSubset(tracedata, [idx]);
+          var svg2 = ImageTracer.getsvgstring(sub2, lastOptions);
+          downloadSVGString(svg2, base + '_layer' + (idx+1));
+        }
+      }
+      setStatus('🎭 Background and layer files downloaded.');
+    });
+  }
+
+  if(elements.downloadSilhouetteBtn){
+    elements.downloadSilhouetteBtn.addEventListener('click', function(){
+      if(!tracedata || !lastOptions){
+        alert('Generate a preview first.'); return;
+      }
+      var sil = createSilhouette(tracedata);
+      var svg = ImageTracer.getsvgstring(sil, lastOptions);
+      downloadSVGString(svg, 'solid-base-silhouette');
+      setStatus('🎭 Solid background downloaded.');
+    });
+  }
+
   setStatus('Ready for 3D printing magic! ✨');
-});
+})();

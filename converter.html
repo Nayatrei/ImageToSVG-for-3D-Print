@@ -23,14 +23,14 @@
           <span class="step-number">1</span>
           <div class="step-content">
             <strong>Import your image</strong><br>
-            <small>Tip: Simple, high-contrast graphics work best (for example, a Batman or Superman logo).</small>
+            <small>Simple logos and graphics work best (Batman, Superman logos are perfect!)</small>
           </div>
         </div>
         <div class="step">
           <span class="step-number">2</span>
           <div class="step-content">
-            <strong>Select the “📐 3D Print (Tinkercad Ready)” preset</strong><br>
-            <small>This preset is tuned for clean shapes that extrude well in Tinkercad.</small>
+            <strong>Select "3D Print" preset</strong><br>
+            <small>Pre-optimized for clean Tinkercad extrusion</small>
           </div>
         </div>
         <div class="step">
@@ -43,15 +43,15 @@
         <div class="step">
           <span class="step-number">4</span>
           <div class="step-content">
-            <strong>Download the optimized SVG layers</strong><br>
-            <small>Downloads multiple files: one per layer + a background silhouette.</small>
+            <strong>Download optimized layers</strong><br>
+            <small>Each color = separate 3D print layer</small>
           </div>
         </div>
         <div class="step">
           <span class="step-number">5</span>
           <div class="step-content">
             <strong>Import to Tinkercad</strong><br>
-            <small>In Tinkercad, click Import and choose the SVG. In the import options, set the Style to Silhouette (solid shape). Resize if needed and extrude upward to give it thickness.</small>
+            <small>Click "Import", upload SVG, set "Style" to "Silhouette", adjust size/height & extrude</small>
           </div>
         </div>
         <div class="step">
@@ -64,7 +64,7 @@
         <div class="step">
           <span class="step-number">7</span>
           <div class="step-content">
-            <strong>Export the combined model as an OBJ file</strong><br>
+            <strong>Export as OBJ</strong><br>
             <small>Select all shapes, export OBJ to preserve colors, download file</small>
           </div>
         </div>
@@ -85,7 +85,7 @@
           <img id="source-image" alt="Original Image" style="display:none;">
         </div>
 
-        <button id="import-btn">Import Image</button>
+        <label id="import-btn" for="file-input" class="btn-as-button">Import Image</label>
         <input type="file" id="file-input" accept="image/*,image/svg+xml" style="display:none;">
 
         <!-- Online image loader -->
@@ -107,12 +107,7 @@
         <table class="options-table">
           <tr>
             <td><label for="preset">Conversion Style
-              <span class="tooltip" title="Choose your conversion approach:
-
-📐 3D Print (Tinkercad Ready): Best for clean 3D printing
-🌊 Smooth Curves: Artistic, flowing shapes
-⚡ Sharp Details: Preserves crisp edges
-🧩 Standard (ImageTracer Default): Balanced baseline">?</span>
+              <span class="tooltip" title="Choose your conversion approach:\n\n📐 3D Print (Tinkercad Ready): Best for clean 3D printing\n🌊 Smooth Curves: Artistic, flowing shapes\n⚡ Sharp Details: Preserves crisp edges\n🎭 High Contrast: Bold silhouettes\n🎨 Multi-Color: Detailed color preservation\n🎯 Simple Colors: 4-color poster style">?</span>
             </label></td>
             <td>
               <select id="preset">
@@ -187,7 +182,30 @@
           </tr>
 
           <!-- Advanced controls (hidden by default) -->
-          
+          <tr id="advanced-toggle-row" style="display:none;">
+            <td colspan="2">
+              <details>
+                <summary style="cursor:pointer;font-weight:bold;color:#007bff;">🔧 Advanced Settings (For Experts)</summary>
+                <div class="advanced-settings" style="margin-top:10px;">
+                  <div class="adv-row">
+                    <label for="ltres-slider">Curve Precision</label>
+                    <input type="range" id="ltres-slider" min="0.1" max="10" value="1" step="0.1">
+                    <span id="ltres-value" class="slider-value">1.0</span>
+                  </div>
+                  <div class="adv-row">
+                    <label for="pathomit-slider">Minimum Shape Size</label>
+                    <input type="range" id="pathomit-slider" min="0" max="30" value="8" step="1">
+                    <span id="pathomit-value" class="slider-value">8</span>
+                  </div>
+                  <div class="adv-row">
+                    <label for="blur-radius">Pre-smoothing</label>
+                    <input type="range" id="blur-radius" min="0" max="3" value="0" step="0.1">
+                    <span id="blur-radius-value" class="slider-value">0.0</span>
+                  </div>
+                </div>
+              </details>
+            </td>
+          </tr>
         </table>
       </div>
 
@@ -220,14 +238,14 @@
         <!-- Main 3D print downloads -->
         <div class="download-row primary-downloads">
           <button id="download-tinkercad-btn" disabled class="tinkercad-btn">
-            🏆 Download Layers for Tinkercad (multiple files)
+            🏆 Download for Tinkercad (Auto-Optimized)
           </button>
           <!-- Download All Layers button removed -->
         </div>
 
         <!-- Secondary downloads -->
         <div class="download-row secondary-downloads">
-          <button id="download-silhouette-btn" disabled>🎭 Silhouette (Background)</button>
+          <button id="download-silhouette-btn" disabled>🎭 Silhouette (Backgroud)</button>
           <!-- Complete SVG button removed -->
         </div>
 
