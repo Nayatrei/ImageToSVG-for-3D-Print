@@ -234,6 +234,21 @@
         <!-- Dynamic color layer buttons -->
         <div id="color-buttons-row" class="color-buttons-row"></div>
       </div>
+
+      <!-- Layer Merging Section (hidden by default, appears after generation) -->
+      <div id="layer-merging-section" class="content-box" style="display:none; margin-top:20px;">
+        <h2>🧩 Layer Merging</h2>
+        <p style="font-size:14px; color:#555; margin-bottom:12px;">
+          Combine similar color layers for simpler 3D printing. Define rules to move one layer into another, then download the merged SVGs.
+        </p>
+        <div id="merge-rules-container" style="display:flex; flex-direction:column; gap:10px; margin-bottom:12px;"></div>
+        <div style="display:flex; gap:12px; flex-wrap:wrap;">
+          <button id="add-merge-rule-btn" disabled>Add Merge Rule</button>
+          <button id="combine-and-download-btn" disabled class="tinkercad-btn">
+            ♻️ Combine Layers & Download
+          </button>
+        </div>
+      </div>
     </div>
   </div>
 
