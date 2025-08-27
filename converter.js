@@ -670,9 +670,7 @@ function buildOptimizedOptions() {
     return options;
 }
 
-  }
-
-  function updateQualityDisplay(quality) {
+function updateQualityDisplay(quality) {
     if (!elements.qualityIndicator) return;
     
     elements.qualityIndicator.textContent = quality.message;
