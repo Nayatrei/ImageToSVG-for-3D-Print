@@ -116,6 +116,16 @@
             </header>
 
             <div class="flex-grow p-6 overflow-y-auto">
+                <!-- Instructions -->
+                <div class="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                    <h3 class="font-bold text-blue-800 text-md mb-2">How to Use</h3>
+                    <ol class="list-decimal list-inside text-sm text-blue-700 space-y-1">
+                        <li>Load an image using the panel below.</li>
+                        <li>Adjust sliders to refine the SVG output.</li>
+                        <li>Manage layers and download your files.</li>
+                    </ol>
+                </div>
+
                 <!-- Image Input -->
                 <div class="mb-6">
                     <h2 class="text-lg font-semibold mb-3">1. Load Image</h2>
@@ -194,26 +204,37 @@
             </div>
 
             <div id="main-content" class="hidden">
-                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                    <!-- Original Image -->
-                    <div class="card p-4">
-                        <div class="flex justify-between items-center mb-2">
-                            <h3 class="font-semibold">Original Image</h3>
-                            <div id="original-resolution" class="text-xs text-gray-400"></div>
-                        </div>
-                        <div class="aspect-square bg-gray-100 rounded-md flex items-center justify-center overflow-hidden">
-                            <img id="source-image" alt="Original" class="max-w-full max-h-full object-contain">
-                        </div>
+                 <!-- Original Image -->
+                 <div class="card p-4 mb-8">
+                    <div class="flex justify-between items-center mb-2">
+                        <h3 class="font-semibold">Original Image</h3>
+                        <div id="original-resolution" class="text-xs text-gray-400"></div>
                     </div>
+                    <div class="h-96 bg-gray-100 rounded-md flex items-center justify-center overflow-hidden">
+                        <img id="source-image" alt="Original" class="max-w-full max-h-full object-contain">
+                    </div>
+                </div>
 
-                    <!-- SVG Output -->
+                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    <!-- 3D Print Preview -->
                     <div class="card p-4">
                         <div class="flex justify-between items-center mb-2">
-                            <h3 class="font-semibold">3D Print Preview</h3>
+                            <h3 class="font-semibold">3D Print Preview (All Layers)</h3>
                             <div id="quality-indicator" class="text-xs text-gray-400"></div>
                         </div>
                         <div class="aspect-square bg-gray-100 rounded-md flex items-center justify-center overflow-hidden">
                             <object id="svg-preview" type="image/svg+xml" class="max-w-full max-h-full"></object>
+                        </div>
+                    </div>
+
+                    <!-- Selected Layer Preview -->
+                    <div class="card p-4">
+                        <div class="flex justify-between items-center mb-2">
+                            <h3 class="font-semibold">Selected Layer Preview</h3>
+                            <div id="selected-layer-text" class="text-xs text-gray-400">Click a layer below to view</div>
+                        </div>
+                        <div class="aspect-square bg-gray-100 rounded-md flex items-center justify-center overflow-hidden">
+                            <object id="svg-preview-filtered" type="image/svg+xml" class="max-w-full max-h-full"></object>
                         </div>
                     </div>
                 </div>
