@@ -21,8 +21,7 @@ document.addEventListener('DOMContentLoaded', () => {
     colorPrecisionSlider: document.getElementById('color-precision'),
     colorPrecisionValue: document.getElementById('color-precision-value'),
     colorFeedback: document.getElementById('color-feedback'),
-    removeBgCheckbox: document.getElementById('remove-bg'),
-    // Advanced controls (hidden by default)
+    removeBgCheckbox: document.getElementById('remove-bg'),// Advanced controls (hidden by default)    
     // Preview and UI
     svgPreview: document.getElementById('svg-preview'),
     svgPreviewFiltered: document.getElementById('svg-preview-filtered'),
@@ -45,7 +44,8 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Resolution displays
     originalResolution: document.getElementById('original-resolution'),
-    scaledResolution: document.getElementById('scaled-resolution'),
+    scaledResolution: document.getElementById('scaled-resolution')
+    ,
 
     // Layer merging elements
     layerMergingSection: document.getElementById('layer-merging-section'),
@@ -670,7 +670,9 @@ function buildOptimizedOptions() {
     return options;
 }
 
-function updateQualityDisplay(quality) {
+  }
+
+  function updateQualityDisplay(quality) {
     if (!elements.qualityIndicator) return;
     
     elements.qualityIndicator.textContent = quality.message;

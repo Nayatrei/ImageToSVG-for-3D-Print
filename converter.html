@@ -1,15 +1,13 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
   <title>Tinkercad SVG Creator - 3D Print Ready</title>
-  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="style.css"/>
   <script src="imagetracer_v1.2.6.js"></script>
   <script src="converter.js"></script>
 </head>
-
 <body>
   <h1 style="position:relative;">Tinkercad SVG Creator - 3D Print Ready
     <span class="donate-top-right">
@@ -53,8 +51,7 @@
           <span class="step-number">5</span>
           <div class="step-content">
             <strong>Import to Tinkercad</strong><br>
-            <small>In Tinkercad, click Import and choose the SVG. In the import options, set the Style to Silhouette
-              (solid shape). Resize if needed and extrude upward to give it thickness.</small>
+            <small>In Tinkercad, click Import and choose the SVG. In the import options, set the Style to Silhouette (solid shape). Resize if needed and extrude upward to give it thickness.</small>
           </div>
         </div>
         <div class="step">
@@ -93,8 +90,7 @@
 
         <!-- Online image loader -->
         <div class="online-loader" style="margin-top:12px; display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
-          <input type="text" id="url-input" placeholder="Paste image URL here (try a Batman logo!)"
-            style="flex:1; padding:8px; border:1px solid #ccc; border-radius:4px; min-width:200px;">
+          <input type="text" id="url-input" placeholder="Paste image URL here (try a Batman logo!)" style="flex:1; padding:8px; border:1px solid #ccc; border-radius:4px; min-width:200px;">
           <button id="load-url-btn">Load URL</button>
         </div>
 
@@ -111,13 +107,13 @@
         <table class="options-table">
           <tr>
             <td><label for="preset">Conversion Style
-                <span class="tooltip" title="Choose your conversion approach:
+              <span class="tooltip" title="Choose your conversion approach:
 
 📐 3D Print (Tinkercad Ready): Best for clean 3D printing
 🌊 Smooth Curves: Artistic, flowing shapes
 ⚡ Sharp Details: Preserves crisp edges
 🧩 Standard (ImageTracer Default): Balanced baseline">?</span>
-              </label></td>
+            </label></td>
             <td>
               <select id="preset">
                 <option value="3dprint" selected>📐 3D Print (Tinkercad Ready)</option>
@@ -128,10 +124,20 @@
             </td>
           </tr>
           <tr>
+            <td><label for="path-simplification">Path Simplification
+              <span class="tooltip" title="Removes tiny fragments and simplifies coordinates for Tinkercad. Lower keeps detail, higher removes noise.">?</span>
+            </label></td>
+            <td>
+              <input type="range" id="path-simplification" min="0" max="100" value="40" step="1">
+              <span id="path-simplification-value" class="slider-value">40%</span>
+              <small style="margin-left:8px;color:#007bff;">💡 Higher = fewer tiny pieces</small>
+            </td>
+          </tr>
+
+          <tr>
             <td><label for="corner-sharpness">Corner Sharpness
-                <span class="tooltip"
-                  title="Controls how sharply corners are preserved. Higher = sharper corners.">?</span>
-              </label></td>
+              <span class="tooltip" title="Controls how sharply corners are preserved. Higher = sharper corners.">?</span>
+            </label></td>
             <td>
               <input type="range" id="corner-sharpness" min="0" max="100" value="60" step="1">
               <span id="corner-sharpness-value" class="slider-value">60%</span>
@@ -141,9 +147,8 @@
 
           <tr>
             <td><label for="curve-straightness">Curve Straightness
-                <span class="tooltip"
-                  title="Controls how straight long curves become. Higher = straighter lines.">?</span>
-              </label></td>
+              <span class="tooltip" title="Controls how straight long curves become. Higher = straighter lines.">?</span>
+            </label></td>
             <td>
               <input type="range" id="curve-straightness" min="0" max="100" value="40" step="1">
               <span id="curve-straightness-value" class="slider-value">40%</span>
@@ -153,48 +158,39 @@
 
           <tr>
             <td><label for="color-precision">Color Precision
-                <span class="tooltip"
-                  title="Uses ImageTracer quantization options (sampling, cycles, ratio) to separate layers deterministically. Higher = more precise color separation.">?</span>
-              </label></td>
+              <span class="tooltip" title="Uses ImageTracer quantization options (sampling, cycles, ratio) to separate layers deterministically. Higher = more precise color separation.">?</span>
+            </label></td>
             <td>
               <input type="range" id="color-precision" min="0" max="100" value="50" step="1">
               <span id="color-precision-value" class="slider-value">50%</span>
               <small id="color-feedback" style="margin-left:8px;color:#28a745;">🎯 Balanced for most images</small>
             </td>
           </tr>
+
+
+          
+
+          
+
           <tr>
             <td><label for="remove-bg">Remove Background
-                <span class="tooltip"
-                  title="Automatically detect and remove the background color. Perfect for logos on white/colored backgrounds.">?</span>
-              </label></td>
+              <span class="tooltip" title="Automatically detect and remove the background color. Perfect for logos on white/colored backgrounds.">?</span>
+            </label></td>
             <td><input type="checkbox" id="remove-bg"></td>
           </tr>
 
           <tr id="palette-row" style="display:none;">
             <td><label>Layer Selection
-                <span class="tooltip"
-                  title="Choose which colors/layers to include in your final SVG. Uncheck layers you don't want to 3D print.">?</span>
-              </label></td>
+              <span class="tooltip" title="Choose which colors/layers to include in your final SVG. Uncheck layers you don't want to 3D print.">?</span>
+            </label></td>
             <td id="palette-container"></td>
           </tr>
+
+          <!-- Advanced controls (hidden by default) -->
+          
         </table>
       </div>
-      <!-- Layer Merging Section (hidden by default, appears after generation) -->
-      <div id="layer-merging-section" class="content-box" style="display:none; margin-top:20px;">
-        <h2>🧩 Layer Merging</h2>
-        <p style="font-size:14px; color:#555; margin-bottom:12px;">
-          Combine similar color layers for simpler 3D printing. Define rules to move one layer into another, then
-          download the merged SVGs.
-        </p>
-        <div id="merge-rules-container" style="display:flex; flex-direction:column; gap:10px; margin-bottom:12px;">
-        </div>
-        <div style="display:flex; gap:12px; flex-wrap:wrap;">
-          <button id="add-merge-rule-btn" disabled>Add Merge Rule</button>
-          <button id="combine-and-download-btn" disabled class="tinkercad-btn">
-            ♻️ Combine Layers & Download
-          </button>
-        </div>
-      </div>
+
       <div class="generation-section content-box">
         <button id="generate-btn" class="generate-button" disabled>
           ⚡ Generate 3D-Ready Preview
@@ -218,8 +214,7 @@
         </div>
       </div>
 
-      <div id="scaled-resolution" class="resolution-info"
-        style="margin-top:8px; font-size:14px; color:#555; text-align:center;"></div>
+      <div id="scaled-resolution" class="resolution-info" style="margin-top:8px; font-size:14px; color:#555; text-align:center;"></div>
 
       <div class="download-section">
         <!-- Main 3D print downloads -->
@@ -240,11 +235,23 @@
         <div id="color-buttons-row" class="color-buttons-row"></div>
       </div>
 
-
+      <!-- Layer Merging Section (hidden by default, appears after generation) -->
+      <div id="layer-merging-section" class="content-box" style="display:none; margin-top:20px;">
+        <h2>🧩 Layer Merging</h2>
+        <p style="font-size:14px; color:#555; margin-bottom:12px;">
+          Combine similar color layers for simpler 3D printing. Define rules to move one layer into another, then download the merged SVGs.
+        </p>
+        <div id="merge-rules-container" style="display:flex; flex-direction:column; gap:10px; margin-bottom:12px;"></div>
+        <div style="display:flex; gap:12px; flex-wrap:wrap;">
+          <button id="add-merge-rule-btn" disabled>Add Merge Rule</button>
+          <button id="combine-and-download-btn" disabled class="tinkercad-btn">
+            ♻️ Combine Layers & Download
+          </button>
+        </div>
+      </div>
     </div>
   </div>
 
 
 </body>
-
 </html>
