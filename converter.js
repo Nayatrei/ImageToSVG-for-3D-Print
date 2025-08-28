@@ -18,6 +18,7 @@ document.addEventListener('DOMContentLoaded', () => {
         urlInput: document.getElementById('url-input'),
         loadUrlBtn: document.getElementById('load-url-btn'),
         originalResolution: document.getElementById('original-resolution'),
+        resolutionNotice: document.getElementById('resolution-notice'),
         generateBtn: document.getElementById('generate-btn'),
         resetBtn: document.getElementById('reset-btn'),
         pathSimplificationSlider: document.getElementById('path-simplification'),
@@ -39,8 +40,8 @@ document.addEventListener('DOMContentLoaded', () => {
         selectedLayerText: document.getElementById('selected-layer-text'),
         paletteContainer: document.getElementById('palette-container'),
         paletteRow: document.getElementById('palette-row'),
+        outputSection: document.getElementById('output-section'),
         finalPaletteContainer: document.getElementById('final-palette-container'),
-        finalLayersHeader: document.getElementById('final-layers-header'),
         downloadTinkercadBtn: document.getElementById('download-tinkercad-btn'),
         downloadSilhouetteBtn: document.getElementById('download-silhouette-btn'),
         layerMergingSection: document.getElementById('layer-merging-section'),
@@ -60,49 +61,16 @@ document.addEventListener('DOMContentLoaded', () => {
         mergeRules: [],
         initialSliderValues: {},
         isDirty: false,
-        selectedLayerIndices: new Set()
+        selectedLayerIndices: new Set(),
+        tooltipTimeout: null
     };
 
-    // --- Dynamic Tooltip Definitions ---
-    const tooltips = {
-        pathSimplification: [
-            { threshold: 20, text: 'Preserves most details.' },
-            { threshold: 50, text: 'Removes small details.' },
-            { threshold: 80, text: 'Aggressively smooths paths.' },
-            { threshold: 101, text: 'Maximum simplification.' }
-        ],
-        cornerSharpness: [
-            { threshold: 20, text: 'Very rounded corners.' },
-            { threshold: 50, text: 'Slightly rounded corners.' },
-            { threshold: 80, text: 'Preserves sharp corners.' },
-            { threshold: 101, text: 'Maximum corner sharpness.' }
-        ],
-        curveStraightness: [
-            { threshold: 20, text: 'Follows original curves closely.' },
-            { threshold: 50, text: 'Moderate curve straightening.' },
-            { threshold: 80, text: 'Strongly straightens curves.' },
-            { threshold: 101, text: 'Maximum straightness.' }
-        ],
-        colorPrecision: [
-            { threshold: 20, text: 'Low color accuracy (fewer layers).' },
-            { threshold: 50, text: 'Balanced color separation.' },
-            { threshold: 80, text: 'High color accuracy.' },
-            { threshold: 101, text: 'Maximum color fidelity (more layers).' }
-        ]
+    const SLIDER_TOOLTIPS = {
+        'path-simplification': 'Higher values remove more small details and noise.',
+        'corner-sharpness': 'Higher values create crisper, more defined corners.',
+        'curve-straightness': 'Higher values make curved lines more straight.',
+        'color-precision': 'Higher values find more distinct color layers.'
     };
-
-    function updateTooltip(sliderName, value) {
-        const tooltipData = tooltips[sliderName];
-        const tooltipElement = elements[`${sliderName}Tooltip`];
-        if (tooltipData && tooltipElement) {
-            for (const item of tooltipData) {
-                if (value < item.threshold) {
-                    tooltipElement.textContent = item.text;
-                    break;
-                }
-            }
-        }
-    }
 
     // --- Core Functions ---
 
@@ -147,16 +115,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function updateAllSliderDisplays() {
-        const sliders = ['pathSimplification', 'cornerSharpness', 'curveStraightness', 'colorPrecision'];
-        sliders.forEach(sliderName => {
-            const slider = elements[`${sliderName}Slider`];
-            const valueEl = elements[`${sliderName}Value`];
-            if (slider && valueEl) {
-                const value = slider.value;
-                valueEl.textContent = value;
-                updateTooltip(sliderName, value);
-            }
-        });
+        elements.pathSimplificationValue.textContent = elements.pathSimplificationSlider.value;
+        elements.cornerSharpnessValue.textContent = elements.cornerSharpnessSlider.value;
+        elements.curveStraightnessValue.textContent = elements.curveStraightnessSlider.value;
+        elements.colorPrecisionValue.textContent = elements.colorPrecisionSlider.value;
     }
     
     const debounce = (fn, ms = 250) => {
@@ -221,6 +183,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 updateQualityDisplay(quality);
                 
                 elements.statusText.textContent = `✅ Preview generated!`;
+                elements.outputSection.style.display = 'block';
                 enableDownloadButtons();
 
             } catch (error) {
@@ -326,16 +289,37 @@ document.addEventListener('DOMContentLoaded', () => {
     elements.generateBtn.addEventListener('click', generateSVGOptimized);
     elements.resetBtn.addEventListener('click', resetSlidersToInitial);
 
-    document.querySelectorAll('.control-panel input[type="range"], .control-panel input[type="checkbox"]').forEach(input => {
-        input.addEventListener('input', () => {
+    document.querySelectorAll('.control-panel input[type="range"]').forEach(slider => {
+        slider.addEventListener('input', (e) => {
             if (!state.isDirty) {
                 state.isDirty = true;
                 elements.resetBtn.style.display = 'inline';
             }
             updateAllSliderDisplays();
+            
+            const tooltipId = e.target.id + '-tooltip';
+            const tooltipEl = document.getElementById(tooltipId);
+            if (tooltipEl) {
+                tooltipEl.textContent = SLIDER_TOOLTIPS[e.target.id];
+                tooltipEl.style.opacity = '1';
+                clearTimeout(state.tooltipTimeout);
+                state.tooltipTimeout = setTimeout(() => {
+                    tooltipEl.style.opacity = '0';
+                }, 2000);
+            }
+
             debounceGenerate();
         });
     });
+    
+    elements.removeBgCheckbox.addEventListener('input', () => {
+        if (!state.isDirty) {
+            state.isDirty = true;
+            elements.resetBtn.style.display = 'inline';
+        }
+        debounceGenerate();
+    });
+
 
     // --- Image Loading ---
 
@@ -386,6 +370,13 @@ document.addEventListener('DOMContentLoaded', () => {
         const w = elements.sourceImage.naturalWidth;
         const h = elements.sourceImage.naturalHeight;
         elements.originalResolution.textContent = `${w}×${h} px`;
+        
+        if (w < 512 || h < 512) {
+            elements.resolutionNotice.textContent = '⚠️ Low resolution detected. For best results, use images larger than 512x512 pixels.';
+            elements.resolutionNotice.style.display = 'block';
+        } else {
+            elements.resolutionNotice.style.display = 'none';
+        }
         
         const hasTransparency = detectTransparency(elements.sourceImage);
         elements.removeBgCheckbox.disabled = hasTransparency;
@@ -772,7 +763,5 @@ document.addEventListener('DOMContentLoaded', () => {
             elements.finalLayersHeader.style.display = 'none';
         }
     }
-    
-    // Initialize tooltips on load
-    updateAllSliderDisplays();
+
 });
