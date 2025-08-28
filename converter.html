@@ -1,250 +1,246 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Tinkercad SVG Creator - 3D Print Ready</title>
-  <link rel="stylesheet" href="style.css" />
-  <script src="imagetracer_v1.2.6.js"></script>
-  <script src="converter.js"></script>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SVG Creator - Genesis Framework</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="imagetracer_v1.2.6.js"></script>
+    <script src="converter.js"></script>
+    <style>
+        :root {
+            --bg-main: #f0f2f5;
+            --bg-panel: #ffffff;
+            --bg-panel-secondary: #f7f8fa;
+            --text-primary: #1a202c;
+            --text-secondary: #4a5568;
+            --brand-primary: #2563eb;
+            --brand-primary-hover: #1d4ed8;
+            --brand-secondary: #f59e0b;
+            --brand-secondary-hover: #d97706;
+            --border-color: #e2e8f0;
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-main);
+            color: var(--text-primary);
+        }
+        .control-panel {
+            background-color: var(--bg-panel);
+            border-right: 1px solid var(--border-color);
+        }
+        .workspace {
+            background-color: var(--bg-main);
+        }
+        .card {
+            background-color: var(--bg-panel);
+            border-radius: 0.75rem;
+            border: 1px solid var(--border-color);
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+        }
+        .btn-primary {
+            background-color: var(--brand-primary);
+            color: white;
+            transition: background-color 0.2s;
+        }
+        .btn-primary:hover:not(:disabled) {
+            background-color: var(--brand-primary-hover);
+        }
+        .btn-secondary {
+            background-color: var(--bg-panel-secondary);
+            color: var(--text-secondary);
+            border: 1px solid var(--border-color);
+            transition: background-color 0.2s, border-color 0.2s;
+        }
+        .btn-secondary:hover:not(:disabled) {
+            background-color: #e2e8f0;
+            border-color: #cbd5e1;
+        }
+        input[type="range"] {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 100%;
+            height: 4px;
+            background: #d1d5db;
+            border-radius: 2px;
+            outline: none;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 16px;
+            height: 16px;
+            background: var(--brand-primary);
+            cursor: pointer;
+            border-radius: 50%;
+        }
+        input[type="range"]::-moz-range-thumb {
+            width: 16px;
+            height: 16px;
+            background: var(--brand-primary);
+            cursor: pointer;
+            border-radius: 50%;
+            border: none;
+        }
+        #loader-overlay {
+            background-color: rgba(240, 242, 245, 0.8);
+            backdrop-filter: blur(4px);
+            z-index: 9999;
+        }
+        .spinner {
+            border-color: var(--border-color);
+            border-top-color: var(--brand-primary);
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
 </head>
+<body class="h-screen w-screen overflow-hidden antialiased">
 
-<body>
-  <h1 style="position:relative;">Tinkercad SVG Creator - 3D Print Ready
-    <span class="donate-top-right">
-      <a href="https://buymeacoffee.com/genesisframeworks" target="_blank" id="donate-link">☕ Buy me a coffee</a>
-    </span>
-  </h1>
-
-  <div class="content-wrapper">
-    <div class="quick-start-column">
-      <h3>🚀 Quick Start for 3D Printing & Tinkercad</h3>
-      <div class="guide-steps">
-        <div class="step">
-          <span class="step-number">1</span>
-          <div class="step-content">
-            <strong>Import your image</strong><br>
-            <small>Tip: Simple, high-contrast graphics work best (for example, a Batman or Superman logo).</small>
-          </div>
-        </div>
-        <div class="step">
-          <span class="step-number">2</span>
-          <div class="step-content">
-            <strong>Select the “📐 3D Print (Tinkercad Ready)” preset</strong><br>
-            <small>This preset is tuned for clean shapes that extrude well in Tinkercad.</small>
-          </div>
-        </div>
-        <div class="step">
-          <span class="step-number">3</span>
-          <div class="step-content">
-            <strong>Adjust "Simplification Level"</strong><br>
-            <small>Higher = cleaner shapes for 3D printing</small>
-          </div>
-        </div>
-        <div class="step">
-          <span class="step-number">4</span>
-          <div class="step-content">
-            <strong>Download the optimized SVG layers</strong><br>
-            <small>Downloads multiple files: one per layer + a background silhouette.</small>
-          </div>
-        </div>
-        <div class="step">
-          <span class="step-number">5</span>
-          <div class="step-content">
-            <strong>Import to Tinkercad</strong><br>
-            <small>In Tinkercad, click Import and choose the SVG. In the import options, set the Style to Silhouette
-              (solid shape). Resize if needed and extrude upward to give it thickness.</small>
-          </div>
-        </div>
-        <div class="step">
-          <span class="step-number">6</span>
-          <div class="step-content">
-            <strong>Add More Layers</strong><br>
-            <small>Import additional SVGs, group & adjust heights, align for multi-color</small>
-          </div>
-        </div>
-        <div class="step">
-          <span class="step-number">7</span>
-          <div class="step-content">
-            <strong>Export the combined model as an OBJ file</strong><br>
-            <small>Select all shapes, export OBJ to preserve colors, download file</small>
-          </div>
-        </div>
-        <div class="step">
-          <span class="step-number">8</span>
-          <div class="step-content">
-            <strong>Import to Slicer & Assign Colors</strong><br>
-            <small>Open slicer (e.g., Bambu Studio), import OBJ, paint/refine colors for printing</small>
-          </div>
-        </div>
-      </div>
+    <div id="loader-overlay" class="fixed inset-0 flex flex-col items-center justify-center hidden">
+        <div class="spinner h-16 w-16 rounded-full border-4"></div>
+        <p class="mt-4 text-lg font-semibold text-gray-700">Processing Image...</p>
     </div>
 
-    <div class="main-content-column">
-      <div class="image-section content-box" style="margin-bottom: 20px;">
-        <h2>Original Image</h2>
-        <div class="image-container">
-          <img id="source-image" alt="Original Image" style="display:none;">
-        </div>
+    <div class="flex h-full">
+        <!-- Control Panel -->
+        <aside class="control-panel w-[26rem] h-full flex flex-col flex-shrink-0">
+            <header class="p-6 border-b border-gray-200">
+                <h1 class="text-2xl font-bold text-gray-800">Genesis Framework</h1>
+                <p class="text-sm text-gray-500">Image to SVG Creator</p>
+            </header>
 
-        <button id="import-btn">Import Image</button>
-        <input type="file" id="file-input" accept="image/*,image/svg+xml" style="display:none;">
+            <div class="flex-grow p-6 overflow-y-auto">
+                <!-- Image Input -->
+                <div class="mb-6">
+                    <h2 class="text-lg font-semibold mb-3">1. Load Image</h2>
+                    <div class="p-4 bg-gray-50 rounded-lg border border-dashed border-gray-300 text-center">
+                        <button id="import-btn" class="w-full btn-primary font-semibold py-2 px-4 rounded-md mb-2">
+                            Import From Device
+                        </button>
+                        <input type="file" id="file-input" accept="image/*" class="hidden">
+                        <p class="text-xs text-gray-400 my-2">OR</p>
+                        <div class="flex">
+                            <input type="text" id="url-input" placeholder="Paste image URL" class="flex-grow text-sm p-2 border border-gray-300 rounded-l-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none">
+                            <button id="load-url-btn" class="bg-gray-200 text-gray-600 font-semibold px-3 rounded-r-md border border-l-0 border-gray-300 hover:bg-gray-300">Load</button>
+                        </div>
+                    </div>
+                </div>
 
-        <!-- Online image loader -->
-        <div class="online-loader" style="margin-top:12px; display:flex; gap:8px; flex-wrap:wrap; align-items:center;">
-          <input type="text" id="url-input" placeholder="Paste image URL here (try a Batman logo!)"
-            style="flex:1; padding:8px; border:1px solid #ccc; border-radius:4px; min-width:200px;">
-          <button id="load-url-btn">Load URL</button>
-        </div>
+                <!-- Controls -->
+                <div>
+                    <div class="flex justify-between items-center mb-3">
+                        <h2 class="text-lg font-semibold">2. Adjust Conversion</h2>
+                        <button id="reset-btn" class="hidden text-xs font-semibold text-blue-600 hover:text-blue-800">Reset to Initial</button>
+                    </div>
+                    <div class="space-y-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
+                        <div>
+                            <label for="path-simplification" class="text-sm font-medium">Path Simplification</label>
+                            <div class="flex items-center space-x-2">
+                                <input type="range" id="path-simplification" min="0" max="100" value="40" step="1">
+                                <span id="path-simplification-value" class="text-sm font-mono bg-white border rounded-md px-2 py-0.5 w-12 text-center">40</span>
+                            </div>
+                        </div>
+                        <div>
+                            <label for="corner-sharpness" class="text-sm font-medium">Corner Sharpness</label>
+                            <div class="flex items-center space-x-2">
+                                <input type="range" id="corner-sharpness" min="0" max="100" value="60" step="1">
+                                <span id="corner-sharpness-value" class="text-sm font-mono bg-white border rounded-md px-2 py-0.5 w-12 text-center">60</span>
+                            </div>
+                        </div>
+                        <div>
+                            <label for="curve-straightness" class="text-sm font-medium">Curve Straightness</label>
+                            <div class="flex items-center space-x-2">
+                                <input type="range" id="curve-straightness" min="0" max="100" value="40" step="1">
+                                <span id="curve-straightness-value" class="text-sm font-mono bg-white border rounded-md px-2 py-0.5 w-12 text-center">40</span>
+                            </div>
+                        </div>
+                        <div>
+                            <label for="color-precision" class="text-sm font-medium">Color Precision</label>
+                            <div class="flex items-center space-x-2">
+                                <input type="range" id="color-precision" min="0" max="100" value="75" step="1">
+                                <span id="color-precision-value" class="text-sm font-mono bg-white border rounded-md px-2 py-0.5 w-12 text-center">75</span>
+                            </div>
+                        </div>
+                        <div class="pt-2">
+                             <label class="flex items-center space-x-2 cursor-pointer">
+                                <input type="checkbox" id="remove-bg" class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500">
+                                <span class="text-sm font-medium">Remove Background</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
-        <div id="status-container">
-          <div id="status-text">Ready for 3D printing magic! ✨</div>
-        </div>
+            <footer class="p-6 border-t border-gray-200">
+                <button id="generate-btn" class="w-full btn-primary font-bold py-3 px-4 rounded-lg text-lg disabled:bg-gray-300 disabled:cursor-not-allowed" disabled>
+                    Generate SVG
+                </button>
+            </footer>
+        </aside>
 
-        <div id="original-resolution" class="resolution-info" style="margin-top:8px; font-size:14px; color:#555;"></div>
-      </div>
+        <!-- Workspace -->
+        <main class="workspace flex-grow h-full p-8 overflow-y-auto">
+            <div id="welcome-screen" class="h-full flex flex-col items-center justify-center text-center">
+                <svg class="w-24 h-24 text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                <h2 class="text-2xl font-bold text-gray-600">Your Workspace</h2>
+                <p class="text-gray-500 mt-2">Import an image to begin the conversion process.</p>
+                 <div id="status-text" class="mt-4 text-sm font-medium text-gray-500"></div>
+            </div>
 
-      <div class="controls-section content-box" style="margin-bottom: 20px;">
-        <h2>3D Print Optimization</h2>
+            <div id="main-content" class="hidden">
+                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    <!-- Original Image -->
+                    <div class="card p-4">
+                        <div class="flex justify-between items-center mb-2">
+                            <h3 class="font-semibold">Original Image</h3>
+                            <div id="original-resolution" class="text-xs text-gray-400"></div>
+                        </div>
+                        <div class="aspect-square bg-gray-100 rounded-md flex items-center justify-center overflow-hidden">
+                            <img id="source-image" alt="Original" class="max-w-full max-h-full object-contain">
+                        </div>
+                    </div>
 
-        <table class="options-table">
-          <tr>
-            <td><label for="preset">Conversion Style
-                <span class="tooltip" title="Choose your conversion approach:
+                    <!-- SVG Output -->
+                    <div class="card p-4">
+                        <div class="flex justify-between items-center mb-2">
+                            <h3 class="font-semibold">3D Print Preview</h3>
+                            <div id="quality-indicator" class="text-xs text-gray-400"></div>
+                        </div>
+                        <div class="aspect-square bg-gray-100 rounded-md flex items-center justify-center overflow-hidden">
+                            <object id="svg-preview" type="image/svg+xml" class="max-w-full max-h-full"></object>
+                        </div>
+                    </div>
+                </div>
 
-📐 3D Print (Tinkercad Ready): Best for clean 3D printing
-🌊 Smooth Curves: Artistic, flowing shapes
-⚡ Sharp Details: Preserves crisp edges
-🧩 Standard (ImageTracer Default): Balanced baseline">?</span>
-              </label></td>
-            <td>
-              <select id="preset">
-                <option value="3dprint" selected>📐 3D Print (Tinkercad Ready)</option>
-                <option value="curvy">🌊 Smooth Curves</option>
-                <option value="sharp">⚡ Sharp Details</option>
-                <option value="default">⚙️ Standard (ImageTracer Default)</option>
-              </select>
-            </td>
-          </tr>
-          <tr>
-            <td><label for="corner-sharpness">Corner Sharpness
-                <span class="tooltip"
-                  title="Controls how sharply corners are preserved. Higher = sharper corners.">?</span>
-              </label></td>
-            <td>
-              <input type="range" id="corner-sharpness" min="0" max="100" value="60" step="1">
-              <span id="corner-sharpness-value" class="slider-value">60%</span>
-              <small style="margin-left:8px;color:#007bff;">💡 Higher = crisper corners</small>
-            </td>
-          </tr>
+                <!-- Layer Management -->
+                <div class="card mt-8 p-6">
+                     <h3 class="text-lg font-semibold mb-4">3. Manage & Download Layers</h3>
+                     <div id="palette-row" class="mb-4" style="display:none;">
+                        <h4 class="font-semibold text-sm mb-2 text-gray-600">Visible Layers (Click to select for preview)</h4>
+                        <div id="palette-container" class="flex flex-wrap gap-2"></div>
+                     </div>
+                     
+                     <div id="layer-merging-section" style="display:none;">
+                         <h4 class="font-semibold text-sm mb-2 text-gray-600">Layer Merging</h4>
+                         <div id="merge-rules-container" class="space-y-2 mb-3"></div>
+                         <button id="add-merge-rule-btn" class="btn-secondary text-xs font-semibold py-1 px-3 rounded-md" disabled>+ Add Merge Rule</button>
+                     </div>
 
-          <tr>
-            <td><label for="curve-straightness">Curve Straightness
-                <span class="tooltip"
-                  title="Controls how straight long curves become. Higher = straighter lines.">?</span>
-              </label></td>
-            <td>
-              <input type="range" id="curve-straightness" min="0" max="100" value="40" step="1">
-              <span id="curve-straightness-value" class="slider-value">40%</span>
-              <small style="margin-left:8px;color:#007bff;">💡 Higher = straighter outlines</small>
-            </td>
-          </tr>
-
-          <tr>
-            <td><label for="color-precision">Color Precision
-                <span class="tooltip"
-                  title="Uses ImageTracer quantization options (sampling, cycles, ratio) to separate layers deterministically. Higher = more precise color separation.">?</span>
-              </label></td>
-            <td>
-              <input type="range" id="color-precision" min="0" max="100" value="50" step="1">
-              <span id="color-precision-value" class="slider-value">50%</span>
-              <small id="color-feedback" style="margin-left:8px;color:#28a745;">🎯 Balanced for most images</small>
-            </td>
-          </tr>
-          <tr>
-            <td><label for="remove-bg">Remove Background
-                <span class="tooltip"
-                  title="Automatically detect and remove the background color. Perfect for logos on white/colored backgrounds.">?</span>
-              </label></td>
-            <td><input type="checkbox" id="remove-bg"></td>
-          </tr>
-
-          <tr id="palette-row" style="display:none;">
-            <td><label>Layer Selection
-                <span class="tooltip"
-                  title="Choose which colors/layers to include in your final SVG. Uncheck layers you don't want to 3D print.">?</span>
-              </label></td>
-            <td id="palette-container"></td>
-          </tr>
-        </table>
-      </div>
-      <!-- Layer Merging Section (hidden by default, appears after generation) -->
-      <div id="layer-merging-section" class="content-box" style="display:none; margin-top:20px;">
-        <h2>🧩 Layer Merging</h2>
-        <p style="font-size:14px; color:#555; margin-bottom:12px;">
-          Combine similar color layers for simpler 3D printing. Define rules to move one layer into another, then
-          download the merged SVGs.
-        </p>
-        <div id="merge-rules-container" style="display:flex; flex-direction:column; gap:10px; margin-bottom:12px;">
-        </div>
-        <div style="display:flex; gap:12px; flex-wrap:wrap;">
-          <button id="add-merge-rule-btn" disabled>Add Merge Rule</button>
-          <button id="combine-and-download-btn" disabled class="tinkercad-btn">
-            ♻️ Combine Layers & Download
-          </button>
-        </div>
-      </div>
-      <div class="generation-section content-box">
-        <button id="generate-btn" class="generate-button" disabled>
-          ⚡ Generate 3D-Ready Preview
-        </button>
-      </div>
-
-      <div class="preview-grid">
-        <div class="preview-column">
-          <h2>📐 3D Print Preview</h2>
-          <div class="image-container preview-container">
-            <object id="svg-preview" type="image/svg+xml"></object>
-          </div>
-          <div id="quality-indicator" class="quality-indicator"></div>
-        </div>
-
-        <div class="preview-column">
-          <h2>🎯 Selected Layers Only</h2>
-          <div class="image-container preview-container">
-            <object id="svg-preview-filtered" type="image/svg+xml"></object>
-          </div>
-        </div>
-      </div>
-
-      <div id="scaled-resolution" class="resolution-info"
-        style="margin-top:8px; font-size:14px; color:#555; text-align:center;"></div>
-
-      <div class="download-section">
-        <!-- Main 3D print downloads -->
-        <div class="download-row primary-downloads">
-          <button id="download-tinkercad-btn" disabled class="tinkercad-btn">
-            🏆 Download Layers for Tinkercad (multiple files)
-          </button>
-          <!-- Download All Layers button removed -->
-        </div>
-
-        <!-- Secondary downloads -->
-        <div class="download-row secondary-downloads">
-          <button id="download-silhouette-btn" disabled>🎭 Silhouette (Background)</button>
-          <!-- Complete SVG button removed -->
-        </div>
-
-        <!-- Dynamic color layer buttons -->
-        <div id="color-buttons-row" class="color-buttons-row"></div>
-      </div>
-
-
+                     <div class="mt-6 pt-6 border-t border-gray-200 flex flex-wrap gap-4">
+                         <button id="download-tinkercad-btn" class="btn-primary font-semibold py-2 px-5 rounded-md disabled:bg-gray-300 disabled:cursor-not-allowed" disabled>Download All Layers</button>
+                         <button id="download-silhouette-btn" class="btn-secondary font-semibold py-2 px-5 rounded-md disabled:bg-gray-300 disabled:cursor-not-allowed" disabled>Download Background</button>
+                         <button id="combine-and-download-btn" class="bg-green-600 text-white font-semibold py-2 px-5 rounded-md hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed" disabled>Download Merged</button>
+                     </div>
+                </div>
+            </div>
+        </main>
     </div>
-  </div>
-
 
 </body>
-
 </html>

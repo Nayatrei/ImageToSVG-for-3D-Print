@@ -1,13 +1,13 @@
 {
   "manifest_version": 3,
-  "name": "Image to SVG Converter - 3D Print Ready",
-  "version": "2.0.0",
+  "name": "Genesis Framework - SVG Creator",
+  "version": "3.0.0",
   "description": "Convert images to SVG with 3D printing optimization. Perfect for Tinkercad and multi-color FDM printing.",
-"permissions": ["contextMenus", "storage"],
+  "permissions": ["contextMenus", "storage"],
   "host_permissions": ["<all_urls>"],
   "background": { "service_worker": "background.js" },
   "action": {
-    "default_title": "Open Image → SVG Converter (3D Print Ready)"
+    "default_title": "Open SVG Creator"
   },
   "icons": {
     "48": "icon48.png"

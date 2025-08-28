@@ -6,7 +6,7 @@ const MENU_ID = 'convert_to_svg';
 chrome.runtime.onInstalled.addListener(() => {
     chrome.contextMenus.create({
         id: MENU_ID,
-        title: 'Convert image to SVG for 3D printing...',
+        title: 'Convert image to SVG with Genesis Framework...',
         contexts: ['image']
     });
 });
@@ -33,14 +33,7 @@ chrome.runtime.onConnect.addListener((port) => {
         port.onMessage.addListener(async (request) => {
             if (request.type === 'fetchImage' && request.url) {
                 try {
-                    // Provide custom headers to improve compatibility with some image hosts
-                    const response = await fetch(request.url, {
-                        // Some hosts require a referer or user-agent; these headers can help bypass 403s
-                        headers: {
-                            'User-Agent': 'Mozilla/5.0',
-                            'Referer': 'https://seeklogo.com/'
-                        }
-                    });
+                    const response = await fetch(request.url);
                     if (!response.ok) {
                         throw new Error(`Network error: ${response.status} ${response.statusText}`);
                     }
