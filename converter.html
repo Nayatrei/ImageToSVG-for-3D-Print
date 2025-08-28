@@ -1,316 +1,279 @@
 <!DOCTYPE html>
 <html lang="en" class="dark">
-
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>SVG Creator - Genesis Framework</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-  <script src="imagetracer_v1.2.6.js"></script>
-  <script src="converter.js"></script>
-  <style>
-    :root {
-      --bg-main: #111827;
-      --bg-panel: #1f2937;
-      --bg-panel-secondary: #374151;
-      --text-primary: #f9fafb;
-      --text-secondary: #d1d5db;
-      --brand-primary: #3b82f6;
-      --brand-primary-hover: #2563eb;
-      --border-color: #4b5563;
-    }
-
-    body {
-      font-family: 'Inter', sans-serif;
-      background-color: var(--bg-main);
-      color: var(--text-primary);
-    }
-
-    .control-panel {
-      background-color: var(--bg-panel);
-      border-right: 1px solid var(--border-color);
-    }
-
-    .workspace {
-      background-color: var(--bg-main);
-    }
-
-    .card {
-      background-color: var(--bg-panel);
-      border-radius: 0.75rem;
-      border: 1px solid var(--border-color);
-    }
-
-    .btn-primary {
-      background-color: var(--brand-primary);
-      color: white;
-      transition: background-color 0.2s;
-    }
-
-    .btn-primary:hover:not(:disabled) {
-      background-color: var(--brand-primary-hover);
-    }
-
-    .btn-secondary {
-      background-color: var(--bg-panel-secondary);
-      color: var(--text-secondary);
-      border: 1px solid var(--border-color);
-      transition: background-color 0.2s, border-color 0.2s;
-    }
-
-    .btn-secondary:hover:not(:disabled) {
-      background-color: #4b5563;
-      border-color: #6b7280;
-    }
-
-    input[type="range"] {
-      -webkit-appearance: none;
-      appearance: none;
-      width: 100%;
-      height: 4px;
-      background: #4b5563;
-      border-radius: 2px;
-      outline: none;
-    }
-
-    input[type="range"]::-webkit-slider-thumb {
-      -webkit-appearance: none;
-      appearance: none;
-      width: 16px;
-      height: 16px;
-      background: var(--brand-primary);
-      cursor: pointer;
-      border-radius: 50%;
-    }
-
-    input[type="range"]::-moz-range-thumb {
-      width: 16px;
-      height: 16px;
-      background: var(--brand-primary);
-      cursor: pointer;
-      border-radius: 50%;
-      border: none;
-    }
-
-    #loader-overlay {
-      background-color: rgba(17, 24, 39, 0.8);
-      backdrop-filter: blur(4px);
-      z-index: 9999;
-    }
-
-    .spinner {
-      border-color: var(--border-color);
-      border-top-color: var(--brand-primary);
-      animation: spin 1s linear infinite;
-    }
-
-    @keyframes spin {
-      to {
-        transform: rotate(360deg);
-      }
-    }
-
-    .bg-grid {
-      background-image: linear-gradient(var(--border-color) 1px, transparent 1px), linear-gradient(to right, var(--border-color) 1px, transparent 1px);
-      background-size: 20px 20px;
-    }
-
-    .slider-tooltip {
-      transition: opacity 0.3s ease-in-out;
-    }
-  </style>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SVG Creator - Genesis Framework</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="imagetracer_v1.2.6.js"></script>
+    <script src="converter.js"></script>
+    <style>
+        :root {
+            --bg-main: #111827;
+            --bg-panel: #1f2937;
+            --bg-panel-secondary: #374151;
+            --text-primary: #f9fafb;
+            --text-secondary: #d1d5db;
+            --brand-primary: #3b82f6;
+            --brand-primary-hover: #2563eb;
+            --border-color: #4b5563;
+        }
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-main);
+            color: var(--text-primary);
+        }
+        .control-panel {
+            background-color: var(--bg-panel);
+            border-right: 1px solid var(--border-color);
+        }
+        .workspace {
+            background-color: var(--bg-main);
+        }
+        .card {
+            background-color: var(--bg-panel);
+            border-radius: 0.75rem;
+            border: 1px solid var(--border-color);
+        }
+        .btn-primary {
+            background-color: var(--brand-primary);
+            color: white;
+            transition: background-color 0.2s;
+        }
+        .btn-primary:hover:not(:disabled) {
+            background-color: var(--brand-primary-hover);
+        }
+        .btn-secondary {
+            background-color: var(--bg-panel-secondary);
+            color: var(--text-secondary);
+            border: 1px solid var(--border-color);
+            transition: background-color 0.2s, border-color 0.2s;
+        }
+        .btn-secondary:hover:not(:disabled) {
+            background-color: #4b5563;
+            border-color: #6b7280;
+        }
+        input[type="range"] {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 100%;
+            height: 4px;
+            background: #4b5563;
+            border-radius: 2px;
+            outline: none;
+        }
+        input[type="range"]:disabled {
+            opacity: 0.5;
+        }
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 16px;
+            height: 16px;
+            background: var(--brand-primary);
+            cursor: pointer;
+            border-radius: 50%;
+        }
+        input[type="range"]::-moz-range-thumb {
+            width: 16px;
+            height: 16px;
+            background: var(--brand-primary);
+            cursor: pointer;
+            border-radius: 50%;
+            border: none;
+        }
+        #loader-overlay {
+            background-color: rgba(17, 24, 39, 0.8);
+            backdrop-filter: blur(4px);
+            z-index: 9999;
+        }
+        .spinner {
+            border-color: var(--border-color);
+            border-top-color: var(--brand-primary);
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        .bg-grid {
+            background-image: linear-gradient(var(--border-color) 1px, transparent 1px), linear-gradient(to right, var(--border-color) 1px, transparent 1px);
+            background-size: 20px 20px;
+        }
+        .slider-tooltip {
+            transition: opacity 0.3s ease-in-out;
+        }
+    </style>
 </head>
-
 <body class="h-screen w-screen overflow-hidden antialiased">
 
-  <div id="loader-overlay" class="fixed inset-0 flex flex-col items-center justify-center hidden">
-    <div class="spinner h-16 w-16 rounded-full border-4"></div>
-    <p class="mt-4 text-lg font-semibold text-gray-300">Processing Image...</p>
-  </div>
+    <div id="loader-overlay" class="fixed inset-0 flex flex-col items-center justify-center hidden">
+        <div class="spinner h-16 w-16 rounded-full border-4"></div>
+        <p class="mt-4 text-lg font-semibold text-gray-300">Processing Image...</p>
+    </div>
 
-  <div class="flex h-full">
-    <!-- Control Panel -->
-    <aside class="control-panel w-[26rem] h-full flex flex-col flex-shrink-0">
-      <header class="p-6 border-b border-gray-700">
-        <h1 class="text-2xl font-bold text-gray-100">Genesis Framework</h1>
-        <p class="text-sm text-gray-400">Image to SVG Creator</p>
-      </header>
+    <div class="flex h-full">
+        <!-- Control Panel -->
+        <aside class="control-panel w-[26rem] h-full flex flex-col flex-shrink-0">
+            <header class="p-6 border-b border-gray-700">
+                <h1 class="text-2xl font-bold text-gray-100">Genesis Framework</h1>
+                <p class="text-sm text-gray-400">Image to SVG Creator</p>
+            </header>
 
-      <div class="flex-grow p-6 overflow-y-auto">
-        <div class="mb-6">
-          <h2 class="text-lg font-semibold mb-3 text-gray-200">1. Load Image</h2>
-          <div class="p-4 bg-gray-800 rounded-lg border border-dashed border-gray-600 text-center">
-            <button id="import-btn" class="w-full btn-primary font-semibold py-2 px-4 rounded-md mb-2">
-              Import From Device
-            </button>
-            <input type="file" id="file-input" accept="image/*" class="hidden">
-            <p class="text-xs text-gray-500 my-2">OR</p>
-            <div class="flex">
-              <input type="text" id="url-input" placeholder="Paste image URL"
-                class="flex-grow text-sm p-2 border bg-gray-900 border-gray-600 rounded-l-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-white">
-              <button id="load-url-btn"
-                class="bg-gray-600 text-gray-200 font-semibold px-3 rounded-r-md border border-l-0 border-gray-600 hover:bg-gray-500">Load</button>
-            </div>
-            <div id="resolution-notice" class="text-xs text-amber-400 mt-3 text-left hidden"></div>
-          </div>
-        </div>
+            <div class="flex-grow p-6 overflow-y-auto">
+                <div class="mb-6">
+                    <h2 class="text-lg font-semibold mb-3 text-gray-200">1. Load Image</h2>
+                    <div class="p-4 bg-gray-800 rounded-lg border border-dashed border-gray-600 text-center">
+                        <button id="import-btn" class="w-full btn-primary font-semibold py-2 px-4 rounded-md mb-2">
+                            Import From Device
+                        </button>
+                        <input type="file" id="file-input" accept="image/*" class="hidden">
+                        <p class="text-xs text-gray-500 my-2">OR</p>
+                        <div class="flex">
+                            <input type="text" id="url-input" placeholder="Paste image URL" class="flex-grow text-sm p-2 border bg-gray-900 border-gray-600 rounded-l-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-white">
+                            <button id="load-url-btn" class="bg-gray-600 text-gray-200 font-semibold px-3 rounded-r-md border border-l-0 border-gray-600 hover:bg-gray-500">Load</button>
+                        </div>
+                        <div id="resolution-notice" class="text-xs text-amber-400 mt-3 text-left hidden"></div>
+                    </div>
+                </div>
 
-        <div>
-          <div class="flex justify-between items-center mb-3">
-            <h2 class="text-lg font-semibold text-gray-200">2. Adjust Conversion</h2>
-            <button id="reset-btn" class="hidden text-xs font-semibold text-blue-400 hover:text-blue-300">Reset to
-              Initial</button>
-          </div>
-          <div class="space-y-4 p-4 bg-gray-800 rounded-lg border border-gray-700">
-            <div>
-              <label for="path-simplification" class="text-sm font-medium text-gray-300">Path Simplification</label>
-              <div class="flex items-center space-x-2">
-                <input type="range" id="path-simplification" min="0" max="100" value="40" step="1">
-                <span id="path-simplification-value"
-                  class="text-sm font-mono bg-gray-700 border border-gray-600 rounded-md px-2 py-0.5 w-12 text-center text-gray-200">40</span>
-              </div>
-              <p id="path-simplification-tooltip" class="slider-tooltip text-xs text-gray-400 mt-1 h-4 opacity-0"></p>
-            </div>
-            <div>
-              <label for="corner-sharpness" class="text-sm font-medium text-gray-300">Corner Sharpness</label>
-              <div class="flex items-center space-x-2">
-                <input type="range" id="corner-sharpness" min="0" max="100" value="60" step="1">
-                <span id="corner-sharpness-value"
-                  class="text-sm font-mono bg-gray-700 border border-gray-600 rounded-md px-2 py-0.5 w-12 text-center text-gray-200">60</span>
-              </div>
-              <p id="corner-sharpness-tooltip" class="slider-tooltip text-xs text-gray-400 mt-1 h-4 opacity-0"></p>
-            </div>
-            <div>
-              <label for="curve-straightness" class="text-sm font-medium text-gray-300">Curve Straightness</label>
-              <div class="flex items-center space-x-2">
-                <input type="range" id="curve-straightness" min="0" max="100" value="40" step="1">
-                <span id="curve-straightness-value"
-                  class="text-sm font-mono bg-gray-700 border border-gray-600 rounded-md px-2 py-0.5 w-12 text-center text-gray-200">40</span>
-              </div>
-              <p id="curve-straightness-tooltip" class="slider-tooltip text-xs text-gray-400 mt-1 h-4 opacity-0"></p>
-            </div>
-            <div>
-              <label for="color-precision" class="text-sm font-medium text-gray-300">Color Precision</label>
-              <div class="flex items-center space-x-2">
-                <input type="range" id="color-precision" min="0" max="100" value="75" step="1">
-                <span id="color-precision-value"
-                  class="text-sm font-mono bg-gray-700 border border-gray-600 rounded-md px-2 py-0.5 w-12 text-center text-gray-200">75</span>
-              </div>
-              <p id="color-precision-tooltip" class="slider-tooltip text-xs text-gray-400 mt-1 h-4 opacity-0"></p>
-            </div>
-            <div class="pt-2">
-              <label class="flex items-center space-x-2 cursor-pointer">
-                <input type="checkbox" id="remove-bg"
-                  class="h-4 w-4 rounded border-gray-500 bg-gray-700 text-blue-600 focus:ring-blue-500">
-                <span class="text-sm font-medium text-gray-300">Remove Background</span>
-              </label>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <footer class="p-6 border-t border-gray-700">
-        <button id="generate-btn"
-          class="w-full btn-primary font-bold py-3 px-4 rounded-lg text-lg disabled:bg-gray-600 disabled:cursor-not-allowed"
-          disabled>
-          Generate SVG
-        </button>
-      </footer>
-    </aside>
-
-    <!-- Workspace -->
-    <main class="workspace flex-grow h-full p-8 overflow-y-auto">
-      <div id="welcome-screen" class="h-full flex flex-col items-center justify-center text-center">
-        <svg class="w-24 h-24 text-gray-600 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"
-          xmlns="http://www.w3.org/2000/svg">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1"
-            d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z">
-          </path>
-        </svg>
-        <h2 class="text-2xl font-bold text-gray-500">Your Workspace</h2>
-        <p class="text-gray-400 mt-2">Import an image to begin the conversion process.</p>
-        <div id="status-text" class="mt-4 text-sm font-medium text-gray-400"></div>
-      </div>
-
-      <div id="main-content" class="hidden">
-        <div class="card p-4 mb-8">
-          <div class="flex justify-between items-center mb-2">
-            <h3 class="font-semibold text-gray-200">Original Image</h3>
-            <div id="original-resolution" class="text-xs text-gray-400"></div>
-          </div>
-          <div class="h-96 bg-grid rounded-md flex items-center justify-center overflow-hidden">
-            <img id="source-image" alt="Original" class="max-w-full max-h-full object-contain">
-          </div>
-        </div>
-
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          <div class="card p-4">
-            <div class="flex justify-between items-center mb-2">
-              <h3 class="font-semibold text-gray-200">3D Print Preview (All Layers)</h3>
-              <div id="quality-indicator" class="text-xs text-gray-400"></div>
-            </div>
-            <div class="aspect-square bg-grid rounded-md flex items-center justify-center overflow-hidden">
-              <object id="svg-preview" type="image/svg+xml" class="max-w-full max-h-full"></object>
-            </div>
-          </div>
-
-          <div class="card p-4">
-            <div class="flex justify-between items-center mb-2">
-              <h3 class="font-semibold text-gray-200">Selected Layer Preview</h3>
-              <div id="selected-layer-text" class="text-xs text-gray-400">Click layers to preview</div>
-            </div>
-            <div class="aspect-square bg-grid rounded-md flex items-center justify-center overflow-hidden">
-              <object id="svg-preview-filtered" type="image/svg+xml" class="max-w-full max-h-full"></object>
-            </div>
-          </div>
-        </div>
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          <div class="card mt-8 p-6">
-            <h3 class="text-lg font-semibold mb-4 text-gray-200">3. Manage Layers</h3>
-            <div id="palette-row" class="mb-4" style="display:none;">
-              <h4 class="font-semibold text-sm mb-2 text-gray-400">Visible Layers (Click to select)</h4>
-              <div id="palette-container" class="flex flex-wrap gap-2"></div>
+                <div id="controls-wrapper">
+                    <div class="flex justify-between items-center mb-3">
+                        <h2 class="text-lg font-semibold text-gray-200">2. Adjust Conversion</h2>
+                        <button id="reset-btn" class="hidden text-xs font-semibold text-blue-400 hover:text-blue-300">Reset to Initial</button>
+                    </div>
+                    <div class="space-y-4 p-4 bg-gray-800 rounded-lg border border-gray-700">
+                        <fieldset id="color-controls">
+                            <h3 class="text-md font-semibold text-gray-300 mb-2">Color Settings</h3>
+                             <div>
+                                <label for="color-precision" class="text-sm font-medium text-gray-300">Color Precision</label>
+                                <div class="flex items-center space-x-2">
+                                    <input type="range" id="color-precision" min="0" max="100" value="75" step="1">
+                                    <span id="color-precision-value" class="text-sm font-mono bg-gray-700 border border-gray-600 rounded-md px-2 py-0.5 w-12 text-center text-gray-200">75</span>
+                                </div>
+                                 <p id="color-precision-tooltip" class="slider-tooltip text-xs text-gray-400 mt-1 h-4 opacity-0"></p>
+                            </div>
+                            <div class="pt-2">
+                                 <label class="flex items-center space-x-2 cursor-pointer">
+                                    <input type="checkbox" id="remove-bg" class="h-4 w-4 rounded border-gray-500 bg-gray-700 text-blue-600 focus:ring-blue-500">
+                                    <span class="text-sm font-medium text-gray-300">Remove Background</span>
+                                </label>
+                            </div>
+                        </fieldset>
+                        <fieldset id="path-controls" class="pt-4 border-t border-gray-700" disabled>
+                            <h3 class="text-md font-semibold text-gray-300 mb-2">Path & Curve Settings</h3>
+                            <div>
+                                <label for="path-simplification" class="text-sm font-medium text-gray-300">Path Simplification</label>
+                                <div class="flex items-center space-x-2">
+                                    <input type="range" id="path-simplification" min="0" max="100" value="40" step="1">
+                                    <span id="path-simplification-value" class="text-sm font-mono bg-gray-700 border border-gray-600 rounded-md px-2 py-0.5 w-12 text-center text-gray-200">40</span>
+                                </div>
+                                <p id="path-simplification-tooltip" class="slider-tooltip text-xs text-gray-400 mt-1 h-4 opacity-0"></p>
+                            </div>
+                            <div>
+                                <label for="corner-sharpness" class="text-sm font-medium text-gray-300">Corner Sharpness</label>
+                                <div class="flex items-center space-x-2">
+                                    <input type="range" id="corner-sharpness" min="0" max="100" value="60" step="1">
+                                    <span id="corner-sharpness-value" class="text-sm font-mono bg-gray-700 border border-gray-600 rounded-md px-2 py-0.5 w-12 text-center text-gray-200">60</span>
+                                </div>
+                                <p id="corner-sharpness-tooltip" class="slider-tooltip text-xs text-gray-400 mt-1 h-4 opacity-0"></p>
+                            </div>
+                            <div>
+                                <label for="curve-straightness" class="text-sm font-medium text-gray-300">Curve Straightness</label>
+                                <div class="flex items-center space-x-2">
+                                    <input type="range" id="curve-straightness" min="0" max="100" value="40" step="1">
+                                    <span id="curve-straightness-value" class="text-sm font-mono bg-gray-700 border border-gray-600 rounded-md px-2 py-0.5 w-12 text-center text-gray-200">40</span>
+                                </div>
+                                 <p id="curve-straightness-tooltip" class="slider-tooltip text-xs text-gray-400 mt-1 h-4 opacity-0"></p>
+                            </div>
+                        </fieldset>
+                    </div>
+                </div>
             </div>
 
-            <div id="layer-merging-section" style="display:none;">
-              <h4 class="font-semibold text-sm text-gray-400 mb-2">Layer Merging</h4>
-              <div id="merge-rules-container" class="space-y-2 mb-3"></div>
-              <button id="add-merge-rule-btn" class="btn-secondary text-xs font-semibold py-1 px-3 rounded-md"
-                disabled>+ Add Merge Rule</button>
+            <footer class="p-6 border-t border-gray-700">
+                <button id="generate-btn" class="w-full btn-primary font-bold py-3 px-4 rounded-lg text-lg disabled:bg-gray-600 disabled:cursor-not-allowed" disabled>
+                    1. Analyze Colors
+                </button>
+            </footer>
+        </aside>
+
+        <!-- Workspace -->
+        <main class="workspace flex-grow h-full p-8 overflow-y-auto">
+            <div id="welcome-screen" class="h-full flex flex-col items-center justify-center text-center">
+                <svg class="w-24 h-24 text-gray-600 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
+                <h2 class="text-2xl font-bold text-gray-500">Your Workspace</h2>
+                <p class="text-gray-400 mt-2">Import an image to begin the conversion process.</p>
+                 <div id="status-text" class="mt-4 text-sm font-medium text-gray-400"></div>
             </div>
 
+            <div id="main-content" class="hidden">
+                 <div class="card p-4 mb-8">
+                    <div class="flex justify-between items-center mb-2">
+                        <h3 class="font-semibold text-gray-200">Original Image</h3>
+                        <div id="original-resolution" class="text-xs text-gray-400"></div>
+                    </div>
+                    <div class="h-96 bg-grid rounded-md flex items-center justify-center overflow-hidden">
+                        <img id="source-image" alt="Original" class="max-w-full max-h-full object-contain">
+                    </div>
+                </div>
 
-            <div id="output-section" class="card mt-8 p-6" style="display:none;">
-              <h3 class="text-lg font-semibold mb-4 text-gray-200">4. Output Layers</h3>
-              <div>
-                <h4 class="font-semibold text-sm text-gray-400 mb-2">Final Layers</h4>
-                <div id="final-palette-container" class="flex flex-wrap gap-2"></div>
-              </div>
+                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                    <div class="card p-4">
+                        <div class="flex justify-between items-center mb-2">
+                            <h3 class="font-semibold text-gray-200">3D Print Preview (All Layers)</h3>
+                            <div id="quality-indicator" class="text-xs text-gray-400"></div>
+                        </div>
+                        <div class="aspect-square bg-grid rounded-md flex items-center justify-center overflow-hidden">
+                            <object id="svg-preview" type="image/svg+xml" class="max-w-full max-h-full"></object>
+                        </div>
+                    </div>
+
+                    <div class="card p-4">
+                        <div class="flex justify-between items-center mb-2">
+                            <h3 class="font-semibold text-gray-200">Selected Layer Preview</h3>
+                            <div id="selected-layer-text" class="text-xs text-gray-400">Click layers to preview</div>
+                        </div>
+                        <div class="aspect-square bg-grid rounded-md flex items-center justify-center overflow-hidden">
+                            <object id="svg-preview-filtered" type="image/svg+xml" class="max-w-full max-h-full"></object>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="output-section" class="card mt-8 p-6" style="display:none;">
+                    <h3 class="text-lg font-semibold mb-4 text-gray-200">3. Output Layers</h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                        <div>
+                             <div id="palette-row" class="mb-4" style="display:none;">
+                                <h4 class="font-semibold text-sm mb-2 text-gray-400">Visible Layers (Click to select)</h4>
+                                <div id="palette-container" class="flex flex-wrap gap-2"></div>
+                             </div>
+                             <div id="layer-merging-section" style="display:none;">
+                                 <h4 class="font-semibold text-sm text-gray-400 mb-2">Layer Merging</h4>
+                                 <div id="merge-rules-container" class="space-y-2 mb-3"></div>
+                                 <button id="add-merge-rule-btn" class="btn-secondary text-xs font-semibold py-1 px-3 rounded-md" disabled>+ Add Merge Rule</button>
+                             </div>
+                        </div>
+                        <div>
+                            <h4 class="font-semibold text-sm text-gray-400 mb-2">Final Layer Colors</h4>
+                            <div id="final-palette-container" class="flex flex-wrap gap-2 min-h-[36px]"></div>
+                        </div>
+                    </div>
+                     <div class="mt-6 pt-6 border-t border-gray-700 flex flex-wrap gap-4">
+                         <button id="download-tinkercad-btn" class="btn-primary font-semibold py-2 px-5 rounded-md disabled:bg-gray-600 disabled:cursor-not-allowed" disabled>Download All Layers</button>
+                         <button id="download-silhouette-btn" class="btn-secondary font-semibold py-2 px-5 rounded-md disabled:bg-gray-600 disabled:cursor-not-allowed" disabled>Download Background</button>
+                         <button id="combine-and-download-btn" class="bg-green-600 text-white font-semibold py-2 px-5 rounded-md hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed" disabled>Download Final</button>
+                     </div>
+                </div>
             </div>
-          </div>
-          <div class="mt-6 pt-6 border-t border-gray-700 flex flex-wrap lg:grid-cols-2 gap-4">
-            <div>
-            <button id="download-tinkercad-btn"
-              class="btn-primary font-semibold py-2 px-5 rounded-md disabled:bg-gray-600 disabled:cursor-not-allowed"
-              disabled>Download All Layers</button>
-            <button id="download-silhouette-btn"
-              class="btn-secondary font-semibold py-2 px-5 rounded-md disabled:bg-gray-600 disabled:cursor-not-allowed"
-              disabled>Download Background</button>
-              </div>
-                 <div>
-            <button id="combine-and-download-btn"
-              class="bg-green-600 text-white font-semibold py-2 px-5 rounded-md hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed"
-              disabled>Download Final</button>
-              </div>
-          </div>
-        </div>
-      </div>
-    </main>
-  </div>
+                        <a href="https://buymeacoffee.com/genesisframeworks" target="_blank" class="buy-me-coffee fixed bottom-6 right-6 bg-yellow-400 text-gray-900 font-bold py-3 px-5 rounded-full shadow-lg flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-2.5-8.5c.83 0 1.5-.67 1.5-1.5s-.67-1.5-1.5-1.5-1.5.67-1.5 1.5.67 1.5 1.5 1.5zm5 0c.83 0 1.5-.67 1.5-1.5s-.67-1.5-1.5-1.5-1.5.67-1.5 1.5.67 1.5 1.5 1.5zm-2.5 4c2.33 0 4.31-1.46 5.11-3.5H6.89c.8 2.04 2.78 3.5 5.11 3.5z"/></svg>
+                <span>Buy me a coffee</span>
+            </a>
+        </main>
+    </div>
 
 </body>
-
 </html>
