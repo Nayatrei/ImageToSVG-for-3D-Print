@@ -129,6 +129,7 @@
                             <input type="text" id="url-input" placeholder="Paste image URL" class="flex-grow text-sm p-2 border bg-gray-900 border-gray-600 rounded-l-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-white">
                             <button id="load-url-btn" class="bg-gray-600 text-gray-200 font-semibold px-3 rounded-r-md border border-l-0 border-gray-600 hover:bg-gray-500">Load</button>
                         </div>
+                        <p class="text-xs text-gray-500 mt-3">Recommended minimum resolution: 512x512px for best results.</p>
                     </div>
                 </div>
 
@@ -144,6 +145,7 @@
                                 <input type="range" id="path-simplification" min="0" max="100" value="40" step="1">
                                 <span id="path-simplification-value" class="text-sm font-mono bg-gray-700 border border-gray-600 rounded-md px-2 py-0.5 w-12 text-center text-gray-200">40</span>
                             </div>
+                            <p id="path-simplification-tooltip" class="text-xs text-gray-500 mt-1">Removes small details.</p>
                         </div>
                         <div>
                             <label for="corner-sharpness" class="text-sm font-medium text-gray-300">Corner Sharpness</label>
@@ -151,6 +153,7 @@
                                 <input type="range" id="corner-sharpness" min="0" max="100" value="60" step="1">
                                 <span id="corner-sharpness-value" class="text-sm font-mono bg-gray-700 border border-gray-600 rounded-md px-2 py-0.5 w-12 text-center text-gray-200">60</span>
                             </div>
+                            <p id="corner-sharpness-tooltip" class="text-xs text-gray-500 mt-1">Preserves sharp corners.</p>
                         </div>
                         <div>
                             <label for="curve-straightness" class="text-sm font-medium text-gray-300">Curve Straightness</label>
@@ -158,6 +161,7 @@
                                 <input type="range" id="curve-straightness" min="0" max="100" value="40" step="1">
                                 <span id="curve-straightness-value" class="text-sm font-mono bg-gray-700 border border-gray-600 rounded-md px-2 py-0.5 w-12 text-center text-gray-200">40</span>
                             </div>
+                            <p id="curve-straightness-tooltip" class="text-xs text-gray-500 mt-1">Moderate curves.</p>
                         </div>
                         <div>
                             <label for="color-precision" class="text-sm font-medium text-gray-300">Color Precision</label>
@@ -165,6 +169,7 @@
                                 <input type="range" id="color-precision" min="0" max="100" value="75" step="1">
                                 <span id="color-precision-value" class="text-sm font-mono bg-gray-700 border border-gray-600 rounded-md px-2 py-0.5 w-12 text-center text-gray-200">75</span>
                             </div>
+                            <p id="color-precision-tooltip" class="text-xs text-gray-500 mt-1">High color accuracy.</p>
                         </div>
                         <div class="pt-2">
                              <label class="flex items-center space-x-2 cursor-pointer">

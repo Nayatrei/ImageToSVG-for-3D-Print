@@ -22,12 +22,16 @@ document.addEventListener('DOMContentLoaded', () => {
         resetBtn: document.getElementById('reset-btn'),
         pathSimplificationSlider: document.getElementById('path-simplification'),
         pathSimplificationValue: document.getElementById('path-simplification-value'),
+        pathSimplificationTooltip: document.getElementById('path-simplification-tooltip'),
         cornerSharpnessSlider: document.getElementById('corner-sharpness'),
         cornerSharpnessValue: document.getElementById('corner-sharpness-value'),
+        cornerSharpnessTooltip: document.getElementById('corner-sharpness-tooltip'),
         curveStraightnessSlider: document.getElementById('curve-straightness'),
         curveStraightnessValue: document.getElementById('curve-straightness-value'),
+        curveStraightnessTooltip: document.getElementById('curve-straightness-tooltip'),
         colorPrecisionSlider: document.getElementById('color-precision'),
         colorPrecisionValue: document.getElementById('color-precision-value'),
+        colorPrecisionTooltip: document.getElementById('color-precision-tooltip'),
         removeBgCheckbox: document.getElementById('remove-bg'),
         svgPreview: document.getElementById('svg-preview'),
         svgPreviewFiltered: document.getElementById('svg-preview-filtered'),
@@ -58,6 +62,47 @@ document.addEventListener('DOMContentLoaded', () => {
         isDirty: false,
         selectedLayerIndices: new Set()
     };
+
+    // --- Dynamic Tooltip Definitions ---
+    const tooltips = {
+        pathSimplification: [
+            { threshold: 20, text: 'Preserves most details.' },
+            { threshold: 50, text: 'Removes small details.' },
+            { threshold: 80, text: 'Aggressively smooths paths.' },
+            { threshold: 101, text: 'Maximum simplification.' }
+        ],
+        cornerSharpness: [
+            { threshold: 20, text: 'Very rounded corners.' },
+            { threshold: 50, text: 'Slightly rounded corners.' },
+            { threshold: 80, text: 'Preserves sharp corners.' },
+            { threshold: 101, text: 'Maximum corner sharpness.' }
+        ],
+        curveStraightness: [
+            { threshold: 20, text: 'Follows original curves closely.' },
+            { threshold: 50, text: 'Moderate curve straightening.' },
+            { threshold: 80, text: 'Strongly straightens curves.' },
+            { threshold: 101, text: 'Maximum straightness.' }
+        ],
+        colorPrecision: [
+            { threshold: 20, text: 'Low color accuracy (fewer layers).' },
+            { threshold: 50, text: 'Balanced color separation.' },
+            { threshold: 80, text: 'High color accuracy.' },
+            { threshold: 101, text: 'Maximum color fidelity (more layers).' }
+        ]
+    };
+
+    function updateTooltip(sliderName, value) {
+        const tooltipData = tooltips[sliderName];
+        const tooltipElement = elements[`${sliderName}Tooltip`];
+        if (tooltipData && tooltipElement) {
+            for (const item of tooltipData) {
+                if (value < item.threshold) {
+                    tooltipElement.textContent = item.text;
+                    break;
+                }
+            }
+        }
+    }
 
     // --- Core Functions ---
 
@@ -102,10 +147,16 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function updateAllSliderDisplays() {
-        elements.pathSimplificationValue.textContent = elements.pathSimplificationSlider.value;
-        elements.cornerSharpnessValue.textContent = elements.cornerSharpnessSlider.value;
-        elements.curveStraightnessValue.textContent = elements.curveStraightnessSlider.value;
-        elements.colorPrecisionValue.textContent = elements.colorPrecisionSlider.value;
+        const sliders = ['pathSimplification', 'cornerSharpness', 'curveStraightness', 'colorPrecision'];
+        sliders.forEach(sliderName => {
+            const slider = elements[`${sliderName}Slider`];
+            const valueEl = elements[`${sliderName}Value`];
+            if (slider && valueEl) {
+                const value = slider.value;
+                valueEl.textContent = value;
+                updateTooltip(sliderName, value);
+            }
+        });
     }
     
     const debounce = (fn, ms = 250) => {
@@ -721,5 +772,7 @@ document.addEventListener('DOMContentLoaded', () => {
             elements.finalLayersHeader.style.display = 'none';
         }
     }
-
+    
+    // Initialize tooltips on load
+    updateAllSliderDisplays();
 });
