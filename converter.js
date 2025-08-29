@@ -31,6 +31,7 @@ document.addEventListener('DOMContentLoaded', () => {
         colorPrecisionTooltip: document.getElementById('color-precision-tooltip'),
         svgPreview: document.getElementById('svg-preview'),
         svgPreviewFiltered: document.getElementById('svg-preview-filtered'),
+        previewResolution: document.getElementById('preview-resolution'),
         qualityIndicator: document.getElementById('quality-indicator'),
         selectedLayerText: document.getElementById('selected-layer-text'),
         paletteContainer: document.getElementById('palette-container'),
@@ -435,8 +436,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- SVG to PNG Conversion ---
     
-    function svgToPng(svgString, maxWidth = 800, maxHeight = 600) {
+    function svgToPng(svgString, maxSize = null) {
         return new Promise((resolve, reject) => {
+            // Get selected resolution or use default
+            const selectedRes = maxSize || parseInt(elements.previewResolution?.value || '512');
+            const maxWidth = selectedRes;
+            const maxHeight = selectedRes;
+            
             // Create SVG blob
             const svgBlob = new Blob([svgString], { type: 'image/svg+xml' });
             const url = URL.createObjectURL(svgBlob);
@@ -449,13 +455,25 @@ document.addEventListener('DOMContentLoaded', () => {
                     let { width, height } = img;
                     const aspectRatio = width / height;
                     
-                    if (width > maxWidth) {
-                        width = maxWidth;
-                        height = width / aspectRatio;
-                    }
-                    if (height > maxHeight) {
-                        height = maxHeight;
-                        width = height * aspectRatio;
+                    // Ensure minimum size while maintaining aspect ratio
+                    if (width > height) {
+                        if (width < maxWidth) {
+                            width = maxWidth;
+                            height = width / aspectRatio;
+                        }
+                        if (width > maxWidth) {
+                            width = maxWidth;
+                            height = width / aspectRatio;
+                        }
+                    } else {
+                        if (height < maxHeight) {
+                            height = maxHeight;
+                            width = height * aspectRatio;
+                        }
+                        if (height > maxHeight) {
+                            height = maxHeight;
+                            width = height * aspectRatio;
+                        }
                     }
                     
                     // Create canvas and draw
@@ -582,6 +600,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Zoom control event listeners
     setupZoomControls();
+
+    // Resolution change listener
+    if (elements.previewResolution) {
+        elements.previewResolution.addEventListener('change', () => {
+            // Regenerate both previews with new resolution
+            if (state.tracedata) {
+                renderPreviews();
+                updateFilteredPreview();
+            }
+        });
+    }
 
     document.querySelectorAll('.control-panel input[type="range"]').forEach(slider => {
         slider.addEventListener('input', (e) => {
