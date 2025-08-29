@@ -433,27 +433,90 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // --- SVG to PNG Conversion ---
+    
+    function svgToPng(svgString, maxWidth = 800, maxHeight = 600) {
+        return new Promise((resolve, reject) => {
+            // Create SVG blob
+            const svgBlob = new Blob([svgString], { type: 'image/svg+xml' });
+            const url = URL.createObjectURL(svgBlob);
+            
+            // Create image element
+            const img = new Image();
+            img.onload = () => {
+                try {
+                    // Calculate dimensions while maintaining aspect ratio
+                    let { width, height } = img;
+                    const aspectRatio = width / height;
+                    
+                    if (width > maxWidth) {
+                        width = maxWidth;
+                        height = width / aspectRatio;
+                    }
+                    if (height > maxHeight) {
+                        height = maxHeight;
+                        width = height * aspectRatio;
+                    }
+                    
+                    // Create canvas and draw
+                    const canvas = document.createElement('canvas');
+                    canvas.width = width;
+                    canvas.height = height;
+                    
+                    const ctx = canvas.getContext('2d');
+                    ctx.fillStyle = 'white';
+                    ctx.fillRect(0, 0, width, height);
+                    ctx.drawImage(img, 0, 0, width, height);
+                    
+                    // Convert to PNG data URL
+                    const pngDataUrl = canvas.toDataURL('image/png');
+                    URL.revokeObjectURL(url);
+                    resolve(pngDataUrl);
+                    
+                } catch (error) {
+                    URL.revokeObjectURL(url);
+                    reject(error);
+                }
+            };
+            
+            img.onerror = () => {
+                URL.revokeObjectURL(url);
+                reject(new Error('Failed to load SVG'));
+            };
+            
+            img.src = url;
+        });
+    }
+
     // --- UI Update Functions ---
 
-    function renderPreviews() {
+    async function renderPreviews() {
         if (!state.tracedata) return;
-        const visibleIndices = getVisibleLayerIndices();
-        const previewData = buildTracedataSubset(state.tracedata, visibleIndices);
-        const svgString = ImageTracer.getsvgstring(previewData, state.lastOptions);
-        elements.svgPreview.innerHTML = svgString;
+        
+        try {
+            const visibleIndices = getVisibleLayerIndices();
+            const previewData = buildTracedataSubset(state.tracedata, visibleIndices);
+            const svgString = ImageTracer.getsvgstring(previewData, state.lastOptions);
+            
+            const pngDataUrl = await svgToPng(svgString);
+            elements.svgPreview.src = pngDataUrl;
+            elements.svgPreview.style.display = 'block';
+            
+        } catch (error) {
+            console.error('Preview rendering failed:', error);
+            elements.svgPreview.style.display = 'none';
+        }
     }
     
-    function updateFilteredPreview() {
+    async function updateFilteredPreview() {
         if (!state.tracedata) return;
 
         let dataToShow = state.tracedata;
         let indicesToRender = [];
-        let isMergedPreview = false;
 
         if (state.mergeRules.length > 0) {
             const visibleIndices = getVisibleLayerIndices();
             dataToShow = createMergedTracedata(state.tracedata, visibleIndices, state.mergeRules);
-            isMergedPreview = true;
             
             // Use selected final layers if any, otherwise show selected original layers
             if (state.selectedFinalLayerIndices.size > 0) {
@@ -474,13 +537,22 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         if (indicesToRender.length === 0) {
-            elements.svgPreviewFiltered.innerHTML = '';
+            elements.svgPreviewFiltered.style.display = 'none';
             return;
         }
         
-        const filteredData = buildTracedataSubset(dataToShow, indicesToRender);
-        const svgString = ImageTracer.getsvgstring(filteredData, state.lastOptions);
-        elements.svgPreviewFiltered.innerHTML = svgString;
+        try {
+            const filteredData = buildTracedataSubset(dataToShow, indicesToRender);
+            const svgString = ImageTracer.getsvgstring(filteredData, state.lastOptions);
+            
+            const pngDataUrl = await svgToPng(svgString);
+            elements.svgPreviewFiltered.src = pngDataUrl;
+            elements.svgPreviewFiltered.style.display = 'block';
+            
+        } catch (error) {
+            console.error('Filtered preview rendering failed:', error);
+            elements.svgPreviewFiltered.style.display = 'none';
+        }
     }
 
     function updateQualityDisplay(quality) {
