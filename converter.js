@@ -440,7 +440,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const visibleIndices = getVisibleLayerIndices();
         const previewData = buildTracedataSubset(state.tracedata, visibleIndices);
         const svgString = ImageTracer.getsvgstring(previewData, state.lastOptions);
-        elements.svgPreview.data = `data:image/svg+xml;base64,${btoa(svgString)}`;
+        elements.svgPreview.innerHTML = svgString;
     }
     
     function updateFilteredPreview() {
@@ -474,13 +474,13 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         if (indicesToRender.length === 0) {
-            elements.svgPreviewFiltered.data = '';
+            elements.svgPreviewFiltered.innerHTML = '';
             return;
         }
         
         const filteredData = buildTracedataSubset(dataToShow, indicesToRender);
         const svgString = ImageTracer.getsvgstring(filteredData, state.lastOptions);
-        elements.svgPreviewFiltered.data = `data:image/svg+xml;base64,${btoa(svgString)}`;
+        elements.svgPreviewFiltered.innerHTML = svgString;
     }
 
     function updateQualityDisplay(quality) {
