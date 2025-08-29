@@ -1,10 +1,3 @@
-/*
-    Genesis Framework - SVG Creator
-    Enhanced converter.js with a decoupled workflow, improved UI feedback,
-    and more robust state management.
-*/
-/* global ImageTracer, chrome */
-
 document.addEventListener('DOMContentLoaded', () => {
     // --- DOM elements ---
     const elements = {
@@ -19,7 +12,8 @@ document.addEventListener('DOMContentLoaded', () => {
         loadUrlBtn: document.getElementById('load-url-btn'),
         originalResolution: document.getElementById('original-resolution'),
         resolutionNotice: document.getElementById('resolution-notice'),
-        generateBtn: document.getElementById('generate-btn'),
+        analyzeColorsBtn: document.getElementById('analyze-colors-btn'),
+        optimizePathsBtn: document.getElementById('optimize-paths-btn'),
         resetBtn: document.getElementById('reset-btn'),
         colorControls: document.getElementById('color-controls'),
         pathControls: document.getElementById('path-controls'),
@@ -35,7 +29,6 @@ document.addEventListener('DOMContentLoaded', () => {
         colorPrecisionSlider: document.getElementById('color-precision'),
         colorPrecisionValue: document.getElementById('color-precision-value'),
         colorPrecisionTooltip: document.getElementById('color-precision-tooltip'),
-        removeBgCheckbox: document.getElementById('remove-bg'),
         svgPreview: document.getElementById('svg-preview'),
         svgPreviewFiltered: document.getElementById('svg-preview-filtered'),
         qualityIndicator: document.getElementById('quality-indicator'),
@@ -57,15 +50,15 @@ document.addEventListener('DOMContentLoaded', () => {
         quantizedData: null,
         tracedata: null,
         originalImageUrl: null,
-        bgEstimate: null,
         lastOptions: null,
         silhouetteTracedata: null,
         mergeRules: [],
         initialSliderValues: {},
         isDirty: false,
         selectedLayerIndices: new Set(),
+        selectedFinalLayerIndices: new Set(),
         tooltipTimeout: null,
-        isColorStage: true
+        colorsAnalyzed: false
     };
 
     const SLIDER_TOOLTIPS = {
@@ -83,7 +76,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function showWorkspace(show) {
         elements.welcomeScreen.style.display = show ? 'none' : 'flex';
-        elements.mainContent.style.display = show ? 'block' : 'none';
+        elements.mainContent.style.display = show ? 'flex' : 'none';
     }
 
     function saveInitialSliderValues() {
@@ -91,8 +84,7 @@ document.addEventListener('DOMContentLoaded', () => {
             pathSimplification: elements.pathSimplificationSlider.value,
             cornerSharpness: elements.cornerSharpnessSlider.value,
             curveStraightness: elements.curveStraightnessSlider.value,
-            colorPrecision: elements.colorPrecisionSlider.value,
-            removeBg: elements.removeBgCheckbox.checked
+            colorPrecision: elements.colorPrecisionSlider.value
         };
         state.isDirty = false;
         elements.resetBtn.style.display = 'none';
@@ -105,13 +97,13 @@ document.addEventListener('DOMContentLoaded', () => {
         elements.cornerSharpnessSlider.value = state.initialSliderValues.cornerSharpness;
         elements.curveStraightnessSlider.value = state.initialSliderValues.curveStraightness;
         elements.colorPrecisionSlider.value = state.initialSliderValues.colorPrecision;
-        elements.removeBgCheckbox.checked = state.initialSliderValues.removeBg;
 
         updateAllSliderDisplays();
         
         if (elements.sourceImage.src) {
-            setWorkflowStage(true); // Go back to color stage
-            elements.generateBtn.click();
+            state.colorsAnalyzed = false;
+            elements.optimizePathsBtn.disabled = true;
+            elements.analyzeColorsBtn.click();
         }
         
         state.isDirty = false;
@@ -133,44 +125,29 @@ document.addEventListener('DOMContentLoaded', () => {
         };
     };
 
-    const debounceTrace = debounce(() => {
-        if (!elements.generateBtn.disabled) {
-            traceVectorPaths();
+    const debounceOptimizePaths = debounce(() => {
+        if (state.colorsAnalyzed && !elements.optimizePathsBtn.disabled) {
+            optimizePathsClick();
         }
     });
 
-    // --- Workflow Stage Management ---
-    function setWorkflowStage(isColorStage) {
-        state.isColorStage = isColorStage;
-        elements.colorControls.disabled = !isColorStage;
-        elements.pathControls.disabled = isColorStage;
-        
-        if (isColorStage) {
-            elements.generateBtn.textContent = '1. Analyze Colors';
-            elements.colorControls.style.opacity = 1;
-            elements.pathControls.style.opacity = 0.5;
-        } else {
-            elements.generateBtn.textContent = '2. Refine Paths'; // Or hide, or change to "Re-analyze"
-            elements.colorControls.style.opacity = 0.5;
-            elements.pathControls.style.opacity = 1;
-        }
+    // --- Main Generation Logic ---
+    async function analyzeColorsClick() {
+        await analyzeColors();
+        state.colorsAnalyzed = true;
+        elements.optimizePathsBtn.disabled = false;
+        // Auto-trigger path optimization after color analysis
+        await optimizePathsClick();
     }
 
-    // --- Main Generation Logic ---
-    async function mainButtonClick() {
-        if (state.isColorStage) {
-            await analyzeColors();
-            setWorkflowStage(false); // Move to path stage
-            await traceVectorPaths(); // Run initial trace
-        } else {
-            // This button could be used to go back to color analysis
-            setWorkflowStage(true);
-        }
+    async function optimizePathsClick() {
+        if (!state.quantizedData) return;
+        await traceVectorPaths();
     }
 
     async function analyzeColors() {
         showLoader(true);
-        elements.statusText.textContent = '🎨 Analyzing colors...';
+        elements.statusText.textContent = 'Analyzing colors...';
         disableDownloadButtons();
         
         return new Promise((resolve, reject) => {
@@ -187,12 +164,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     ctx.drawImage(elements.sourceImage, 0, 0, width, height);
                     const imageData = ctx.getImageData(0, 0, width, height);
 
-                    state.bgEstimate = null;
-                    if (elements.removeBgCheckbox.checked) {
-                        state.bgEstimate = estimateEdgeBackground(imageData);
-                        knockOutBackground(imageData, state.bgEstimate, 30);
-                    }
-
                     const options = buildOptimizedOptions();
                     state.lastOptions = options;
                     
@@ -202,14 +173,11 @@ document.addEventListener('DOMContentLoaded', () => {
                         throw new Error('Color analysis failed.');
                     }
                     
-                    displayPalette();
-                    prepareMergeUIAfterGeneration();
-                    elements.outputSection.style.display = 'block';
                     resolve();
 
                 } catch (error) {
                     console.error('Color analysis error:', error);
-                    elements.statusText.textContent = `❌ Error: ${error.message}`;
+                    elements.statusText.textContent = `Error: ${error.message}`;
                     reject(error);
                 } finally {
                     showLoader(false);
@@ -221,8 +189,8 @@ document.addEventListener('DOMContentLoaded', () => {
     async function traceVectorPaths() {
         if (!state.quantizedData) return;
         showLoader(true);
-        elements.statusText.textContent = '✍️ Tracing vector paths...';
-        elements.generateBtn.disabled = true;
+        elements.statusText.textContent = 'Tracing vector paths...';
+        elements.optimizePathsBtn.disabled = true;
         
         return new Promise((resolve, reject) => {
             setTimeout(async () => {
@@ -256,26 +224,30 @@ document.addEventListener('DOMContentLoaded', () => {
                     state.tracedata = tracedata;
                     state.silhouetteTracedata = createSolidSilhouette(state.tracedata);
 
+                    // Now display palette based on traced data
+                    displayPalette();
+                    prepareMergeUIAfterGeneration();
+                    elements.outputSection.style.display = 'flex';
+
                     renderPreviews();
                     updateFilteredPreview();
                     const quality = assess3DPrintQuality(state.tracedata);
                     updateQualityDisplay(quality);
-                    elements.statusText.textContent = `✅ Preview generated!`;
+                    elements.statusText.textContent = 'Preview generated!';
                     enableDownloadButtons();
                     resolve();
 
                 } catch (error) {
                     console.error('Tracing error:', error);
-                    elements.statusText.textContent = `❌ Error: ${error.message}`;
+                    elements.statusText.textContent = `Error: ${error.message}`;
                     reject(error);
                 } finally {
                     showLoader(false);
-                    elements.generateBtn.disabled = false;
+                    elements.optimizePathsBtn.disabled = false;
                 }
             }, 50);
         });
     }
-
 
     function buildOptimizedOptions() {
         const P = parseInt(elements.pathSimplificationSlider.value);
@@ -312,8 +284,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function renderPreviews() {
         if (!state.tracedata) return;
-        const visibleIndices = getVisiblePaletteIndices();
-        const previewData = buildTracedataSubset(state.tracedata, visibleIndices)
+        const visibleIndices = getVisibleLayerIndices();
+        const previewData = buildTracedataSubset(state.tracedata, visibleIndices);
         const svgString = ImageTracer.getsvgstring(previewData, state.lastOptions);
         elements.svgPreview.data = `data:image/svg+xml;base64,${btoa(svgString)}`;
     }
@@ -322,28 +294,40 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!state.tracedata) return;
 
         let dataToShow = state.tracedata;
-        let indicesToRender = Array.from(state.selectedLayerIndices);
+        let indicesToRender = [];
         let isMergedPreview = false;
 
         if (state.mergeRules.length > 0) {
-            const visibleIndices = getVisiblePaletteIndices();
+            const visibleIndices = getVisibleLayerIndices();
             dataToShow = createMergedTracedata(state.tracedata, visibleIndices, state.mergeRules);
-            indicesToRender = Array.from({length: dataToShow.palette.length - 1}, (_, i) => i + 1);
             isMergedPreview = true;
+            
+            // Use selected final layers if any, otherwise show selected original layers
+            if (state.selectedFinalLayerIndices.size > 0) {
+                indicesToRender = Array.from(state.selectedFinalLayerIndices);
+                elements.selectedLayerText.textContent = `Final Preview (${indicesToRender.length} layer(s))`;
+            } else {
+                indicesToRender = Array.from(state.selectedLayerIndices);
+                elements.selectedLayerText.textContent = state.selectedLayerIndices.size > 0 
+                    ? `Previewing ${indicesToRender.length} original layer(s)` 
+                    : 'Select final layers to preview';
+            }
+        } else {
+            // Original mode - use selected original layers
+            indicesToRender = Array.from(state.selectedLayerIndices);
+            elements.selectedLayerText.textContent = state.selectedLayerIndices.size > 0
+                ? `Previewing ${indicesToRender.length} layer(s)`
+                : 'Select layers to preview';
         }
 
         if (indicesToRender.length === 0) {
             elements.svgPreviewFiltered.data = '';
-            elements.selectedLayerText.textContent = isMergedPreview ? 'Merged Preview' : 'Select layers to preview';
             return;
         }
         
         const filteredData = buildTracedataSubset(dataToShow, indicesToRender);
         const svgString = ImageTracer.getsvgstring(filteredData, state.lastOptions);
         elements.svgPreviewFiltered.data = `data:image/svg+xml;base64,${btoa(svgString)}`;
-        elements.selectedLayerText.textContent = isMergedPreview 
-            ? `Merged Preview (${indicesToRender.length} colors)`
-            : `Previewing ${indicesToRender.length} layer(s)`;
     }
 
     function updateQualityDisplay(quality) {
@@ -367,7 +351,8 @@ document.addEventListener('DOMContentLoaded', () => {
         if (url) loadImageFromUrl(url);
     });
 
-    elements.generateBtn.addEventListener('click', mainButtonClick);
+    elements.analyzeColorsBtn.addEventListener('click', analyzeColorsClick);
+    elements.optimizePathsBtn.addEventListener('click', optimizePathsClick);
     elements.resetBtn.addEventListener('click', resetSlidersToInitial);
 
     document.querySelectorAll('.control-panel input[type="range"]').forEach(slider => {
@@ -389,33 +374,32 @@ document.addEventListener('DOMContentLoaded', () => {
                 }, 2000);
             }
 
-            if (state.isColorStage) {
-                // No need to debounce, color changes will be applied on next step
+            // If color precision changes, we need to re-analyze colors
+            if (e.target.id === 'color-precision') {
+                if (state.colorsAnalyzed && elements.sourceImage.src) {
+                    state.colorsAnalyzed = false;
+                    elements.optimizePathsBtn.disabled = true;
+                    // Don't auto-trigger, let user click the button
+                }
             } else {
-                debounceTrace();
+                // For path-related settings, auto-optimize paths if colors are already analyzed
+                if (state.colorsAnalyzed) {
+                    debounceOptimizePaths();
+                }
             }
         });
     });
-    
-    elements.removeBgCheckbox.addEventListener('input', () => {
-        if (!state.isDirty) {
-            state.isDirty = true;
-            elements.resetBtn.style.display = 'inline';
-        }
-    });
-
 
     // --- Image Loading ---
 
     function loadImage(src, name) {
         state.originalImageUrl = name;
         elements.sourceImage.src = src;
-        state.autoGeneratedOnce = false;
     }
 
     async function loadImageFromUrl(url) {
         showLoader(true);
-        elements.statusText.textContent = '🌐 Fetching image...';
+        elements.statusText.textContent = 'Fetching image...';
         try {
             let dataUrl;
             if (url.startsWith('data:')) {
@@ -442,33 +426,30 @@ document.addEventListener('DOMContentLoaded', () => {
             loadImage(dataUrl, url.split('/').pop());
         } catch (error) {
             console.error('URL load error:', error);
-            elements.statusText.textContent = '❌ Failed to load image from URL.';
+            elements.statusText.textContent = 'Failed to load image from URL.';
             showLoader(false);
         }
     }
 
     elements.sourceImage.onload = () => {
         showWorkspace(true);
-        elements.generateBtn.disabled = false;
+        elements.analyzeColorsBtn.disabled = false;
         
         const w = elements.sourceImage.naturalWidth;
         const h = elements.sourceImage.naturalHeight;
         elements.originalResolution.textContent = `${w}×${h} px`;
         
         if (w < 512 || h < 512) {
-            elements.resolutionNotice.textContent = '⚠️ Low resolution detected. For best results, use images larger than 512x512 pixels.';
+            elements.resolutionNotice.textContent = 'Low resolution detected. For best results, use images larger than 512x512 pixels.';
             elements.resolutionNotice.style.display = 'block';
         } else {
             elements.resolutionNotice.style.display = 'none';
         }
         
-        const hasTransparency = detectTransparency(elements.sourceImage);
-        elements.removeBgCheckbox.disabled = hasTransparency;
-        elements.removeBgCheckbox.checked = !hasTransparency;
-        
-        setWorkflowStage(true);
+        state.colorsAnalyzed = false;
+        elements.optimizePathsBtn.disabled = true;
         saveInitialSliderValues();
-        elements.generateBtn.click();
+        elements.analyzeColorsBtn.click();
         
         showLoader(false);
     };
@@ -488,109 +469,84 @@ document.addEventListener('DOMContentLoaded', () => {
         elements.combineAndDownloadBtn.disabled = state.mergeRules.length === 0;
     }
 
-    function getVisiblePaletteIndices() {
-        if (!state.tracedata && !state.quantizedData) return [];
-        const palette = state.tracedata ? state.tracedata.palette : state.quantizedData.palette;
-        const layers = state.tracedata ? state.tracedata.layers : null;
-
+    // NEW: Get visible layer indices based on traced data (only layers with actual paths)
+    function getVisibleLayerIndices() {
+        if (!state.tracedata) return [];
+        
         const indices = [];
-        for (let i = 1; i < palette.length; i++) {
-            const hasPaths = layers ? layerHasPaths(layers[i]) : true;
-            if (!shouldHideColor(palette[i], i) && hasPaths) {
+        for (let i = 0; i < state.tracedata.layers.length; i++) {
+            if (layerHasPaths(state.tracedata.layers[i])) {
                 indices.push(i);
             }
         }
         return indices;
-    }
-
-    function shouldHideColor(color, index) {
-        if (index === 0) return true;
-        const luma = 0.2126 * color.r + 0.7152 * color.g + 0.0722 * color.b;
-        if (color.a > 180 && luma >= 245) return true;
-        if (state.bgEstimate) {
-            const distance = Math.abs(color.r - state.bgEstimate.r) + Math.abs(color.g - state.bgEstimate.g) + Math.abs(color.b - state.bgEstimate.b);
-            if (distance <= 30) return true;
-        }
-        return false;
     }
     
     function layerHasPaths(layer) {
         return Array.isArray(layer) && layer.length > 0;
     }
     
+    // NEW: Display palette based on traced data only
     function displayPalette() {
-        const paletteSource = state.tracedata || state.quantizedData;
-        if (!paletteSource) return;
-
+        if (!state.tracedata) return;
+        
         elements.paletteContainer.innerHTML = '';
         state.selectedLayerIndices.clear();
-        const visibleIndices = getVisiblePaletteIndices();
+        const visibleIndices = getVisibleLayerIndices();
+        
         if (visibleIndices.length === 0) {
             elements.paletteRow.style.display = 'none';
             return;
         }
-        visibleIndices.forEach((index, ord) => {
-            const color = paletteSource.palette[index];
+
+        visibleIndices.forEach((index) => {
+            const color = state.tracedata.palette[index];
+            
+            // Create container for swatch and label
+            const container = document.createElement('div');
+            container.className = 'flex flex-col items-center gap-1';
+            
             const swatch = document.createElement('div');
             swatch.className = 'w-8 h-8 rounded border-2 border-gray-700 ring-1 ring-gray-500 cursor-pointer transition-all';
             swatch.style.backgroundColor = `rgb(${color.r},${color.g},${color.b})`;
-            swatch.title = `Layer ${ord + 1}`;
+            
+            // Special styling for layer 0 (background)
+            if (index === 0) {
+                swatch.className += ' background-layer';
+                swatch.title = `Layer ${index} (Background)`;
+            } else {
+                swatch.title = `Layer ${index}`;
+            }
+            
+            // Layer number label (initially hidden)
+            const label = document.createElement('div');
+            label.className = 'text-xs text-gray-400 opacity-0 transition-opacity';
+            label.textContent = `Layer ${index}`;
+            
             swatch.dataset.index = index;
             swatch.addEventListener('click', () => {
                 if (state.selectedLayerIndices.has(index)) {
                     state.selectedLayerIndices.delete(index);
                     swatch.classList.remove('ring-2', 'ring-offset-2', 'ring-blue-500', 'border-white');
+                    label.classList.add('opacity-0');
                 } else {
                     state.selectedLayerIndices.add(index);
                     swatch.classList.add('ring-2', 'ring-offset-2', 'ring-blue-500', 'border-white');
+                    label.classList.remove('opacity-0');
                 }
                 updateFilteredPreview();
             });
-            elements.paletteContainer.appendChild(swatch);
+            
+            container.appendChild(swatch);
+            container.appendChild(label);
+            elements.paletteContainer.appendChild(container);
         });
         elements.paletteRow.style.display = 'block';
-    }
-    
-    function mergeSimilarColors(tracedata, threshold) {
-        if (!tracedata || !tracedata.palette) return tracedata;
-        const { palette, layers } = tracedata;
-        const used = new Array(palette.length).fill(false);
-        const groups = [];
-        for (let i = 1; i < palette.length; i++) {
-            if (used[i]) continue;
-            const group = [i];
-            used[i] = true;
-            const color1 = palette[i];
-            for (let j = i + 1; j < palette.length; j++) {
-                if (used[j]) continue;
-                const color2 = palette[j];
-                const distance = Math.sqrt(Math.pow(color1.r - color2.r, 2) + Math.pow(color1.g - color2.g, 2) + Math.pow(color1.b - color2.b, 2));
-                if (distance <= threshold) {
-                    group.push(j);
-                    used[j] = true;
-                }
-            }
-            groups.push(group);
-        }
-        const newPalette = [palette[0]];
-        const newLayers = [layers[0]];
-        groups.forEach(group => {
-            const repColor = palette[group[0]];
-            const mergedPaths = [];
-            group.forEach(idx => {
-                if (Array.isArray(layers[idx])) {
-                    mergedPaths.push(...layers[idx]);
-                }
-            });
-            newPalette.push(repColor);
-            newLayers.push(mergedPaths);
-        });
-        return { ...tracedata, palette: newPalette, layers: newLayers };
     }
 
     function createSolidSilhouette(tracedata) {
         if (!tracedata) return null;
-        const visibleIndices = getVisiblePaletteIndices();
+        const visibleIndices = getVisibleLayerIndices();
         if (!visibleIndices.length) return null;
         const subset = buildTracedataSubset(tracedata, visibleIndices);
         let mergedPaths = [];
@@ -606,13 +562,8 @@ document.addEventListener('DOMContentLoaded', () => {
     function assess3DPrintQuality(tracedata) {
         if (!tracedata) return { pathCount: 0, colorCount: 0 };
         const totalPaths = tracedata.layers.reduce((sum, layer) => sum + (Array.isArray(layer) ? layer.length : 0), 0);
-        const visibleColors = countVisibleLayers(tracedata);
+        const visibleColors = getVisibleLayerIndices().length;
         return { pathCount: totalPaths, colorCount: visibleColors };
-    }
-
-    function countVisibleLayers(tracedata) {
-        if (!tracedata) return 0;
-        return getVisiblePaletteIndices().length;
     }
 
     function buildTracedataSubset(source, indices) {
@@ -626,40 +577,6 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
         return { ...source, layers, palette };
-    }
-    
-    function detectTransparency(img) {
-        const canvas = document.createElement('canvas');
-        canvas.width = Math.min(img.naturalWidth, 100);
-        canvas.height = Math.min(img.naturalHeight, 100);
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-        const data = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
-        for (let i = 3; i < data.length; i += 4) {
-            if (data[i] < 250) return true;
-        }
-        return false;
-    }
-
-    function estimateEdgeBackground(imageData) {
-        const { width, height, data } = imageData;
-        let r = 0, g = 0, b = 0, count = 0;
-        const step = Math.max(1, Math.floor(Math.min(width, height) / 50));
-        const sample = (x, y) => {
-            const i = (y * width + x) * 4;
-            r += data[i]; g += data[i+1]; b += data[i+2]; count++;
-        };
-        for (let x = 0; x < width; x += step) { sample(x, 0); sample(x, height - 1); }
-        for (let y = 1; y < height - 1; y += step) { sample(0, y); sample(width - 1, y); }
-        return { r: Math.round(r / count), g: Math.round(g / count), b: Math.round(b / count), a: 255 };
-    }
-
-    function knockOutBackground(imageData, bgColor, threshold = 30) {
-        const data = imageData.data;
-        for (let i = 0; i < data.length; i += 4) {
-            const distance = Math.abs(data[i] - bgColor.r) + Math.abs(data[i+1] - bgColor.g) + Math.abs(data[i+2] - bgColor.b);
-            if (distance <= threshold) data[i+3] = 0;
-        }
     }
 
     function downloadSVG(svgContent, baseName) {
@@ -676,32 +593,31 @@ document.addEventListener('DOMContentLoaded', () => {
     
     elements.downloadTinkercadBtn.addEventListener('click', () => {
         if (!state.tracedata) return;
-        const visibleIndices = getVisiblePaletteIndices();
+        const visibleIndices = getVisibleLayerIndices();
         if (!visibleIndices.length) return;
         const imageName = (state.originalImageUrl || 'image').split(/[\\/]/).pop().replace(/\.[^/.]+$/, '');
         
-        if (state.silhouetteTracedata) {
-            const svgStringSilhouette = ImageTracer.getsvgstring(state.silhouetteTracedata, state.lastOptions);
-            downloadSVG(svgStringSilhouette, `${imageName}_layer_background`);
-        }
-        
-        visibleIndices.forEach((idx, ordinal) => {
+        // Download each layer separately
+        visibleIndices.forEach((idx) => {
             const singleLayer = buildTracedataSubset(state.tracedata, [idx]);
-            downloadSVG(ImageTracer.getsvgstring(singleLayer, state.lastOptions), `${imageName}_layer_${ordinal + 1}`);
+            const layerName = idx === 0 ? 'background' : `layer_${idx}`;
+            downloadSVG(ImageTracer.getsvgstring(singleLayer, state.lastOptions), `${imageName}_${layerName}`);
         });
     });
 
     elements.downloadSilhouetteBtn.addEventListener('click', () => {
         if (!state.silhouetteTracedata) return;
         const imageName = (state.originalImageUrl || 'image').split(/[\\/]/).pop().replace(/\.[^/.]+$/, '');
-        downloadSVG(ImageTracer.getsvgstring(state.silhouetteTracedata, state.lastOptions), `${imageName}_background`);
+        downloadSVG(ImageTracer.getsvgstring(state.silhouetteTracedata, state.lastOptions), `${imageName}_silhouette`);
     });
 
     // Layer Merging Logic
     function prepareMergeUIAfterGeneration() {
         state.mergeRules = [];
+        state.selectedFinalLayerIndices.clear();
         elements.mergeRulesContainer.innerHTML = '';
-        const visibleIndices = getVisiblePaletteIndices();
+        const visibleIndices = getVisibleLayerIndices();
+        // Now include all layers (including background) for merging
         if (visibleIndices.length >= 2) {
             elements.layerMergingSection.style.display = 'block';
             elements.addMergeRuleBtn.disabled = false;
@@ -714,15 +630,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
     elements.addMergeRuleBtn.addEventListener('click', () => {
         const ruleIndex = state.mergeRules.length;
-        const visibleIndices = getVisiblePaletteIndices();
+        const visibleIndices = getVisibleLayerIndices();
+        // Now include all layers (including background) for merging
         if (visibleIndices.length < 2) return;
 
-        const defaultRule = { source: 0, target: 1 };
+        const defaultRule = { source: 0, target: 1 }; // These are indices into visibleIndices array
         state.mergeRules.push(defaultRule);
 
         const row = document.createElement('div');
         row.className = 'flex items-center gap-2 text-sm';
-        const optionsHTML = visibleIndices.map((_, ord) => `<option value="${ord}">Layer ${ord + 1}</option>`).join('');
+        const optionsHTML = visibleIndices.map((idx, ord) => {
+            const label = idx === 0 ? `Layer ${idx} (Background)` : `Layer ${idx}`;
+            return `<option value="${ord}">${label}</option>`;
+        }).join('');
         
         row.innerHTML = `
             <span>Merge</span>
@@ -736,7 +656,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         row.querySelector('select[data-type="target"]').value = 1;
         elements.mergeRulesContainer.appendChild(row);
-        updateMergeRuleSwatches(row, defaultRule);
+        updateMergeRuleSwatches(row, defaultRule, visibleIndices);
         elements.combineAndDownloadBtn.disabled = false;
         updateFinalPalette();
         updateFilteredPreview();
@@ -747,7 +667,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const ruleIndex = parseInt(e.target.dataset.ruleIndex);
             const type = e.target.dataset.type;
             state.mergeRules[ruleIndex][type] = parseInt(e.target.value);
-            updateMergeRuleSwatches(e.target.parentElement, state.mergeRules[ruleIndex]);
+            const visibleIndices = getVisibleLayerIndices();
+            updateMergeRuleSwatches(e.target.parentElement, state.mergeRules[ruleIndex], visibleIndices);
             updateFinalPalette();
             updateFilteredPreview();
         }
@@ -770,28 +691,37 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     });
     
-    function updateMergeRuleSwatches(row, rule) {
-        const visibleIndices = getVisiblePaletteIndices();
-        const sourceColor = state.tracedata.palette[visibleIndices[rule.source]];
-        const targetColor = state.tracedata.palette[visibleIndices[rule.target]];
+    function updateMergeRuleSwatches(row, rule, allVisibleIndices) {
+        const sourceIndex = allVisibleIndices[rule.source];
+        const targetIndex = allVisibleIndices[rule.target];
+        const sourceColor = state.tracedata.palette[sourceIndex];
+        const targetColor = state.tracedata.palette[targetIndex];
         row.querySelector('[data-swatch="source"]').style.backgroundColor = `rgb(${sourceColor.r},${sourceColor.g},${sourceColor.b})`;
         row.querySelector('[data-swatch="target"]').style.backgroundColor = `rgb(${targetColor.r},${targetColor.g},${targetColor.b})`;
     }
 
     elements.combineAndDownloadBtn.addEventListener('click', () => {
-        const visibleIndices = getVisiblePaletteIndices();
+        const visibleIndices = getVisibleLayerIndices();
         const mergedData = createMergedTracedata(state.tracedata, visibleIndices, state.mergeRules);
         if (!mergedData) return;
 
         const imageName = (state.originalImageUrl || 'image').split(/[\\/]/).pop().replace(/\.[^/.]+$/, '');
-        const newVisibleIndices = Array.from({length: mergedData.palette.length - 1}, (_, i) => i + 1);
-
-        const mergedSilhouette = createSolidSilhouette(mergedData);
-        if (mergedSilhouette) {
-            downloadSVG(ImageTracer.getsvgstring(mergedSilhouette, state.lastOptions), `${imageName}_final_background`);
+        
+        // Download background layer
+        if (mergedData.layers[0] && layerHasPaths(mergedData.layers[0])) {
+            const backgroundLayer = buildTracedataSubset(mergedData, [0]);
+            downloadSVG(ImageTracer.getsvgstring(backgroundLayer, state.lastOptions), `${imageName}_final_background`);
         }
 
-        newVisibleIndices.forEach((idx, ord) => {
+        // Download merged layers (excluding background)
+        const finalIndices = [];
+        for (let i = 1; i < mergedData.layers.length; i++) {
+            if (layerHasPaths(mergedData.layers[i])) {
+                finalIndices.push(i);
+            }
+        }
+
+        finalIndices.forEach((idx, ord) => {
             const singleLayer = buildTracedataSubset(mergedData, [idx]);
             downloadSVG(ImageTracer.getsvgstring(singleLayer, state.lastOptions), `${imageName}_final_layer_${ord + 1}`);
         });
@@ -800,6 +730,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function createMergedTracedata(sourceData, visibleIndices, rules) {
         if (!sourceData || !visibleIndices || !rules) return sourceData;
 
+        // Now work with all visible indices (including background)
         let finalTargets = {};
         visibleIndices.forEach((_, ruleIndex) => finalTargets[ruleIndex] = ruleIndex);
 
@@ -811,6 +742,7 @@ document.addEventListener('DOMContentLoaded', () => {
             finalTargets[rule.source] = ultimateTarget;
         });
 
+        // Resolve all chains
         Object.keys(finalTargets).forEach(key => {
             let current = parseInt(key);
             while (finalTargets[current] !== current) {
@@ -819,6 +751,7 @@ document.addEventListener('DOMContentLoaded', () => {
             finalTargets[key] = current;
         });
 
+        // Group layers
         const groups = {};
         visibleIndices.forEach((originalIndex, ruleIndex) => {
             const finalTargetRuleIndex = finalTargets[ruleIndex];
@@ -828,9 +761,11 @@ document.addEventListener('DOMContentLoaded', () => {
             groups[finalTargetRuleIndex].push(originalIndex);
         });
 
-        const newPalette = [sourceData.palette[0]];
-        const newLayers = [sourceData.layers[0]];
+        // Build new tracedata
+        const newPalette = [];
+        const newLayers = [];
 
+        // Add merged layers in order
         Object.keys(groups).map(Number).sort((a, b) => a - b).forEach(targetRuleIndex => {
             const originalIndicesInGroup = groups[targetRuleIndex];
             const representativeOriginalIndex = visibleIndices[targetRuleIndex];
@@ -851,21 +786,128 @@ document.addEventListener('DOMContentLoaded', () => {
     
     function updateFinalPalette() {
         elements.finalPaletteContainer.innerHTML = '';
+        state.selectedFinalLayerIndices.clear();
         if (!state.tracedata) return;
 
-        const visibleIndices = getVisiblePaletteIndices();
-        const data = state.mergeRules.length > 0 ? createMergedTracedata(state.tracedata, visibleIndices, state.mergeRules) : state.tracedata;
-        const palette = state.mergeRules.length > 0 ? data.palette.slice(1) : visibleIndices.map(i => state.tracedata.palette[i]);
+        const visibleIndices = getVisibleLayerIndices();
+        let palette;
+        
+        if (state.mergeRules.length > 0) {
+            const data = createMergedTracedata(state.tracedata, visibleIndices, state.mergeRules);
+            palette = data.palette;
+        } else {
+            palette = visibleIndices.map(i => state.tracedata.palette[i]);
+        }
 
         if (palette.length > 0) {
             palette.forEach((color, i) => {
+                // Create container for swatch and label
+                const container = document.createElement('div');
+                container.className = 'flex flex-col items-center gap-1';
+                
                 const swatch = document.createElement('div');
-                swatch.className = 'w-8 h-8 rounded border-2 border-gray-700 ring-1 ring-gray-500';
+                swatch.className = 'w-8 h-8 rounded border-2 border-gray-700 ring-1 ring-gray-500 cursor-pointer transition-all';
                 swatch.style.backgroundColor = `rgb(${color.r},${color.g},${color.b})`;
-                swatch.title = `Final Layer ${i + 1}`;
-                elements.finalPaletteContainer.appendChild(swatch);
+                
+                // Layer number label (initially hidden)
+                const label = document.createElement('div');
+                label.className = 'text-xs text-gray-400 opacity-0 transition-opacity';
+                
+                if (state.mergeRules.length > 0) {
+                    // Find original layer index for this final layer
+                    const visibleIndices = getVisibleLayerIndices();
+                    let finalTargets = {};
+                    visibleIndices.forEach((_, ruleIndex) => finalTargets[ruleIndex] = ruleIndex);
+                    
+                    state.mergeRules.forEach(rule => {
+                        let ultimateTarget = rule.target;
+                        while (finalTargets[ultimateTarget] !== ultimateTarget) {
+                            ultimateTarget = finalTargets[ultimateTarget];
+                        }
+                        finalTargets[rule.source] = ultimateTarget;
+                    });
+                    
+                    Object.keys(finalTargets).forEach(key => {
+                        let current = parseInt(key);
+                        while (finalTargets[current] !== current) {
+                            current = finalTargets[current];
+                        }
+                        finalTargets[key] = current;
+                    });
+                    
+                    const groups = {};
+                    visibleIndices.forEach((originalIndex, ruleIndex) => {
+                        const finalTargetRuleIndex = finalTargets[ruleIndex];
+                        if (!groups[finalTargetRuleIndex]) {
+                            groups[finalTargetRuleIndex] = [];
+                        }
+                        groups[finalTargetRuleIndex].push(originalIndex);
+                    });
+                    
+                    const sortedTargets = Object.keys(groups).map(Number).sort((a, b) => a - b);
+                    if (i < sortedTargets.length) {
+                        const targetRuleIndex = sortedTargets[i];
+                        const originalIndices = groups[targetRuleIndex];
+                        const representativeIndex = visibleIndices[targetRuleIndex];
+                        
+                        if (originalIndices.length > 1) {
+                            label.textContent = `Merged (${originalIndices.map(idx => idx === 0 ? 'BG' : idx).join('+')})`;
+                        } else {
+                            label.textContent = representativeIndex === 0 ? 'Background' : `Layer ${representativeIndex}`;
+                        }
+                        
+                        if (representativeIndex === 0) {
+                            swatch.className += ' background-layer';
+                            swatch.title = originalIndices.length > 1 ? 
+                                `Merged layer including background` : 'Background Layer';
+                        } else {
+                            swatch.title = originalIndices.length > 1 ? 
+                                `Merged layers: ${originalIndices.join(', ')}` : `Layer ${representativeIndex}`;
+                        }
+                    }
+                } else {
+                    const originalIndex = visibleIndices[i];
+                    label.textContent = originalIndex === 0 ? 'Background' : `Layer ${originalIndex}`;
+                    
+                    if (originalIndex === 0) {
+                        swatch.className += ' background-layer';
+                        swatch.title = 'Background Layer';
+                    } else {
+                        swatch.title = `Layer ${originalIndex}`;
+                    }
+                }
+                
+                swatch.dataset.index = i;
+                swatch.addEventListener('click', () => {
+                    if (state.selectedFinalLayerIndices.has(i)) {
+                        state.selectedFinalLayerIndices.delete(i);
+                        swatch.classList.remove('ring-2', 'ring-offset-2', 'ring-blue-500', 'border-white');
+                        label.classList.add('opacity-0');
+                    } else {
+                        state.selectedFinalLayerIndices.add(i);
+                        swatch.classList.add('ring-2', 'ring-offset-2', 'ring-blue-500', 'border-white');
+                        label.classList.remove('opacity-0');
+                    }
+                    updateFilteredPreview();
+                });
+                
+                container.appendChild(swatch);
+                container.appendChild(label);
+                elements.finalPaletteContainer.appendChild(container);
             });
         }
+    }
+
+    // Check for stored image URL from context menu on page load
+    if (typeof chrome !== 'undefined' && chrome.storage) {
+        chrome.storage.local.get(['imageUrlToConvert'], (result) => {
+            if (result.imageUrlToConvert) {
+                elements.urlInput.value = result.imageUrlToConvert;
+                loadImageFromUrl(result.imageUrlToConvert);
+                // Clear the stored URL
+                chrome.storage.local.remove('imageUrlToConvert');
+            }
+        });
     }
 
 });

@@ -105,6 +105,16 @@
         .slider-tooltip {
             transition: opacity 0.3s ease-in-out;
         }
+        .buy-me-coffee {
+            transition: transform 0.2s ease-in-out;
+        }
+        .buy-me-coffee:hover {
+            transform: scale(1.05);
+        }
+        .background-layer {
+            opacity: 0.7;
+            border-style: dashed !important;
+        }
     </style>
 </head>
 <body class="h-screen w-screen overflow-hidden antialiased">
@@ -139,7 +149,7 @@
                     </div>
                 </div>
 
-                <div id="controls-wrapper">
+                <div>
                     <div class="flex justify-between items-center mb-3">
                         <h2 class="text-lg font-semibold text-gray-200">2. Adjust Conversion</h2>
                         <button id="reset-btn" class="hidden text-xs font-semibold text-blue-400 hover:text-blue-300">Reset to Initial</button>
@@ -154,12 +164,6 @@
                                     <span id="color-precision-value" class="text-sm font-mono bg-gray-700 border border-gray-600 rounded-md px-2 py-0.5 w-12 text-center text-gray-200">75</span>
                                 </div>
                                  <p id="color-precision-tooltip" class="slider-tooltip text-xs text-gray-400 mt-1 h-4 opacity-0"></p>
-                            </div>
-                            <div class="pt-2">
-                                 <label class="flex items-center space-x-2 cursor-pointer">
-                                    <input type="checkbox" id="remove-bg" class="h-4 w-4 rounded border-gray-500 bg-gray-700 text-blue-600 focus:ring-blue-500">
-                                    <span class="text-sm font-medium text-gray-300">Remove Background</span>
-                                </label>
                             </div>
                         </fieldset>
                         <fieldset id="path-controls" class="pt-4 border-t border-gray-700" disabled>
@@ -193,15 +197,18 @@
                 </div>
             </div>
 
-            <footer class="p-6 border-t border-gray-700">
-                <button id="generate-btn" class="w-full btn-primary font-bold py-3 px-4 rounded-lg text-lg disabled:bg-gray-600 disabled:cursor-not-allowed" disabled>
+            <footer class="p-6 border-t border-gray-700 space-y-3">
+                <button id="analyze-colors-btn" class="w-full btn-primary font-bold py-3 px-4 rounded-lg text-lg disabled:bg-gray-600 disabled:cursor-not-allowed" disabled>
                     1. Analyze Colors
+                </button>
+                <button id="optimize-paths-btn" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-lg text-lg disabled:bg-gray-600 disabled:cursor-not-allowed" disabled>
+                    2. Optimize Paths
                 </button>
             </footer>
         </aside>
 
         <!-- Workspace -->
-        <main class="workspace flex-grow h-full p-8 overflow-y-auto">
+        <main class="workspace relative flex-grow h-full p-0 flex flex-col overflow-hidden">
             <div id="welcome-screen" class="h-full flex flex-col items-center justify-center text-center">
                 <svg class="w-24 h-24 text-gray-600 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
                 <h2 class="text-2xl font-bold text-gray-500">Your Workspace</h2>
@@ -209,24 +216,24 @@
                  <div id="status-text" class="mt-4 text-sm font-medium text-gray-400"></div>
             </div>
 
-            <div id="main-content" class="hidden">
-                 <div class="card p-4 mb-8">
+            <div id="main-content" class="hidden flex-grow flex flex-col gap-2 min-h-0">
+                 <div class="card p-4 flex-shrink-0">
                     <div class="flex justify-between items-center mb-2">
                         <h3 class="font-semibold text-gray-200">Original Image</h3>
                         <div id="original-resolution" class="text-xs text-gray-400"></div>
                     </div>
-                    <div class="h-96 bg-grid rounded-md flex items-center justify-center overflow-hidden">
+                    <div class="h-64 bg-grid rounded-md flex items-center justify-center overflow-hidden">
                         <img id="source-image" alt="Original" class="max-w-full max-h-full object-contain">
                     </div>
                 </div>
 
-                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 flex-shrink-0">
                     <div class="card p-4">
                         <div class="flex justify-between items-center mb-2">
                             <h3 class="font-semibold text-gray-200">3D Print Preview (All Layers)</h3>
                             <div id="quality-indicator" class="text-xs text-gray-400"></div>
                         </div>
-                        <div class="aspect-square bg-grid rounded-md flex items-center justify-center overflow-hidden">
+                        <div class="h-64 bg-grid rounded-md flex items-center justify-center overflow-hidden">
                             <object id="svg-preview" type="image/svg+xml" class="max-w-full max-h-full"></object>
                         </div>
                     </div>
@@ -236,18 +243,19 @@
                             <h3 class="font-semibold text-gray-200">Selected Layer Preview</h3>
                             <div id="selected-layer-text" class="text-xs text-gray-400">Click layers to preview</div>
                         </div>
-                        <div class="aspect-square bg-grid rounded-md flex items-center justify-center overflow-hidden">
+                        <div class="h-64 bg-grid rounded-md flex items-center justify-center overflow-hidden">
                             <object id="svg-preview-filtered" type="image/svg+xml" class="max-w-full max-h-full"></object>
                         </div>
                     </div>
                 </div>
 
-                <div id="output-section" class="card mt-8 p-6" style="display:none;">
-                    <h3 class="text-lg font-semibold mb-4 text-gray-200">3. Output Layers</h3>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div id="output-section" class="card p-6 flex-1 flex flex-col min-h-0" style="display:none;">
+    
+                    <div class="flex-grow grid grid-cols-1 md:grid-cols-2 gap-8 overflow-y-auto">
                         <div>
                              <div id="palette-row" class="mb-4" style="display:none;">
-                                <h4 class="font-semibold text-sm mb-2 text-gray-400">Visible Layers (Click to select)</h4>
+                                <h4 class="font-semibold text-sm mb-2 text-gray-400">Available Layers (Click to select)</h4>
+                                <div class="text-xs text-gray-500 mb-2">Layer 0 is the background layer</div>
                                 <div id="palette-container" class="flex flex-wrap gap-2"></div>
                              </div>
                              <div id="layer-merging-section" style="display:none;">
@@ -261,14 +269,15 @@
                             <div id="final-palette-container" class="flex flex-wrap gap-2 min-h-[36px]"></div>
                         </div>
                     </div>
-                     <div class="mt-6 pt-6 border-t border-gray-700 flex flex-wrap gap-4">
+                     <div class="mt-6 pt-6 border-t border-gray-700 flex flex-wrap gap-4 flex-shrink-0">
                          <button id="download-tinkercad-btn" class="btn-primary font-semibold py-2 px-5 rounded-md disabled:bg-gray-600 disabled:cursor-not-allowed" disabled>Download All Layers</button>
                          <button id="download-silhouette-btn" class="btn-secondary font-semibold py-2 px-5 rounded-md disabled:bg-gray-600 disabled:cursor-not-allowed" disabled>Download Background</button>
                          <button id="combine-and-download-btn" class="bg-green-600 text-white font-semibold py-2 px-5 rounded-md hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed" disabled>Download Final</button>
                      </div>
                 </div>
             </div>
-                        <a href="https://buymeacoffee.com/genesisframeworks" target="_blank" class="buy-me-coffee fixed bottom-6 right-6 bg-yellow-400 text-gray-900 font-bold py-3 px-5 rounded-full shadow-lg flex items-center gap-2">
+
+            <a href="https://buymeacoffee.com/genesisframeworks" target="_blank" class="buy-me-coffee fixed bottom-6 right-6 bg-yellow-400 text-gray-900 font-bold py-3 px-5 rounded-full shadow-lg flex items-center gap-2">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-2.5-8.5c.83 0 1.5-.67 1.5-1.5s-.67-1.5-1.5-1.5-1.5.67-1.5 1.5.67 1.5 1.5 1.5zm5 0c.83 0 1.5-.67 1.5-1.5s-.67-1.5-1.5-1.5-1.5.67-1.5 1.5.67 1.5 1.5 1.5zm-2.5 4c2.33 0 4.31-1.46 5.11-3.5H6.89c.8 2.04 2.78 3.5 5.11 3.5z"/></svg>
                 <span>Buy me a coffee</span>
             </a>
