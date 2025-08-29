@@ -4,7 +4,6 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>SVG Creator - Genesis Framework</title>
-    <script src="https://cdn.tailwindcss.com"></script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -21,41 +20,240 @@
             --brand-primary-hover: #2563eb;
             --border-color: #4b5563;
         }
+
+        /* Reset and base styles */
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
         body {
             font-family: 'Inter', sans-serif;
             background-color: var(--bg-main);
             color: var(--text-primary);
         }
+
         .control-panel {
             background-color: var(--bg-panel);
             border-right: 1px solid var(--border-color);
         }
+
         .workspace {
             background-color: var(--bg-main);
         }
+
         .card {
             background-color: var(--bg-panel);
             border-radius: 0.75rem;
             border: 1px solid var(--border-color);
         }
+
         .btn-primary {
             background-color: var(--brand-primary);
             color: white;
             transition: background-color 0.2s;
+            font-weight: 600;
         }
+
         .btn-primary:hover:not(:disabled) {
             background-color: var(--brand-primary-hover);
         }
+
+        .btn-primary:disabled {
+            background-color: #6b7280 !important;
+            color: #d1d5db !important;
+            cursor: not-allowed !important;
+        }
+
         .btn-secondary {
             background-color: var(--bg-panel-secondary);
-            color: var(--text-secondary);
+            color: white;
             border: 1px solid var(--border-color);
             transition: background-color 0.2s, border-color 0.2s;
+            font-weight: 500;
         }
+
         .btn-secondary:hover:not(:disabled) {
             background-color: #4b5563;
             border-color: #6b7280;
+            color: white;
         }
+
+        .btn-secondary:disabled {
+            background-color: #374151 !important;
+            color: #9ca3af !important;
+            border-color: #4b5563 !important;
+            cursor: not-allowed !important;
+        }
+
+        /* Custom utility classes to replace Tailwind */
+        .h-screen { height: 100vh; }
+        .w-screen { width: 100vw; }
+        .overflow-hidden { overflow: hidden; }
+        .antialiased { -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+        .fixed { position: fixed; }
+        .inset-0 { top: 0; right: 0; bottom: 0; left: 0; }
+        .flex { display: flex; }
+        .flex-col { flex-direction: column; }
+        .items-center { align-items: center; }
+        .justify-center { justify-content: center; }
+        .hidden { display: none; }
+        .h-16 { height: 4rem; }
+        .w-16 { width: 4rem; }
+        .rounded-full { border-radius: 50%; }
+        .border-4 { border-width: 4px; }
+        .mt-4 { margin-top: 1rem; }
+        .text-lg { font-size: 1.125rem; line-height: 1.75rem; }
+        .font-semibold { font-weight: 600; }
+        .text-gray-300 { color: #d1d5db; }
+        .h-full { height: 100%; }
+        .flex-shrink-0 { flex-shrink: 0; }
+        .p-6 { padding: 1.5rem; }
+        .border-b { border-bottom-width: 1px; }
+        .border-gray-700 { border-color: #374151; }
+        .text-2xl { font-size: 1.5rem; line-height: 2rem; }
+        .font-bold { font-weight: 700; }
+        .text-gray-100 { color: #f3f4f6; }
+        .text-sm { font-size: 0.875rem; line-height: 1.25rem; }
+        .text-gray-400 { color: #9ca3af; }
+        .flex-grow { flex-grow: 1; }
+        .overflow-y-auto { overflow-y: auto; }
+        .mb-6 { margin-bottom: 1.5rem; }
+        .mb-3 { margin-bottom: 0.75rem; }
+        .text-gray-200 { color: #e5e7eb; }
+        .p-4 { padding: 1rem; }
+        .bg-gray-800 { background-color: #1f2937; }
+        .rounded-lg { border-radius: 0.5rem; }
+        .border { border-width: 1px; }
+        .border-dashed { border-style: dashed; }
+        .border-gray-600 { border-color: #4b5563; }
+        .text-center { text-align: center; }
+        .w-full { width: 100%; }
+        .font-semibold { font-weight: 600; }
+        .py-2 { padding-top: 0.5rem; padding-bottom: 0.5rem; }
+        .px-4 { padding-left: 1rem; padding-right: 1rem; }
+        .rounded-md { border-radius: 0.375rem; }
+        .mb-2 { margin-bottom: 0.5rem; }
+        .text-xs { font-size: 0.75rem; line-height: 1rem; }
+        .text-gray-500 { color: #6b7280; }
+        .my-2 { margin-top: 0.5rem; margin-bottom: 0.5rem; }
+        .flex-grow { flex-grow: 1; }
+        .p-2 { padding: 0.5rem; }
+        .bg-gray-900 { background-color: #111827; }
+        .rounded-l-md { border-top-left-radius: 0.375rem; border-bottom-left-radius: 0.375rem; }
+        .focus\:ring-2:focus { --tw-ring-offset-shadow: var(--tw-ring-inset) 0 0 0 var(--tw-ring-offset-width) var(--tw-ring-offset-color); --tw-ring-shadow: var(--tw-ring-inset) 0 0 0 calc(2px + var(--tw-ring-offset-width)) var(--tw-ring-color); box-shadow: var(--tw-ring-offset-shadow), var(--tw-ring-shadow), var(--tw-shadow, 0 0 #0000); }
+        .focus\:ring-blue-500:focus { --tw-ring-opacity: 1; --tw-ring-color: rgb(59 130 246 / var(--tw-ring-opacity)); }
+        .focus\:border-blue-500:focus { --tw-border-opacity: 1; border-color: rgb(59 130 246 / var(--tw-border-opacity)); }
+        .outline-none { outline: 2px solid transparent; outline-offset: 2px; }
+        .text-white { color: rgb(255 255 255); }
+        .px-3 { padding-left: 0.75rem; padding-right: 0.75rem; }
+        .rounded-r-md { border-top-right-radius: 0.375rem; border-bottom-right-radius: 0.375rem; }
+        .border-l-0 { border-left-width: 0px; }
+        .hover\:bg-gray-500:hover { background-color: #6b7280; }
+        .text-amber-400 { color: #fbbf24; }
+        .mt-3 { margin-top: 0.75rem; }
+        .text-left { text-align: left; }
+        .justify-between { justify-content: space-between; }
+        .hover\:text-blue-300:hover { color: #93c5fd; }
+        .space-y-4 > :not([hidden]) ~ :not([hidden]) { margin-top: 1rem; }
+        .text-md { font-size: 1rem; line-height: 1.5rem; }
+        .space-x-2 > :not([hidden]) ~ :not([hidden]) { margin-left: 0.5rem; }
+        .font-mono { font-family: ui-monospace, SFMono-Regular, "SF Mono", Consolas, "Liberation Mono", Menlo, monospace; }
+        .w-12 { width: 3rem; }
+        .py-0\.5 { padding-top: 0.125rem; padding-bottom: 0.125rem; }
+        .px-2 { padding-left: 0.5rem; padding-right: 0.5rem; }
+        .h-4 { height: 1rem; }
+        .opacity-0 { opacity: 0; }
+        .pt-4 { padding-top: 1rem; }
+        .border-t { border-top-width: 1px; }
+        .mt-1 { margin-top: 0.25rem; }
+        .border-t { border-top-width: 1px; }
+        .space-y-3 > :not([hidden]) ~ :not([hidden]) { margin-top: 0.75rem; }
+        .py-3 { padding-top: 0.75rem; padding-bottom: 0.75rem; }
+        .disabled\:bg-gray-600:disabled { background-color: #4b5563; }
+        .disabled\:cursor-not-allowed:disabled { cursor: not-allowed; }
+        .bg-green-600 { background-color: #16a34a; }
+        .hover\:bg-green-700:hover { background-color: #15803d; }
+        .relative { position: relative; }
+        .min-h-0 { min-height: 0px; }
+        .w-24 { width: 6rem; }
+        .h-24 { height: 6rem; }
+        .text-gray-600 { color: #4b5563; }
+        .mb-4 { margin-bottom: 1rem; }
+        .stroke-1 { stroke-width: 1; }
+        .stroke-linecap-round { stroke-linecap: round; }
+        .stroke-linejoin-round { stroke-linejoin: round; }
+        .stroke-width-1 { stroke-width: 1; }
+        .font-medium { font-weight: 500; }
+        .mt-2 { margin-top: 0.5rem; }
+        .gap-2 { gap: 0.5rem; }
+        .max-w-full { max-width: 100%; }
+        .max-h-full { max-height: 100%; }
+        .object-contain { object-fit: contain; }
+        .grid { display: grid; }
+        .grid-cols-1 { grid-template-columns: repeat(1, minmax(0, 1fr)); }
+        .lg\:grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        .gap-8 { gap: 2rem; }
+        .items-center { align-items: center; }
+        .h-64 { height: 16rem; }
+        .pointer-events-none { pointer-events: none; }
+        .flex-1 { flex: 1 1 0%; }
+        .md\:grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        .space-y-2 > :not([hidden]) ~ :not([hidden]) { margin-top: 0.5rem; }
+        .py-1 { padding-top: 0.25rem; padding-bottom: 0.25rem; }
+        .min-h-\[36px\] { min-height: 36px; }
+        .mt-6 { margin-top: 1.5rem; }
+        .pt-6 { padding-top: 1.5rem; }
+        .flex-wrap { flex-wrap: wrap; }
+        .gap-4 { gap: 1rem; }
+        .py-2 { padding-top: 0.5rem; padding-bottom: 0.5rem; }
+        .px-5 { padding-left: 1.25rem; padding-right: 1.25rem; }
+        .bottom-6 { bottom: 1.5rem; }
+        .right-6 { right: 1.5rem; }
+        .bg-yellow-400 { background-color: #facc15; }
+        .text-gray-900 { color: #111827; }
+        .py-3 { padding-top: 0.75rem; padding-bottom: 0.75rem; }
+        .rounded-full { border-radius: 9999px; }
+        .shadow-lg { box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1); }
+        .h-6 { height: 1.5rem; }
+        .w-6 { width: 1.5rem; }
+        .w-4 { width: 1rem; }
+        .h-4 { height: 1rem; }
+        .p-1 { padding: 0.25rem; }
+        .hover\:bg-gray-700:hover { background-color: #374151; }
+        .rounded-l-md { border-top-left-radius: 0.375rem; border-bottom-left-radius: 0.375rem; }
+        .border-l { border-left-width: 1px; }
+        .border-r { border-right-width: 1px; }
+        .rounded-r-md { border-top-right-radius: 0.375rem; border-bottom-right-radius: 0.375rem; }
+        .stroke-width-2 { stroke-width: 2; }
+        .w-8 { width: 2rem; }
+        .h-8 { height: 2rem; }
+        .rounded { border-radius: 0.25rem; }
+        .border-2 { border-width: 2px; }
+        .ring-1 { box-shadow: 0 0 0 1px rgb(59 130 246 / 0.5); }
+        .ring-gray-500 { --tw-ring-color: #6b7280; }
+        .cursor-pointer { cursor: pointer; }
+        .transition-all { transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1); }
+        .transition-opacity { transition-opacity: 0.15s cubic-bezier(0.4, 0, 0.2, 1); }
+        .ring-2 { box-shadow: 0 0 0 2px rgb(59 130 246); }
+        .ring-offset-2 { --tw-ring-offset-width: 2px; }
+        .ring-blue-500 { --tw-ring-color: #3b82f6; }
+        .border-white { border-color: #ffffff; }
+        .gap-1 { gap: 0.25rem; }
+        .w-\[26rem\] { width: 26rem; }
+        .p-1 { padding: 0.25rem; }
+
+        /* Responsive utilities */
+        @media (min-width: 768px) {
+            .md\:grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        }
+        
+        @media (min-width: 1024px) {
+            .lg\:grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+        }
+
+        /* Range input styles */
         input[type="range"] {
             -webkit-appearance: none;
             appearance: none;
@@ -85,35 +283,77 @@
             border-radius: 50%;
             border: none;
         }
+
+        /* Loader overlay */
         #loader-overlay {
             background-color: rgba(17, 24, 39, 0.8);
             backdrop-filter: blur(4px);
             z-index: 9999;
         }
+
         .spinner {
             border-color: var(--border-color);
             border-top-color: var(--brand-primary);
             animation: spin 1s linear infinite;
         }
+
         @keyframes spin {
             to { transform: rotate(360deg); }
         }
+
         .bg-grid {
             background-image: linear-gradient(var(--border-color) 1px, transparent 1px), linear-gradient(to right, var(--border-color) 1px, transparent 1px);
             background-size: 20px 20px;
         }
+
         .slider-tooltip {
             transition: opacity 0.3s ease-in-out;
         }
+
         .buy-me-coffee {
             transition: transform 0.2s ease-in-out;
         }
         .buy-me-coffee:hover {
             transform: scale(1.05);
         }
+
         .background-layer {
             opacity: 0.7;
             border-style: dashed !important;
+        }
+
+        .preview-container {
+            cursor: grab;
+        }
+        .preview-container.dragging {
+            cursor: grabbing;
+        }
+        .preview-container.zoomed .preview-content {
+            cursor: grab;
+        }
+        .preview-container.zoomed.dragging .preview-content {
+            cursor: grabbing;
+        }
+
+        .zoom-controls button {
+            color: white;
+            background-color: var(--bg-panel-secondary);
+            transition: all 0.2s ease;
+            font-weight: 500;
+        }
+        .zoom-controls button:hover:not(:disabled) {
+            background-color: #4b5563;
+            color: white;
+        }
+        .zoom-controls button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            background-color: #374151;
+            color: #9ca3af;
+        }
+        .zoom-controls button:disabled:hover {
+            background-color: #374151;
+            color: #9ca3af;
         }
     </style>
 </head>
@@ -142,7 +382,7 @@
                         <input type="file" id="file-input" accept="image/*" class="hidden">
                         <p class="text-xs text-gray-500 my-2">OR</p>
                         <div class="flex">
-                            <input type="text" id="url-input" placeholder="Paste image URL" class="flex-grow text-sm p-2 border bg-gray-900 border-gray-600 rounded-l-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none text-white">
+                            <input type="text" id="url-input" placeholder="Paste image URL" class="flex-grow text-sm p-2 border bg-gray-900 border-gray-600 rounded-l-md outline-none text-white">
                             <button id="load-url-btn" class="bg-gray-600 text-gray-200 font-semibold px-3 rounded-r-md border border-l-0 border-gray-600 hover:bg-gray-500">Load</button>
                         </div>
                         <div id="resolution-notice" class="text-xs text-amber-400 mt-3 text-left hidden"></div>
@@ -227,24 +467,58 @@
                     </div>
                 </div>
 
-                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 flex-shrink-0">
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 flex-shrink-0">
                     <div class="card p-4">
                         <div class="flex justify-between items-center mb-2">
                             <h3 class="font-semibold text-gray-200">3D Print Preview (All Layers)</h3>
-                            <div id="quality-indicator" class="text-xs text-gray-400"></div>
+                            <div class="flex items-center gap-2">
+                                <div class="zoom-controls flex bg-gray-800 rounded-md border border-gray-600">
+                                    <button id="zoom-out-all" class="p-1 hover:bg-gray-700 rounded-l-md" title="Zoom Out">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"></path>
+                                        </svg>
+                                    </button>
+                                    <button id="zoom-reset-all" class="p-1 hover:bg-gray-700 border-l border-r border-gray-600 text-xs font-mono" title="Reset Zoom">1x</button>
+                                    <button id="zoom-in-all" class="p-1 hover:bg-gray-700 rounded-r-md" title="Zoom In">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                                        </svg>
+                                    </button>
+                                </div>
+                                <div id="quality-indicator" class="text-xs text-gray-400"></div>
+                            </div>
                         </div>
-                        <div class="h-64 bg-grid rounded-md flex items-center justify-center overflow-hidden">
-                            <object id="svg-preview" type="image/svg+xml" class="max-w-full max-h-full"></object>
+                        <div class="preview-container h-64 bg-grid rounded-md overflow-hidden relative" data-preview="all">
+                            <div class="preview-content w-full h-full flex items-center justify-center" style="transform-origin: center center;">
+                                <object id="svg-preview" type="image/svg+xml" class="max-w-full max-h-full pointer-events-none"></object>
+                            </div>
                         </div>
                     </div>
 
                     <div class="card p-4">
                         <div class="flex justify-between items-center mb-2">
                             <h3 class="font-semibold text-gray-200">Selected Layer Preview</h3>
-                            <div id="selected-layer-text" class="text-xs text-gray-400">Click layers to preview</div>
+                            <div class="flex items-center gap-2">
+                                <div class="zoom-controls flex bg-gray-800 rounded-md border border-gray-600">
+                                    <button id="zoom-out-selected" class="p-1 hover:bg-gray-700 rounded-l-md" title="Zoom Out">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"></path>
+                                        </svg>
+                                    </button>
+                                    <button id="zoom-reset-selected" class="p-1 hover:bg-gray-700 border-l border-r border-gray-600 text-xs font-mono" title="Reset Zoom">1x</button>
+                                    <button id="zoom-in-selected" class="p-1 hover:bg-gray-700 rounded-r-md" title="Zoom In">
+                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                                        </svg>
+                                    </button>
+                                </div>
+                                <div id="selected-layer-text" class="text-xs text-gray-400">Click layers to preview</div>
+                            </div>
                         </div>
-                        <div class="h-64 bg-grid rounded-md flex items-center justify-center overflow-hidden">
-                            <object id="svg-preview-filtered" type="image/svg+xml" class="max-w-full max-h-full"></object>
+                        <div class="preview-container h-64 bg-grid rounded-md overflow-hidden relative" data-preview="selected">
+                            <div class="preview-content w-full h-full flex items-center justify-center" style="transform-origin: center center;">
+                                <object id="svg-preview-filtered" type="image/svg+xml" class="max-w-full max-h-full pointer-events-none"></object>
+                            </div>
                         </div>
                     </div>
                 </div>

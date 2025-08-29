@@ -58,7 +58,11 @@ document.addEventListener('DOMContentLoaded', () => {
         selectedLayerIndices: new Set(),
         selectedFinalLayerIndices: new Set(),
         tooltipTimeout: null,
-        colorsAnalyzed: false
+        colorsAnalyzed: false,
+        zoom: {
+            all: { scale: 1, x: 0, y: 0, isDragging: false },
+            selected: { scale: 1, x: 0, y: 0, isDragging: false }
+        }
     };
 
     const SLIDER_TOOLTIPS = {
@@ -280,6 +284,155 @@ document.addEventListener('DOMContentLoaded', () => {
         return options;
     }
 
+    // --- Zoom and Pan Functions ---
+    
+    function setupZoomControls() {
+        // Zoom button event listeners
+        document.getElementById('zoom-in-all').addEventListener('click', () => zoomPreview('all', 1.25));
+        document.getElementById('zoom-out-all').addEventListener('click', () => zoomPreview('all', 0.8));
+        document.getElementById('zoom-reset-all').addEventListener('click', () => resetZoom('all'));
+        
+        document.getElementById('zoom-in-selected').addEventListener('click', () => zoomPreview('selected', 1.25));
+        document.getElementById('zoom-out-selected').addEventListener('click', () => zoomPreview('selected', 0.8));
+        document.getElementById('zoom-reset-selected').addEventListener('click', () => resetZoom('selected'));
+        
+        // Pan/drag functionality for both preview containers
+        setupPanControls('all');
+        setupPanControls('selected');
+        
+        // Initialize zoom displays
+        updateZoomDisplay('all');
+        updateZoomDisplay('selected');
+    }
+    
+    function zoomPreview(type, factor) {
+        const zoomState = state.zoom[type];
+        const newScale = Math.max(0.1, Math.min(5, zoomState.scale * factor));
+        zoomState.scale = newScale;
+        updatePreviewTransform(type);
+        updateZoomDisplay(type);
+    }
+    
+    function resetZoom(type) {
+        const zoomState = state.zoom[type];
+        zoomState.scale = 1;
+        zoomState.x = 0;
+        zoomState.y = 0;
+        updatePreviewTransform(type);
+        updateZoomDisplay(type);
+    }
+    
+    function updatePreviewTransform(type) {
+        const container = document.querySelector(`[data-preview="${type}"]`);
+        const content = container.querySelector('.preview-content');
+        const zoomState = state.zoom[type];
+        
+        content.style.transform = `translate(${zoomState.x}px, ${zoomState.y}px) scale(${zoomState.scale})`;
+        
+        // Update container classes
+        if (zoomState.scale > 1) {
+            container.classList.add('zoomed');
+        } else {
+            container.classList.remove('zoomed');
+        }
+    }
+    
+    function updateZoomDisplay(type) {
+        const zoomLevel = Math.round(state.zoom[type].scale * 100);
+        const resetButton = document.getElementById(`zoom-reset-${type}`);
+        resetButton.textContent = `${zoomLevel}%`;
+        
+        // Update button states
+        const zoomInBtn = document.getElementById(`zoom-in-${type}`);
+        const zoomOutBtn = document.getElementById(`zoom-out-${type}`);
+        
+        zoomInBtn.disabled = state.zoom[type].scale >= 5;
+        zoomOutBtn.disabled = state.zoom[type].scale <= 0.1;
+    }
+    
+    function setupPanControls(type) {
+        const container = document.querySelector(`[data-preview="${type}"]`);
+        const content = container.querySelector('.preview-content');
+        let startX, startY, initialX, initialY;
+        
+        // Mouse events
+        content.addEventListener('mousedown', (e) => {
+            if (state.zoom[type].scale <= 1) return;
+            
+            e.preventDefault();
+            state.zoom[type].isDragging = true;
+            container.classList.add('dragging');
+            
+            startX = e.clientX;
+            startY = e.clientY;
+            initialX = state.zoom[type].x;
+            initialY = state.zoom[type].y;
+        });
+        
+        document.addEventListener('mousemove', (e) => {
+            if (!state.zoom[type].isDragging) return;
+            
+            e.preventDefault();
+            const deltaX = e.clientX - startX;
+            const deltaY = e.clientY - startY;
+            
+            state.zoom[type].x = initialX + deltaX;
+            state.zoom[type].y = initialY + deltaY;
+            
+            updatePreviewTransform(type);
+        });
+        
+        document.addEventListener('mouseup', () => {
+            if (state.zoom[type].isDragging) {
+                state.zoom[type].isDragging = false;
+                container.classList.remove('dragging');
+            }
+        });
+        
+        // Touch events for mobile
+        content.addEventListener('touchstart', (e) => {
+            if (state.zoom[type].scale <= 1) return;
+            
+            e.preventDefault();
+            state.zoom[type].isDragging = true;
+            container.classList.add('dragging');
+            
+            const touch = e.touches[0];
+            startX = touch.clientX;
+            startY = touch.clientY;
+            initialX = state.zoom[type].x;
+            initialY = state.zoom[type].y;
+        }, { passive: false });
+        
+        document.addEventListener('touchmove', (e) => {
+            if (!state.zoom[type].isDragging) return;
+            
+            e.preventDefault();
+            const touch = e.touches[0];
+            const deltaX = touch.clientX - startX;
+            const deltaY = touch.clientY - startY;
+            
+            state.zoom[type].x = initialX + deltaX;
+            state.zoom[type].y = initialY + deltaY;
+            
+            updatePreviewTransform(type);
+        }, { passive: false });
+        
+        document.addEventListener('touchend', () => {
+            if (state.zoom[type].isDragging) {
+                state.zoom[type].isDragging = false;
+                container.classList.remove('dragging');
+            }
+        });
+        
+        // Wheel zoom
+        container.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            const factor = e.deltaY > 0 ? 0.9 : 1.1;
+            zoomPreview(type, factor);
+        });
+    }
+
     // --- UI Update Functions ---
 
     function renderPreviews() {
@@ -354,6 +507,9 @@ document.addEventListener('DOMContentLoaded', () => {
     elements.analyzeColorsBtn.addEventListener('click', analyzeColorsClick);
     elements.optimizePathsBtn.addEventListener('click', optimizePathsClick);
     elements.resetBtn.addEventListener('click', resetSlidersToInitial);
+
+    // Zoom control event listeners
+    setupZoomControls();
 
     document.querySelectorAll('.control-panel input[type="range"]').forEach(slider => {
         slider.addEventListener('input', (e) => {
