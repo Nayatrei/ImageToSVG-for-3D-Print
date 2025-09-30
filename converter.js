@@ -10,6 +10,8 @@ document.addEventListener('DOMContentLoaded', () => {
         fileInput: document.getElementById('file-input'),
         urlInput: document.getElementById('url-input'),
         loadUrlBtn: document.getElementById('load-url-btn'),
+        savePngBtn: document.getElementById('save-png-btn'),
+        saveJpgBtn: document.getElementById('save-jpg-btn'),
         originalResolution: document.getElementById('original-resolution'),
         resolutionNotice: document.getElementById('resolution-notice'),
         analyzeColorsBtn: document.getElementById('analyze-colors-btn'),
@@ -695,6 +697,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const w = elements.sourceImage.naturalWidth;
         const h = elements.sourceImage.naturalHeight;
         elements.originalResolution.textContent = `${w}×${h} px`;
+        // Enable original save buttons once image is loaded
+        if (elements.savePngBtn) elements.savePngBtn.disabled = false;
+        if (elements.saveJpgBtn) elements.saveJpgBtn.disabled = false;
         
         if (w < 512 || h < 512) {
             elements.resolutionNotice.textContent = 'Low resolution detected. For best results, use images larger than 512x512 pixels.';
@@ -847,6 +852,58 @@ document.addEventListener('DOMContentLoaded', () => {
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
     }
+
+    // Save Original Image as PNG/JPG with same pixel dimensions
+    function downloadBlob(blob, filename) {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+    }
+
+    function getImageBaseName() {
+        const name = (state.originalImageUrl || 'image').split(/[\\/]/).pop() || 'image';
+        return name.replace(/\.[^/.]+$/, '') || 'image';
+    }
+
+    function drawImageToCanvas(img) {
+        const w = img.naturalWidth;
+        const h = img.naturalHeight;
+        const canvas = document.createElement('canvas');
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, w, h);
+        return canvas;
+    }
+
+    function saveOriginalAsPNG() {
+        if (!elements.sourceImage?.src) return;
+        const canvas = drawImageToCanvas(elements.sourceImage);
+        canvas.toBlob((blob) => {
+            if (!blob) return;
+            downloadBlob(blob, `${getImageBaseName()}.png`);
+            elements.statusText.textContent = 'Saved original as PNG.';
+        }, 'image/png');
+    }
+
+    function saveOriginalAsJPG() {
+        if (!elements.sourceImage?.src) return;
+        const canvas = drawImageToCanvas(elements.sourceImage);
+        const quality = 0.92; // default high quality
+        canvas.toBlob((blob) => {
+            if (!blob) return;
+            downloadBlob(blob, `${getImageBaseName()}.jpg`);
+            elements.statusText.textContent = 'Saved original as JPG.';
+        }, 'image/jpeg', quality);
+    }
+
+    if (elements.savePngBtn) elements.savePngBtn.addEventListener('click', saveOriginalAsPNG);
+    if (elements.saveJpgBtn) elements.saveJpgBtn.addEventListener('click', saveOriginalAsJPG);
     
     elements.downloadTinkercadBtn.addEventListener('click', () => {
         if (!state.tracedata) return;

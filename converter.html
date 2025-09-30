@@ -457,13 +457,17 @@
             </div>
 
             <div id="main-content" class="hidden flex-grow flex flex-col gap-2 min-h-0">
-                 <div class="card p-4 flex-shrink-0">
+                <div class="card p-4 flex-shrink-0">
                     <div class="flex justify-between items-center mb-2">
                         <h3 class="font-semibold text-gray-200">Original Image</h3>
                         <div id="original-resolution" class="text-xs text-gray-400"></div>
                     </div>
                     <div class="h-64 bg-grid rounded-md flex items-center justify-center overflow-hidden">
                         <img id="source-image" alt="Original" class="max-w-full max-h-full object-contain">
+                    </div>
+                    <div class="mt-2 flex gap-2 flex-wrap">
+                        <button id="save-png-btn" class="btn-secondary font-semibold py-2 px-4 rounded-md disabled:bg-gray-600 disabled:cursor-not-allowed" disabled>Save as PNG</button>
+                        <button id="save-jpg-btn" class="btn-secondary font-semibold py-2 px-4 rounded-md disabled:bg-gray-600 disabled:cursor-not-allowed" disabled>Save as JPG</button>
                     </div>
                 </div>
 
