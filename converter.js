@@ -12,6 +12,7 @@ document.addEventListener('DOMContentLoaded', () => {
         loadUrlBtn: document.getElementById('load-url-btn'),
         savePngBtn: document.getElementById('save-png-btn'),
         saveJpgBtn: document.getElementById('save-jpg-btn'),
+        saveSvgBtn: document.getElementById('save-svg-btn'),
         originalResolution: document.getElementById('original-resolution'),
         resolutionNotice: document.getElementById('resolution-notice'),
         analyzeColorsBtn: document.getElementById('analyze-colors-btn'),
@@ -45,7 +46,8 @@ document.addEventListener('DOMContentLoaded', () => {
         layerMergingSection: document.getElementById('layer-merging-section'),
         mergeRulesContainer: document.getElementById('merge-rules-container'),
         addMergeRuleBtn: document.getElementById('add-merge-rule-btn'),
-        combineAndDownloadBtn: document.getElementById('combine-and-download-btn')
+        combineAndDownloadBtn: document.getElementById('combine-and-download-btn'),
+        downloadCombinedLayersBtn: document.getElementById('download-combined-layers-btn')
     };
 
     // --- State Management ---
@@ -700,6 +702,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Enable original save buttons once image is loaded
         if (elements.savePngBtn) elements.savePngBtn.disabled = false;
         if (elements.saveJpgBtn) elements.saveJpgBtn.disabled = false;
+        if (elements.saveSvgBtn) elements.saveSvgBtn.disabled = false;
         
         if (w < 512 || h < 512) {
             elements.resolutionNotice.textContent = 'Low resolution detected. For best results, use images larger than 512x512 pixels.';
@@ -719,7 +722,7 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Utility & Helper Functions ---
 
     function disableDownloadButtons() {
-        [elements.downloadTinkercadBtn, elements.downloadSilhouetteBtn, elements.combineAndDownloadBtn].forEach(btn => {
+        [elements.downloadTinkercadBtn, elements.downloadSilhouetteBtn, elements.combineAndDownloadBtn, elements.downloadCombinedLayersBtn].forEach(btn => {
             if(btn) btn.disabled = true;
         });
     }
@@ -729,6 +732,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if(btn) btn.disabled = false;
         });
         elements.combineAndDownloadBtn.disabled = state.mergeRules.length === 0;
+        if (elements.downloadCombinedLayersBtn) elements.downloadCombinedLayersBtn.disabled = false;
     }
 
     // NEW: Get visible layer indices based on traced data (only layers with actual paths)
@@ -902,8 +906,24 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 'image/jpeg', quality);
     }
 
+    // Save Original Image wrapped as raw SVG (unoptimized raster embedded in SVG)
+    function saveOriginalAsSVG() {
+        if (!elements.sourceImage?.src) return;
+        const w = elements.sourceImage.naturalWidth || 0;
+        const h = elements.sourceImage.naturalHeight || 0;
+        if (!w || !h) return;
+        const href = elements.sourceImage.src;
+        const svg = `<?xml version="1.0" encoding="UTF-8"?>\n` +
+            `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">` +
+            `<image x="0" y="0" width="${w}" height="${h}" href="${href}" xlink:href="${href}"/>` +
+            `</svg>`;
+        downloadSVG(svg, `${getImageBaseName()}`);
+        elements.statusText.textContent = 'Saved original as SVG (raw).';
+    }
+
     if (elements.savePngBtn) elements.savePngBtn.addEventListener('click', saveOriginalAsPNG);
     if (elements.saveJpgBtn) elements.saveJpgBtn.addEventListener('click', saveOriginalAsJPG);
+    if (elements.saveSvgBtn) elements.saveSvgBtn.addEventListener('click', saveOriginalAsSVG);
     
     elements.downloadTinkercadBtn.addEventListener('click', () => {
         if (!state.tracedata) return;
@@ -924,6 +944,29 @@ document.addEventListener('DOMContentLoaded', () => {
         const imageName = (state.originalImageUrl || 'image').split(/[\\/]/).pop().replace(/\.[^/.]+$/, '');
         downloadSVG(ImageTracer.getsvgstring(state.silhouetteTracedata, state.lastOptions), `${imageName}_silhouette`);
     });
+
+    // Download a single optimized SVG combining all visible (or merged) layers into one file
+    if (elements.downloadCombinedLayersBtn) {
+        elements.downloadCombinedLayersBtn.addEventListener('click', () => {
+            if (!state.tracedata) return;
+            const visibleIndices = getVisibleLayerIndices();
+            if (!visibleIndices.length) return;
+
+            const imageName = (state.originalImageUrl || 'image').split(/[\\/]/).pop().replace(/\.[^/.]+$/, '');
+
+            // Use merged data if merge rules are present; otherwise use all visible layers
+            let dataToExport;
+            if (state.mergeRules && state.mergeRules.length > 0) {
+                dataToExport = createMergedTracedata(state.tracedata, visibleIndices, state.mergeRules);
+            } else {
+                dataToExport = buildTracedataSubset(state.tracedata, visibleIndices);
+            }
+
+            if (!dataToExport) return;
+            const svgString = ImageTracer.getsvgstring(dataToExport, state.lastOptions);
+            downloadSVG(svgString, `${imageName}_combined_layers`);
+        });
+    }
 
     // Layer Merging Logic
     function prepareMergeUIAfterGeneration() {
