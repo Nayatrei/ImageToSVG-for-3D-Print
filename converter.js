@@ -42,7 +42,6 @@ document.addEventListener('DOMContentLoaded', () => {
         paletteRow: document.getElementById('palette-row'),
         outputSection: document.getElementById('output-section'),
         finalPaletteContainer: document.getElementById('final-palette-container'),
-        downloadTinkercadBtn: document.getElementById('download-tinkercad-btn'),
         downloadSilhouetteBtn: document.getElementById('download-silhouette-btn'),
         layerMergingSection: document.getElementById('layer-merging-section'),
         mergeRulesContainer: document.getElementById('merge-rules-container'),
@@ -66,7 +65,8 @@ document.addEventListener('DOMContentLoaded', () => {
         availableLayersContent: document.getElementById('available-layers-content'),
         finalPaletteContent: document.getElementById('final-palette-content'),
         toggleAvailableLayersBtn: document.getElementById('toggle-available-layers'),
-        toggleFinalPaletteBtn: document.getElementById('toggle-final-palette')
+        toggleFinalPaletteBtn: document.getElementById('toggle-final-palette'),
+        exportLayersBtn: document.getElementById('export-layers-btn')
     };
 
     // --- State Management ---
@@ -74,6 +74,8 @@ document.addEventListener('DOMContentLoaded', () => {
         quantizedData: null,
         tracedata: null,
         originalImageUrl: null,
+        originalImageFormat: null,
+        originalImageSize: null,
         lastOptions: null,
         silhouetteTracedata: null,
         mergeRules: [],
@@ -192,12 +194,25 @@ document.addEventListener('DOMContentLoaded', () => {
             panel.classList.toggle('hidden', !isVisible);
         });
 
+        // Show/hide appropriate footer based on active tab
+        const svgExportFooter = document.getElementById('svg-export-footer');
+        const rasterDownloadFooter = document.getElementById('download-footer');
+        
+        if (svgExportFooter) {
+            svgExportFooter.classList.toggle('hidden', target !== 'svg');
+        }
+        if (rasterDownloadFooter) {
+            rasterDownloadFooter.classList.toggle('hidden', target !== 'raster');
+        }
+
         // Update segmented control indicator
         updateSegmentedControlIndicator();
 
         if (target === 'raster') {
             setAvailableLayersVisible(false);
             setFinalPaletteVisible(false);
+            // Render RGBA channels when switching to raster tab
+            renderRGBAChannels();
         } else {
             setAvailableLayersVisible(true);
             setFinalPaletteVisible(true);
@@ -220,17 +235,57 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
     function updateExportScaleDisplay() {
-        if (!elements.exportSizeCurrent || !elements.exportSizeTarget) return;
         const dims = getBaseDimensions();
         if (!dims) {
-            elements.exportSizeCurrent.textContent = '—';
-            elements.exportSizeTarget.textContent = '—';
+            if (elements.exportSizeCurrent) elements.exportSizeCurrent.textContent = '—';
+            if (elements.exportSizeTarget) elements.exportSizeTarget.textContent = '—';
             updateSizeEstimates(null);
             return;
         }
         const target = getScaledDimensions(dims, state.exportScale);
-        elements.exportSizeCurrent.textContent = `${dims.width}×${dims.height}px`;
-        elements.exportSizeTarget.textContent = `${target.width}×${target.height}px (${state.exportScale}%)`;
+
+        // Update various display elements
+        if (elements.exportSizeCurrent) {
+            elements.exportSizeCurrent.textContent = `${dims.width}×${dims.height}px`;
+        }
+        if (elements.exportSizeTarget) {
+            elements.exportSizeTarget.textContent = `${target.width}×${target.height}px`;
+        }
+
+        // Update new export scale display
+        const exportScaleDisplay = document.getElementById('export-scale-display');
+        if (exportScaleDisplay) {
+            exportScaleDisplay.textContent = `(${state.exportScale}%)`;
+        }
+
+        // Update original dimensions info
+        const originalDims = document.getElementById('original-dims');
+        if (originalDims) {
+            originalDims.textContent = `${dims.width}×${dims.height}`;
+        }
+
+        // Calculate and display aspect ratio
+        const originalAspect = document.getElementById('original-aspect');
+        if (originalAspect) {
+            const gcd = (a, b) => b === 0 ? a : gcd(b, a % b);
+            const divisor = gcd(dims.width, dims.height);
+            const aspectW = dims.width / divisor;
+            const aspectH = dims.height / divisor;
+            originalAspect.textContent = `${aspectW}:${aspectH}`;
+        }
+
+        // Update original format
+        const originalFormat = document.getElementById('original-format');
+        if (originalFormat) {
+            originalFormat.textContent = state.originalImageFormat || '—';
+        }
+
+        // Update original file size
+        const originalFileSize = document.getElementById('original-file-size');
+        if (originalFileSize) {
+            originalFileSize.textContent = state.originalImageSize ? formatBytes(state.originalImageSize) : '—';
+        }
+
         updateSizeEstimates(target);
     }
 
@@ -267,6 +322,77 @@ document.addEventListener('DOMContentLoaded', () => {
             return createMergedTracedata(state.tracedata, visibleIndices, state.mergeRules);
         }
         return buildTracedataSubset(state.tracedata, visibleIndices);
+    }
+
+    // Store channel data for switching
+    const channelDataCache = {
+        red: null,
+        green: null,
+        blue: null,
+        alpha: null,
+        width: 0,
+        height: 0
+    };
+
+    // Render RGBA channel previews
+    function renderRGBAChannels() {
+        const sourceImage = elements.sourceImage;
+        if (!sourceImage || !sourceImage.complete || !sourceImage.naturalWidth) return;
+
+        // Create a temporary canvas to extract image data
+        const tempCanvas = document.createElement('canvas');
+        const tempCtx = tempCanvas.getContext('2d');
+        tempCanvas.width = sourceImage.naturalWidth;
+        tempCanvas.height = sourceImage.naturalHeight;
+        tempCtx.drawImage(sourceImage, 0, 0);
+
+        const imageData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
+        const data = imageData.data;
+
+        // Store dimensions
+        channelDataCache.width = tempCanvas.width;
+        channelDataCache.height = tempCanvas.height;
+
+        // Create and store each channel's image data
+        const channels = ['red', 'green', 'blue', 'alpha'];
+        channels.forEach(channel => {
+            const channelData = tempCtx.createImageData(tempCanvas.width, tempCanvas.height);
+
+            for (let i = 0; i < data.length; i += 4) {
+                let value;
+                if (channel === 'red') {
+                    value = data[i];
+                } else if (channel === 'green') {
+                    value = data[i + 1];
+                } else if (channel === 'blue') {
+                    value = data[i + 2];
+                } else if (channel === 'alpha') {
+                    value = data[i + 3];
+                }
+
+                // Set grayscale value
+                channelData.data[i] = value;
+                channelData.data[i + 1] = value;
+                channelData.data[i + 2] = value;
+                channelData.data[i + 3] = 255; // Full opacity
+            }
+
+            channelDataCache[channel] = channelData;
+        });
+
+        // Display the currently active channel
+        displayChannel('red');
+    }
+
+    // Display specific channel on canvas
+    function displayChannel(channel) {
+        const canvas = document.getElementById('rgba-preview-canvas');
+        if (!canvas || !channelDataCache[channel]) return;
+
+        canvas.width = channelDataCache.width;
+        canvas.height = channelDataCache.height;
+        const ctx = canvas.getContext('2d');
+        ctx.putImageData(channelDataCache[channel], 0, 0);
     }
 
     async function saveRaster(type = 'png') {
@@ -309,7 +435,7 @@ document.addEventListener('DOMContentLoaded', () => {
         showLoader(true);
         elements.statusText.textContent = 'Analyzing colors...';
         disableDownloadButtons();
-        
+
         return new Promise((resolve, reject) => {
             setTimeout(async () => {
                 try {
@@ -763,6 +889,13 @@ document.addEventListener('DOMContentLoaded', () => {
     elements.fileInput.addEventListener('change', (event) => {
         const file = event.target.files[0];
         if (file) {
+            // Reset previous image info
+            resetImageInfo();
+
+            // Store file info
+            state.originalImageFormat = getImageFormat(file.name, null);
+            state.originalImageSize = file.size;
+
             const reader = new FileReader();
             reader.onload = (e) => loadImage(e.target.result, file.name);
             reader.readAsDataURL(file);
@@ -880,6 +1013,13 @@ document.addEventListener('DOMContentLoaded', () => {
             if (dt?.files?.length) {
                 const file = Array.from(dt.files).find(f => f.type.startsWith('image/'));
                 if (file) {
+                    // Reset previous image info
+                    resetImageInfo();
+
+                    // Store file info
+                    state.originalImageFormat = getImageFormat(file.name, null);
+                    state.originalImageSize = file.size;
+
                     const reader = new FileReader();
                     reader.onload = (ev) => loadImage(ev.target.result, file.name);
                     reader.readAsDataURL(file);
@@ -900,10 +1040,28 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function loadImage(src, name) {
         state.originalImageUrl = name;
+
+        // Set format/size if not already set (from file upload)
+        // For URL loads, we calculate from the data URL
+        if (!state.originalImageFormat) {
+            state.originalImageFormat = getImageFormat(name, src);
+        }
+        if (!state.originalImageSize) {
+            state.originalImageSize = getDataUrlSize(src);
+        }
+
         elements.sourceImage.src = src;
     }
 
+    function resetImageInfo() {
+        state.originalImageFormat = null;
+        state.originalImageSize = null;
+    }
+
     async function loadImageFromUrl(url) {
+        // Reset previous image info
+        resetImageInfo();
+
         showLoader(true);
         elements.statusText.textContent = 'Fetching image...';
         try {
@@ -949,7 +1107,10 @@ document.addEventListener('DOMContentLoaded', () => {
         if (elements.savePngBtn) elements.savePngBtn.disabled = false;
         if (elements.saveJpgBtn) elements.saveJpgBtn.disabled = false;
         if (elements.saveSvgBtn) elements.saveSvgBtn.disabled = false;
-        
+
+        // Render RGBA channels for raster tab
+        renderRGBAChannels();
+
         if (w < 512 || h < 512) {
             elements.resolutionNotice.textContent = 'Low resolution detected. For best results, use images larger than 512x512 pixels.';
             elements.resolutionNotice.style.display = 'block';
@@ -979,7 +1140,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function disableDownloadButtons() {
         [
-            elements.downloadTinkercadBtn,
+            elements.exportLayersBtn,
             elements.downloadSilhouetteBtn,
             elements.combineAndDownloadBtn,
             elements.downloadCombinedLayersBtn,
@@ -993,7 +1154,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function enableDownloadButtons() {
         [
-            elements.downloadTinkercadBtn,
+            elements.exportLayersBtn,
             elements.downloadSilhouetteBtn,
             elements.saveResizedPngBtn,
             elements.saveResizedJpgBtn,
@@ -1001,7 +1162,7 @@ document.addEventListener('DOMContentLoaded', () => {
         ].forEach(btn => {
             if(btn) btn.disabled = false;
         });
-        elements.combineAndDownloadBtn.disabled = state.mergeRules.length === 0;
+        if (elements.combineAndDownloadBtn) elements.combineAndDownloadBtn.disabled = state.mergeRules.length === 0;
         if (elements.downloadCombinedLayersBtn) elements.downloadCombinedLayersBtn.disabled = false;
         if (elements.exportTabs) {
             const activeTab = Array.from(elements.exportTabs).find(b => b.classList.contains('active'));
@@ -1286,6 +1447,46 @@ document.addEventListener('DOMContentLoaded', () => {
         return name.replace(/\.[^/.]+$/, '') || 'image';
     }
 
+    // Extract format from filename or data URL
+    function getImageFormat(filename, dataUrl) {
+        // Try to get from filename extension
+        if (filename) {
+            const match = filename.match(/\.([^.]+)$/);
+            if (match) {
+                return match[1].toUpperCase();
+            }
+        }
+
+        // Try to get from data URL MIME type
+        if (dataUrl && dataUrl.startsWith('data:')) {
+            const match = dataUrl.match(/^data:image\/([^;]+)/);
+            if (match) {
+                return match[1].toUpperCase();
+            }
+        }
+
+        return 'Unknown';
+    }
+
+    // Calculate file size from data URL
+    function getDataUrlSize(dataUrl) {
+        if (!dataUrl || !dataUrl.startsWith('data:')) return 0;
+
+        // Extract base64 data
+        const base64Data = dataUrl.split(',')[1];
+        if (!base64Data) return 0;
+
+        // Calculate actual bytes from base64
+        // Base64 encoding inflates size by ~33%, so we reverse that
+        let size = base64Data.length * 0.75;
+
+        // Account for padding characters
+        const padding = (base64Data.match(/=/g) || []).length;
+        size -= padding;
+
+        return Math.round(size);
+    }
+
     function drawImageToCanvas(img) {
         const w = img.naturalWidth;
         const h = img.naturalHeight;
@@ -1336,20 +1537,42 @@ document.addEventListener('DOMContentLoaded', () => {
     if (elements.savePngBtn) elements.savePngBtn.addEventListener('click', saveOriginalAsPNG);
     if (elements.saveJpgBtn) elements.saveJpgBtn.addEventListener('click', saveOriginalAsJPG);
     if (elements.saveSvgBtn) elements.saveSvgBtn.addEventListener('click', saveOriginalAsSVG);
-    
-    elements.downloadTinkercadBtn.addEventListener('click', () => {
-        if (!state.tracedata) return;
-        const visibleIndices = getVisibleLayerIndices();
-        if (!visibleIndices.length) return;
-        const imageName = (state.originalImageUrl || 'image').split(/[\\/]/).pop().replace(/\.[^/.]+$/, '');
-        
-        // Download each layer separately
-        visibleIndices.forEach((idx) => {
-            const singleLayer = buildTracedataSubset(state.tracedata, [idx]);
-            const layerName = idx === 0 ? 'background' : `layer_${idx}`;
-            downloadSVG(ImageTracer.getsvgstring(singleLayer, state.lastOptions), `${imageName}_${layerName}`);
+
+    // Smart "Export Layers" button - uses merged data if rules exist, otherwise uses original data
+    if (elements.exportLayersBtn) {
+        elements.exportLayersBtn.addEventListener('click', () => {
+            if (!state.tracedata) return;
+            const visibleIndices = getVisibleLayerIndices();
+            if (!visibleIndices.length) return;
+
+            const imageName = (state.originalImageUrl || 'image').split(/[\\/]/).pop().replace(/\.[^/.]+$/, '');
+
+            // Smart behavior: use merged data if rules exist, otherwise use original
+            if (state.mergeRules && state.mergeRules.length > 0) {
+                // Export merged layers
+                const mergedData = createMergedTracedata(state.tracedata, visibleIndices, state.mergeRules);
+                const layerIndices = [];
+                for (let i = 0; i < mergedData.layers.length; i++) {
+                    if (layerHasPaths(mergedData.layers[i])) {
+                        layerIndices.push(i);
+                    }
+                }
+
+                layerIndices.forEach((idx) => {
+                    const singleLayer = buildTracedataSubset(mergedData, [idx]);
+                    const layerName = idx === 0 ? 'background' : `layer_${idx}`;
+                    downloadSVG(ImageTracer.getsvgstring(singleLayer, state.lastOptions), `${imageName}_final_${layerName}`);
+                });
+            } else {
+                // Export original visible layers
+                visibleIndices.forEach((idx) => {
+                    const singleLayer = buildTracedataSubset(state.tracedata, [idx]);
+                    const layerName = idx === 0 ? 'background' : `layer_${idx}`;
+                    downloadSVG(ImageTracer.getsvgstring(singleLayer, state.lastOptions), `${imageName}_${layerName}`);
+                });
+            }
         });
-    });
+    }
 
     elements.downloadSilhouetteBtn.addEventListener('click', () => {
         if (!state.silhouetteTracedata) return;
@@ -1393,7 +1616,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             elements.layerMergingSection.style.display = 'none';
         }
-        elements.combineAndDownloadBtn.disabled = true;
+        if (elements.combineAndDownloadBtn) elements.combineAndDownloadBtn.disabled = true;
         updateFinalPalette();
     }
 
@@ -1426,7 +1649,7 @@ document.addEventListener('DOMContentLoaded', () => {
         row.querySelector('select[data-type="target"]').value = 1;
         elements.mergeRulesContainer.appendChild(row);
         updateMergeRuleSwatches(row, defaultRule, visibleIndices);
-        elements.combineAndDownloadBtn.disabled = false;
+        if (elements.combineAndDownloadBtn) elements.combineAndDownloadBtn.disabled = false;
         updateFinalPalette();
         updateFilteredPreview();
     });
@@ -1453,7 +1676,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 row.querySelectorAll('[data-rule-index]').forEach(el => el.dataset.ruleIndex = i);
             });
             if (state.mergeRules.length === 0) {
-                elements.combineAndDownloadBtn.disabled = true;
+                if (elements.combineAndDownloadBtn) elements.combineAndDownloadBtn.disabled = true;
             }
             updateFinalPalette();
             updateFilteredPreview();
@@ -1469,32 +1692,34 @@ document.addEventListener('DOMContentLoaded', () => {
         row.querySelector('[data-swatch="target"]').style.backgroundColor = `rgb(${targetColor.r},${targetColor.g},${targetColor.b})`;
     }
 
-    elements.combineAndDownloadBtn.addEventListener('click', () => {
-        const visibleIndices = getVisibleLayerIndices();
-        const mergedData = createMergedTracedata(state.tracedata, visibleIndices, state.mergeRules);
-        if (!mergedData) return;
+    if (elements.combineAndDownloadBtn) {
+        elements.combineAndDownloadBtn.addEventListener('click', () => {
+            const visibleIndices = getVisibleLayerIndices();
+            const mergedData = createMergedTracedata(state.tracedata, visibleIndices, state.mergeRules);
+            if (!mergedData) return;
 
-        const imageName = (state.originalImageUrl || 'image').split(/[\\/]/).pop().replace(/\.[^/.]+$/, '');
-        
-        // Download background layer
-        if (mergedData.layers[0] && layerHasPaths(mergedData.layers[0])) {
-            const backgroundLayer = buildTracedataSubset(mergedData, [0]);
-            downloadSVG(ImageTracer.getsvgstring(backgroundLayer, state.lastOptions), `${imageName}_final_background`);
-        }
+            const imageName = (state.originalImageUrl || 'image').split(/[\\/]/).pop().replace(/\.[^/.]+$/, '');
 
-        // Download merged layers (excluding background)
-        const finalIndices = [];
-        for (let i = 1; i < mergedData.layers.length; i++) {
-            if (layerHasPaths(mergedData.layers[i])) {
-                finalIndices.push(i);
+            // Download background layer
+            if (mergedData.layers[0] && layerHasPaths(mergedData.layers[0])) {
+                const backgroundLayer = buildTracedataSubset(mergedData, [0]);
+                downloadSVG(ImageTracer.getsvgstring(backgroundLayer, state.lastOptions), `${imageName}_final_background`);
             }
-        }
 
-        finalIndices.forEach((idx, ord) => {
-            const singleLayer = buildTracedataSubset(mergedData, [idx]);
-            downloadSVG(ImageTracer.getsvgstring(singleLayer, state.lastOptions), `${imageName}_final_layer_${ord + 1}`);
+            // Download merged layers (excluding background)
+            const finalIndices = [];
+            for (let i = 1; i < mergedData.layers.length; i++) {
+                if (layerHasPaths(mergedData.layers[i])) {
+                    finalIndices.push(i);
+                }
+            }
+
+            finalIndices.forEach((idx, ord) => {
+                const singleLayer = buildTracedataSubset(mergedData, [idx]);
+                downloadSVG(ImageTracer.getsvgstring(singleLayer, state.lastOptions), `${imageName}_final_layer_${ord + 1}`);
+            });
         });
-    });
+    }
 
     function createMergedTracedata(sourceData, visibleIndices, rules) {
         if (!sourceData || !visibleIndices || !rules) return sourceData;
@@ -1675,6 +1900,64 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Update segmented control indicator on window resize
     window.addEventListener('resize', () => updateSegmentedControlIndicator());
+
+    // Collapsible layers section toggle
+    const layersToggle = document.getElementById('layers-toggle');
+    const layersSection = document.getElementById('layers-section');
+    if (layersToggle && layersSection) {
+        layersToggle.addEventListener('click', () => {
+            layersSection.classList.toggle('collapsed');
+            layersToggle.classList.toggle('expanded');
+            const isExpanded = !layersSection.classList.contains('collapsed');
+            layersToggle.querySelector('span').textContent = isExpanded ? 'Click to collapse' : 'Click to expand';
+        });
+    }
+
+    // RGBA channel tab switching
+    const channelTabs = document.querySelectorAll('.rgba-channel-tab');
+    channelTabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+            const channel = tab.dataset.channel;
+
+            // Update active state
+            channelTabs.forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+
+            // Display the selected channel
+            displayChannel(channel);
+        });
+    });
+
+    // Sync inline alpha checkboxes with preserve-alpha state
+    const preserveAlphaPng = document.getElementById('preserve-alpha-png');
+    const preserveAlphaTga = document.getElementById('preserve-alpha-tga');
+
+    if (preserveAlphaPng) {
+        preserveAlphaPng.checked = state.preserveAlpha;
+        preserveAlphaPng.addEventListener('change', () => {
+            state.preserveAlpha = preserveAlphaPng.checked || preserveAlphaTga?.checked;
+            updateExportScaleDisplay();
+        });
+    }
+
+    if (preserveAlphaTga) {
+        preserveAlphaTga.checked = state.preserveAlpha;
+        preserveAlphaTga.addEventListener('change', () => {
+            state.preserveAlpha = preserveAlphaTga.checked || preserveAlphaPng?.checked;
+            updateExportScaleDisplay();
+        });
+    }
+
+    // Keep old preserve-alpha checkbox working if it exists (backward compatibility)
+    if (elements.preserveAlphaCheckbox) {
+        elements.preserveAlphaCheckbox.checked = state.preserveAlpha;
+        elements.preserveAlphaCheckbox.addEventListener('change', () => {
+            state.preserveAlpha = elements.preserveAlphaCheckbox.checked;
+            if (preserveAlphaPng) preserveAlphaPng.checked = state.preserveAlpha;
+            if (preserveAlphaTga) preserveAlphaTga.checked = state.preserveAlpha;
+            updateExportScaleDisplay();
+        });
+    }
 
     // Check for stored image URL from context menu on page load
     if (typeof chrome !== 'undefined' && chrome.storage) {
