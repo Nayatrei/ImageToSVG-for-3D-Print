@@ -396,34 +396,53 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function saveRaster(type = 'png') {
-        const data = getDataToExport();
-        if (!data) return;
-        const svgString = ImageTracer.getsvgstring(data, state.lastOptions);
+        // Direct raster resize from original image - no vectorization needed
+        if (!elements.sourceImage || !elements.sourceImage.src) {
+            elements.statusText.textContent = 'No image loaded.';
+            return;
+        }
+
         const dims = getBaseDimensions();
         if (!dims) return;
         const target = getScaledDimensions(dims, state.exportScale);
         const preserveAlpha = !!state.preserveAlpha;
 
         try {
-            const pngDataUrl = await svgToPng(svgString, null, target, preserveAlpha);
+            // Create canvas and resize original image directly
+            const canvas = document.createElement('canvas');
+            canvas.width = target.width;
+            canvas.height = target.height;
+            const ctx = canvas.getContext('2d');
+
+            // Fill white background if not preserving alpha
+            if (!preserveAlpha) {
+                ctx.fillStyle = 'white';
+                ctx.fillRect(0, 0, target.width, target.height);
+            }
+
+            // Draw resized image
+            ctx.drawImage(elements.sourceImage, 0, 0, target.width, target.height);
+
+            // Export based on type
             if (type === 'png') {
-                downloadBlob(dataUrlToBlob(pngDataUrl), `${getImageBaseName()}_${target.width}x${target.height}.png`);
-                elements.statusText.textContent = `Saved PNG at ${target.width}×${target.height}.`;
-                return;
-            }
-
-            if (type === 'jpg') {
-                const jpgDataUrl = await pngToJpgDataUrl(pngDataUrl);
-                downloadBlob(dataUrlToBlob(jpgDataUrl), `${getImageBaseName()}_${target.width}x${target.height}.jpg`);
-                elements.statusText.textContent = `Saved JPG at ${target.width}×${target.height}.`;
-                return;
-            }
-
-            if (type === 'tga') {
+                canvas.toBlob((blob) => {
+                    if (blob) {
+                        downloadBlob(blob, `${getImageBaseName()}_${target.width}x${target.height}.png`);
+                        elements.statusText.textContent = `Saved PNG at ${target.width}×${target.height}.`;
+                    }
+                }, 'image/png');
+            } else if (type === 'jpg') {
+                canvas.toBlob((blob) => {
+                    if (blob) {
+                        downloadBlob(blob, `${getImageBaseName()}_${target.width}x${target.height}.jpg`);
+                        elements.statusText.textContent = `Saved JPG at ${target.width}×${target.height}.`;
+                    }
+                }, 'image/jpeg', 0.92);
+            } else if (type === 'tga') {
+                const pngDataUrl = canvas.toDataURL('image/png');
                 const tgaBlob = await pngDataUrlToTgaBlob(pngDataUrl, preserveAlpha);
                 downloadBlob(tgaBlob, `${getImageBaseName()}_${target.width}x${target.height}.tga`);
                 elements.statusText.textContent = `Saved TGA at ${target.width}×${target.height}.${preserveAlpha ? ' Includes alpha.' : ''}`;
-                return;
             }
         } catch (error) {
             console.error('Raster export failed:', error);
@@ -1115,6 +1134,11 @@ document.addEventListener('DOMContentLoaded', () => {
         if (elements.saveJpgBtn) elements.saveJpgBtn.disabled = false;
         if (elements.saveSvgBtn) elements.saveSvgBtn.disabled = false;
 
+        // Enable raster export buttons immediately (no vectorization needed)
+        if (elements.saveResizedPngBtn) elements.saveResizedPngBtn.disabled = false;
+        if (elements.saveResizedJpgBtn) elements.saveResizedJpgBtn.disabled = false;
+        if (elements.saveResizedTgaBtn) elements.saveResizedTgaBtn.disabled = false;
+
         // Render RGBA channels for raster tab
         renderRGBAChannels();
 
@@ -1146,31 +1170,30 @@ document.addEventListener('DOMContentLoaded', () => {
     // --- Utility & Helper Functions ---
 
     function disableDownloadButtons() {
+        // Only disable SVG export buttons (raster buttons stay enabled once image is loaded)
         [
             elements.exportLayersBtn,
             elements.downloadSilhouetteBtn,
             elements.combineAndDownloadBtn,
-            elements.downloadCombinedLayersBtn,
-            elements.saveResizedPngBtn,
-            elements.saveResizedJpgBtn,
-            elements.saveResizedTgaBtn
+            elements.downloadCombinedLayersBtn
         ].forEach(btn => {
             if(btn) btn.disabled = true;
         });
     }
 
     function enableDownloadButtons() {
+        // Enable SVG export buttons after vectorization completes
         [
             elements.exportLayersBtn,
-            elements.downloadSilhouetteBtn,
-            elements.saveResizedPngBtn,
-            elements.saveResizedJpgBtn,
-            elements.saveResizedTgaBtn
+            elements.downloadSilhouetteBtn
         ].forEach(btn => {
             if(btn) btn.disabled = false;
         });
         if (elements.combineAndDownloadBtn) elements.combineAndDownloadBtn.disabled = state.mergeRules.length === 0;
         if (elements.downloadCombinedLayersBtn) elements.downloadCombinedLayersBtn.disabled = false;
+
+        // Raster buttons are already enabled from image load, no need to re-enable
+
         if (elements.exportTabs) {
             const activeTab = Array.from(elements.exportTabs).find(b => b.classList.contains('active'));
             const tabName = activeTab?.dataset.tab;
@@ -1369,7 +1392,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 header[14] = height & 0xff;
                 header[15] = (height >> 8) & 0xff;
                 header[16] = hasAlpha ? 32 : 24;
-                header[17] = hasAlpha ? 8 : 0; // alpha bits
+                // Image descriptor: alpha bits + origin (bit 5 = 1 for top-left origin)
+                header[17] = hasAlpha ? (8 | 0x20) : 0x20; // 0x20 = top-left origin flag
 
                 const pixelSize = hasAlpha ? 4 : 3;
                 const imageSize = width * height * pixelSize;
