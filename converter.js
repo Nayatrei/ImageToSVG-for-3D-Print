@@ -1614,27 +1614,28 @@ document.addEventListener('DOMContentLoaded', () => {
     function prepareMergeUIAfterGeneration() {
         state.mergeRules = [];
         state.selectedFinalLayerIndices.clear();
-        elements.mergeRulesContainer.innerHTML = '';
+        if (elements.mergeRulesContainer) elements.mergeRulesContainer.innerHTML = '';
         const visibleIndices = getVisibleLayerIndices();
         // Now include all layers (including background) for merging
         if (visibleIndices.length >= 2) {
-            elements.layerMergingSection.style.display = 'block';
-            elements.addMergeRuleBtn.disabled = false;
+            if (elements.layerMergingSection) elements.layerMergingSection.style.display = 'block';
+            if (elements.addMergeRuleBtn) elements.addMergeRuleBtn.disabled = false;
         } else {
-            elements.layerMergingSection.style.display = 'none';
+            if (elements.layerMergingSection) elements.layerMergingSection.style.display = 'none';
         }
         if (elements.combineAndDownloadBtn) elements.combineAndDownloadBtn.disabled = true;
         updateFinalPalette();
     }
 
-    elements.addMergeRuleBtn.addEventListener('click', () => {
-        const ruleIndex = state.mergeRules.length;
-        const visibleIndices = getVisibleLayerIndices();
-        // Now include all layers (including background) for merging
-        if (visibleIndices.length < 2) return;
+    if (elements.addMergeRuleBtn) {
+        elements.addMergeRuleBtn.addEventListener('click', () => {
+            const ruleIndex = state.mergeRules.length;
+            const visibleIndices = getVisibleLayerIndices();
+            // Now include all layers (including background) for merging
+            if (visibleIndices.length < 2) return;
 
-        const defaultRule = { source: 0, target: 1 }; // These are indices into visibleIndices array
-        state.mergeRules.push(defaultRule);
+            const defaultRule = { source: 0, target: 1 }; // These are indices into visibleIndices array
+            state.mergeRules.push(defaultRule);
 
         const row = document.createElement('div');
         row.className = 'flex items-center gap-2 text-sm';
@@ -1653,15 +1654,17 @@ document.addEventListener('DOMContentLoaded', () => {
             <button data-rule-index="${ruleIndex}" class="text-red-500 hover:text-red-400 font-bold text-lg">&times;</button>
         `;
         
-        row.querySelector('select[data-type="target"]').value = 1;
-        elements.mergeRulesContainer.appendChild(row);
-        updateMergeRuleSwatches(row, defaultRule, visibleIndices);
-        if (elements.combineAndDownloadBtn) elements.combineAndDownloadBtn.disabled = false;
-        updateFinalPalette();
-        updateFilteredPreview();
-    });
+            row.querySelector('select[data-type="target"]').value = 1;
+            elements.mergeRulesContainer.appendChild(row);
+            updateMergeRuleSwatches(row, defaultRule, visibleIndices);
+            if (elements.combineAndDownloadBtn) elements.combineAndDownloadBtn.disabled = false;
+            updateFinalPalette();
+            updateFilteredPreview();
+        });
+    }
 
-    elements.mergeRulesContainer.addEventListener('change', (e) => {
+    if (elements.mergeRulesContainer) {
+        elements.mergeRulesContainer.addEventListener('change', (e) => {
         if (e.target.tagName === 'SELECT') {
             const ruleIndex = parseInt(e.target.dataset.ruleIndex);
             const type = e.target.dataset.type;
@@ -1671,24 +1674,25 @@ document.addEventListener('DOMContentLoaded', () => {
             updateFinalPalette();
             updateFilteredPreview();
         }
-    });
-    
-    elements.mergeRulesContainer.addEventListener('click', (e) => {
-        if (e.target.tagName === 'BUTTON') {
-            const ruleIndex = parseInt(e.target.dataset.ruleIndex);
-            state.mergeRules.splice(ruleIndex, 1);
-            e.target.parentElement.remove();
-            
-            document.querySelectorAll('#merge-rules-container > div').forEach((row, i) => {
-                row.querySelectorAll('[data-rule-index]').forEach(el => el.dataset.ruleIndex = i);
-            });
-            if (state.mergeRules.length === 0) {
-                if (elements.combineAndDownloadBtn) elements.combineAndDownloadBtn.disabled = true;
+        });
+
+        elements.mergeRulesContainer.addEventListener('click', (e) => {
+            if (e.target.tagName === 'BUTTON') {
+                const ruleIndex = parseInt(e.target.dataset.ruleIndex);
+                state.mergeRules.splice(ruleIndex, 1);
+                e.target.parentElement.remove();
+
+                document.querySelectorAll('#merge-rules-container > div').forEach((row, i) => {
+                    row.querySelectorAll('[data-rule-index]').forEach(el => el.dataset.ruleIndex = i);
+                });
+                if (state.mergeRules.length === 0) {
+                    if (elements.combineAndDownloadBtn) elements.combineAndDownloadBtn.disabled = true;
+                }
+                updateFinalPalette();
+                updateFilteredPreview();
             }
-            updateFinalPalette();
-            updateFilteredPreview();
-        }
-    });
+        });
+    }
     
     function updateMergeRuleSwatches(row, rule, allVisibleIndices) {
         const sourceIndex = allVisibleIndices[rule.source];
