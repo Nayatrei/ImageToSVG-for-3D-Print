@@ -335,6 +335,635 @@
             cursor: grabbing;
         }
 
+        .workspace.drag-over {
+            outline: 2px dashed var(--brand-primary);
+            outline-offset: -6px;
+        }
+        .workspace.drag-over #welcome-screen {
+            opacity: 0.85;
+        }
+
+        /* Segmented Control - Apple Style */
+        .segmented-control-container {
+            display: flex;
+            justify-content: flex-start;
+            align-self: flex-start;
+            margin-bottom: 0.5rem;
+        }
+
+        .segmented-control {
+            position: relative;
+            display: inline-flex;
+            background-color: #1f2937;
+            border: 1px solid #374151;
+            border-radius: 16px;
+            padding: 4px;
+            gap: 4px;
+            box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.2);
+            height: 44px;
+            align-items: center;
+            width: max-content;
+        }
+
+        .segmented-control-indicator {
+            position: absolute;
+            top: 4px;
+            left: 4px;
+            height: calc(100% - 8px);
+            background: linear-gradient(180deg, #3b82f6, #2563eb);
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(59, 130, 246, 0.4), 0 1px 3px rgba(0, 0, 0, 0.3);
+            transition: transform 250ms cubic-bezier(0.4, 0, 0.2, 1), width 250ms cubic-bezier(0.4, 0, 0.2, 1);
+            z-index: 0;
+        }
+
+        .segmented-control-tab {
+            position: relative;
+            z-index: 1;
+            padding: 10px 18px;
+            background: transparent;
+            border: none;
+            color: #9ca3af;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 200ms ease;
+            border-radius: 12px;
+            white-space: nowrap;
+            height: 36px;
+            display: inline-flex;
+            align-items: center;
+        }
+
+        .segmented-control-tab:hover:not(.active) {
+            background-color: rgba(55, 65, 81, 0.5);
+            color: #d1d5db;
+        }
+
+        .segmented-control-tab.active {
+            color: white;
+        }
+
+        .export-panel.hidden {
+            display: none;
+        }
+
+        .export-tab {
+            background-color: var(--bg-panel-secondary);
+            color: white;
+            border: 1px solid var(--border-color);
+            border-radius: 0.375rem;
+            padding: 0.5rem 1rem;
+            font-weight: 600;
+            transition: all 0.2s ease;
+            cursor: pointer;
+        }
+
+        .export-tab.active {
+            background-color: var(--brand-primary);
+            border-color: var(--brand-primary);
+        }
+
+        .export-tab:hover:not(.active) {
+            background-color: #374151;
+        }
+
+        .export-row {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.75rem;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        .export-label {
+            min-width: 120px;
+            color: #9ca3af;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+
+        .export-actions {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem 0.75rem;
+            align-items: center;
+        }
+
+        /* Export Sections - Modern Card Layout */
+        .export-section {
+            margin-bottom: 24px;
+            padding: 20px;
+            background-color: rgba(31, 41, 55, 0.5);
+            border: 1px solid #374151;
+            border-radius: 12px;
+            transition: all 200ms ease;
+            max-width: 100%;
+        }
+
+        .export-section:hover {
+            background-color: rgba(31, 41, 55, 0.7);
+            border-color: #4b5563;
+        }
+
+        .export-section-header {
+            margin-bottom: 16px;
+            padding-bottom: 12px;
+            border-bottom: 1px solid #2d3748;
+        }
+
+        .export-section-header h4 {
+            font-size: 13px;
+            font-weight: 600;
+            color: #9ca3af;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+        }
+
+        .export-section-content {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+        }
+
+        /* Export Button Grid */
+        .export-button-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 12px;
+        }
+
+        .export-button {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 4px;
+            padding: 14px 18px;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 14px;
+            border: none;
+            cursor: pointer;
+            transition: all 200ms ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .export-button-label {
+            font-size: 14px;
+            font-weight: 600;
+        }
+
+        .export-button-format {
+            font-size: 11px;
+            font-weight: 500;
+            opacity: 0.8;
+        }
+
+        .export-button.primary {
+            background: linear-gradient(180deg, #3b82f6, #2563eb);
+            color: white;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+        }
+
+        .export-button.primary:hover:not(:disabled) {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+        }
+
+        .export-button.secondary {
+            background-color: #374151;
+            color: white;
+            border: 1px solid #4b5563;
+        }
+
+        .export-button.secondary:hover:not(:disabled) {
+            background-color: #4b5563;
+            border-color: #6b7280;
+            transform: translateY(-1px);
+        }
+
+        .export-button.success {
+            background: linear-gradient(180deg, #16a34a, #15803d);
+            color: white;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+        }
+
+        .export-button.success:hover:not(:disabled) {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(22, 163, 74, 0.4);
+        }
+
+        .export-button:disabled {
+            background: #374151 !important;
+            color: #6b7280 !important;
+            border-color: #4b5563 !important;
+            cursor: not-allowed !important;
+            transform: none !important;
+            box-shadow: none !important;
+        }
+
+        /* Simple Dimensions */
+        .dimensions-simple {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+
+        .dimension-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 14px;
+            background-color: rgba(17, 24, 39, 0.3);
+            border-radius: 6px;
+        }
+
+        .dimension-label-simple {
+            font-size: 13px;
+            font-weight: 500;
+            color: #9ca3af;
+        }
+
+        .dimension-value-simple {
+            font-size: 14px;
+            font-weight: 600;
+            font-family: ui-monospace, monospace;
+            color: #e5e7eb;
+        }
+
+        /* Resize Chips Container */
+        .resize-chips-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            justify-content: center;
+        }
+
+        .resize-chip {
+            background-color: #1f2937;
+            color: #e5e7eb;
+            border: 1px solid var(--border-color);
+            border-radius: 20px;
+            padding: 8px 16px;
+            font-size: 13px;
+            font-weight: 600;
+            transition: all 0.2s ease;
+            cursor: pointer;
+        }
+        .resize-chip.active {
+            background-color: var(--brand-primary);
+            border-color: var(--brand-primary);
+            color: white;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+            transform: scale(1.05);
+        }
+        .resize-chip:hover:not(.active) {
+            background-color: #374151;
+            border-color: #6b7280;
+            transform: scale(1.02);
+        }
+
+        /* Custom Resize Input */
+        .custom-resize-container {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            justify-content: center;
+            padding-top: 8px;
+            border-top: 1px solid #374151;
+        }
+
+        .custom-resize-input {
+            width: 80px;
+            padding: 8px 12px;
+            font-size: 14px;
+            border: 1px solid #4b5563;
+            border-radius: 8px;
+            background-color: #1f2937;
+            color: white;
+            outline: none;
+            transition: all 200ms ease;
+        }
+
+        .custom-resize-input:focus {
+            border-color: var(--brand-primary);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+        }
+
+        .custom-resize-unit {
+            font-size: 13px;
+            font-weight: 600;
+            color: #9ca3af;
+        }
+
+        /* Format Downloads */
+        .format-downloads {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .format-download-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 14px 16px;
+            background-color: rgba(17, 24, 39, 0.5);
+            border: 1px solid #374151;
+            border-radius: 8px;
+            transition: all 200ms ease;
+        }
+
+        .format-download-item:hover {
+            background-color: rgba(17, 24, 39, 0.8);
+            border-color: #4b5563;
+        }
+
+        .format-info {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .format-name {
+            font-size: 14px;
+            font-weight: 600;
+            color: #e5e7eb;
+            min-width: 50px;
+        }
+
+        .format-size {
+            font-size: 12px;
+            font-weight: 500;
+            color: #9ca3af;
+            font-family: ui-monospace, monospace;
+        }
+
+        .format-download-item .export-button {
+            padding: 10px 20px;
+        }
+
+        /* Transparency Option */
+        .transparency-option {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 12px 16px;
+            background-color: rgba(17, 24, 39, 0.3);
+            border-radius: 8px;
+            font-size: 13px;
+            color: #d1d5db;
+            cursor: pointer;
+            transition: all 200ms ease;
+        }
+
+        .transparency-option:hover {
+            background-color: rgba(17, 24, 39, 0.5);
+        }
+
+        .transparency-option input[type="checkbox"] {
+            width: 16px;
+            height: 16px;
+            cursor: pointer;
+        }
+
+        /* Compact Sections */
+        .compact-section {
+            margin-bottom: 20px;
+        }
+
+        .section-title {
+            font-size: 11px;
+            font-weight: 700;
+            color: #6b7280;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            margin-bottom: 12px;
+        }
+
+        /* Compact Export Buttons */
+        .export-grid,
+        .download-compact-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+        }
+
+        .export-btn-compact {
+            padding: 12px 16px;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 13px;
+            border: none;
+            cursor: pointer;
+            transition: all 200ms ease;
+        }
+
+        .export-btn-compact.primary {
+            background: linear-gradient(180deg, #3b82f6, #2563eb);
+            color: white;
+        }
+
+        .export-btn-compact.primary:hover:not(:disabled) {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+        }
+
+        .export-btn-compact.secondary {
+            background-color: #374151;
+            color: white;
+            border: 1px solid #4b5563;
+        }
+
+        .export-btn-compact.secondary:hover:not(:disabled) {
+            background-color: #4b5563;
+        }
+
+        .export-btn-compact.success {
+            background: linear-gradient(180deg, #16a34a, #15803d);
+            color: white;
+        }
+
+        .export-btn-compact.success:hover:not(:disabled) {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(22, 163, 74, 0.3);
+        }
+
+        .export-btn-compact:disabled {
+            background: #374151 !important;
+            color: #6b7280 !important;
+            border-color: #4b5563 !important;
+            cursor: not-allowed !important;
+        }
+
+        /* Compact RGBA Channels */
+        .rgba-grid-compact {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 12px;
+        }
+
+        .rgba-item-compact {
+            position: relative;
+            aspect-ratio: 1;
+            background: repeating-conic-gradient(#505050 0% 25%, #353535 0% 50%) 50% / 16px 16px;
+            border: 2px solid #374151;
+            border-radius: 6px;
+            overflow: hidden;
+        }
+
+        .rgba-canvas-compact {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+
+        .rgba-label-compact {
+            position: absolute;
+            top: 6px;
+            right: 6px;
+            width: 20px;
+            height: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            font-weight: 700;
+        }
+
+        .rgba-item-compact[data-channel="red"] .rgba-label-compact {
+            background: rgba(220, 38, 38, 0.9);
+        }
+
+        .rgba-item-compact[data-channel="green"] .rgba-label-compact {
+            background: rgba(22, 163, 74, 0.9);
+        }
+
+        .rgba-item-compact[data-channel="blue"] .rgba-label-compact {
+            background: rgba(37, 99, 235, 0.9);
+        }
+
+        .rgba-item-compact[data-channel="alpha"] .rgba-label-compact {
+            background: rgba(107, 114, 128, 0.9);
+        }
+
+        /* Compact Dimensions */
+        .dimensions-compact {
+            display: flex;
+            gap: 16px;
+            flex-wrap: wrap;
+        }
+
+        /* Compact Resize Chips */
+        .resize-compact-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 8px;
+        }
+
+        .resize-chip-compact {
+            padding: 8px 12px;
+            background-color: #374151;
+            color: #e5e7eb;
+            border: 1px solid #4b5563;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 150ms ease;
+        }
+
+        .resize-chip-compact.active {
+            background-color: var(--brand-primary);
+            border-color: var(--brand-primary);
+            color: white;
+        }
+
+        .resize-chip-compact:hover:not(.active) {
+            background-color: #4b5563;
+        }
+
+        /* Transparency Checkbox */
+        .transparency-checkbox {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            color: #d1d5db;
+            cursor: pointer;
+        }
+
+        .transparency-checkbox input[type="checkbox"] {
+            width: 14px;
+            height: 14px;
+            cursor: pointer;
+        }
+
+        .min-w-\[60px\] { min-width: 60px; }
+        .section-toggle {
+            background: transparent;
+            border: none;
+            padding: 0.1rem 0.25rem;
+            cursor: pointer;
+        }
+
+        /* Unified Output Grid System */
+        .output-grid {
+            display: grid;
+            grid-template-columns: repeat(12, 1fr);
+            gap: 1.5rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .output-col-full {
+            grid-column: span 12;
+        }
+
+        .output-col-half {
+            grid-column: span 6;
+        }
+
+        @media (max-width: 1024px) {
+            .output-col-half {
+                grid-column: span 12;
+            }
+        }
+
+        .output-card {
+            background-color: rgba(31, 41, 55, 0.5);
+            border: 1px solid #374151;
+            border-radius: 12px;
+            padding: 1.25rem;
+            transition: all 200ms ease;
+        }
+
+        .output-card:hover {
+            background-color: rgba(31, 41, 55, 0.7);
+            border-color: #4b5563;
+        }
+
+        .output-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+
+        .output-card-title {
+            font-size: 0.875rem;
+            font-weight: 600;
+            color: #e5e7eb;
+        }
+
+        .output-card-content {
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
         .zoom-controls button {
             color: white;
             background-color: var(--bg-panel-secondary);
@@ -452,116 +1081,251 @@
             <div id="welcome-screen" class="h-full flex flex-col items-center justify-center text-center">
                 <svg class="w-24 h-24 text-gray-600 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
                 <h2 class="text-2xl font-bold text-gray-500">Your Workspace</h2>
-                <p class="text-gray-400 mt-2">Import an image to begin the conversion process.</p>
+                <p class="text-gray-400 mt-2">Import or drag an image into this workspace to begin.</p>
                  <div id="status-text" class="mt-4 text-sm font-medium text-gray-400"></div>
             </div>
 
-            <div id="main-content" class="hidden flex-grow flex flex-col gap-2 min-h-0">
-                <div class="card p-4 flex-shrink-0">
-                    <div class="flex justify-between items-center mb-2">
-                        <h3 class="font-semibold text-gray-200">Original Image</h3>
-                        <div id="original-resolution" class="text-xs text-gray-400"></div>
+            <div id="main-content" class="hidden flex-grow flex flex-col gap-2 min-h-0 overflow-y-auto p-4">
+                <!-- Tabs Section -->
+                <div id="output-section" class="card p-6 flex-shrink-0 flex flex-col gap-4" style="display:none;">
+                    <div class="segmented-control-container mb-4">
+                        <div class="segmented-control">
+                            <div class="segmented-control-indicator"></div>
+                            <button class="segmented-control-tab export-tab active" data-tab="svg">SVG</button>
+                            <button class="segmented-control-tab export-tab" data-tab="raster">JPG / PNG / TGA</button>
+                        </div>
                     </div>
-                    <div class="h-64 bg-grid rounded-md flex items-center justify-center overflow-hidden">
-                        <img id="source-image" alt="Original" class="max-w-full max-h-full object-contain">
-                    </div>
-                    <div class="mt-2 flex gap-2 flex-wrap">
-                        <button id="save-png-btn" class="btn-secondary font-semibold py-2 px-4 rounded-md disabled:bg-gray-600 disabled:cursor-not-allowed" disabled>Save as PNG</button>
-                        <button id="save-jpg-btn" class="btn-secondary font-semibold py-2 px-4 rounded-md disabled:bg-gray-600 disabled:cursor-not-allowed" disabled>Save as JPG</button>
-                        <button id="save-svg-btn" class="btn-secondary font-semibold py-2 px-4 rounded-md disabled:bg-gray-600 disabled:cursor-not-allowed" disabled>Save as SVG</button>
-                    </div>
-                </div>
 
-                <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 flex-shrink-0">
-                    <div class="card p-4">
+                    <div class="card-inner p-4 mb-4 bg-gray-800 rounded-lg">
                         <div class="flex justify-between items-center mb-2">
-                            <h3 class="font-semibold text-gray-200">3D Print Preview (All Layers)</h3>
-                            <div class="flex items-center gap-2">
-                                <div class="zoom-controls flex bg-gray-800 rounded-md border border-gray-600">
-                                    <button id="zoom-out-all" class="p-1 hover:bg-gray-700 rounded-l-md" title="Zoom Out">
-                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"></path>
-                                        </svg>
-                                    </button>
-                                    <button id="zoom-reset-all" class="p-1 hover:bg-gray-700 border-l border-r border-gray-600 text-xs font-mono" title="Reset Zoom">1x</button>
-                                    <button id="zoom-in-all" class="p-1 hover:bg-gray-700 rounded-r-md" title="Zoom In">
-                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
-                                        </svg>
-                                    </button>
+                            <h3 class="font-semibold text-gray-200">Original Image</h3>
+                            <div id="original-resolution" class="text-xs text-gray-400"></div>
+                        </div>
+                        <div class="h-64 bg-grid rounded-md flex items-center justify-center overflow-hidden">
+                            <img id="source-image" alt="Original" class="max-w-full max-h-full object-contain">
+                        </div>
+                        <div class="mt-2 flex gap-2 flex-wrap">
+                            <button id="save-png-btn" class="btn-secondary font-semibold py-2 px-4 rounded-md disabled:bg-gray-600 disabled:cursor-not-allowed" disabled>Save as PNG</button>
+                            <button id="save-jpg-btn" class="btn-secondary font-semibold py-2 px-4 rounded-md disabled:bg-gray-600 disabled:cursor-not-allowed" disabled>Save as JPG</button>
+                            <button id="save-svg-btn" class="btn-secondary font-semibold py-2 px-4 rounded-md disabled:bg-gray-600 disabled:cursor-not-allowed" disabled>Save as SVG</button>
+                        </div>
+                    </div>
+
+                    <!-- SVG Tab Content -->
+                    <div id="tab-svg" class="export-panel">
+                        <!-- Preview Grid -->
+                        <div class="output-grid">
+                            <div class="output-col-half">
+                                <div class="output-card">
+                                    <div class="output-card-header">
+                                        <h3 class="output-card-title">3D Print Preview (All Layers)</h3>
+                                        <div class="flex items-center gap-2">
+                                            <div class="zoom-controls flex bg-gray-800 rounded-md border border-gray-600">
+                                                <button id="zoom-out-all" class="p-1 hover:bg-gray-700 rounded-l-md" title="Zoom Out">
+                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"></path>
+                                                    </svg>
+                                                </button>
+                                                <button id="zoom-reset-all" class="p-1 hover:bg-gray-700 border-l border-r border-gray-600 text-xs font-mono" title="Reset Zoom">1x</button>
+                                                <button id="zoom-in-all" class="p-1 hover:bg-gray-700 rounded-r-md" title="Zoom In">
+                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                                                    </svg>
+                                                </button>
+                                            </div>
+                                            <select id="preview-resolution" class="text-xs bg-gray-800 border border-gray-600 rounded px-2 py-1 text-white" title="Preview Resolution">
+                                                <option value="256">256px</option>
+                                                <option value="512" selected>512px</option>
+                                                <option value="1024">1024px</option>
+                                                <option value="2048">2048px</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                    <div class="preview-container h-64 bg-grid rounded-md overflow-hidden relative" data-preview="all">
+                                        <div class="preview-content w-full h-full flex items-center justify-center" style="transform-origin: center center;">
+                                            <img id="svg-preview" class="max-w-full max-h-full pointer-events-none" style="display: none;">
+                                        </div>
+                                    </div>
+                                    <div id="quality-indicator" class="text-xs text-gray-400 mt-2"></div>
                                 </div>
-                                <select id="preview-resolution" class="text-xs bg-gray-800 border border-gray-600 rounded px-2 py-1 text-white" title="Preview Resolution">
-                                    <option value="256">256px</option>
-                                    <option value="512" selected>512px</option>
-                                    <option value="1024">1024px</option>
-                                    <option value="2048">2048px</option>
-                                </select>
-                                <div id="quality-indicator" class="text-xs text-gray-400"></div>
+                            </div>
+
+                            <div class="output-col-half">
+                                <div class="output-card">
+                                    <div class="output-card-header">
+                                        <h3 class="output-card-title">Selected Layer Preview</h3>
+                                        <div class="flex items-center gap-2">
+                                            <div class="zoom-controls flex bg-gray-800 rounded-md border border-gray-600">
+                                                <button id="zoom-out-selected" class="p-1 hover:bg-gray-700 rounded-l-md" title="Zoom Out">
+                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"></path>
+                                                    </svg>
+                                                </button>
+                                                <button id="zoom-reset-selected" class="p-1 hover:bg-gray-700 border-l border-r border-gray-600 text-xs font-mono" title="Reset Zoom">1x</button>
+                                                <button id="zoom-in-selected" class="p-1 hover:bg-gray-700 rounded-r-md" title="Zoom In">
+                                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                                                    </svg>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="preview-container h-64 bg-grid rounded-md overflow-hidden relative" data-preview="selected">
+                                        <div class="preview-content w-full h-full flex items-center justify-center" style="transform-origin: center center;">
+                                            <img id="svg-preview-filtered" class="max-w-full max-h-full pointer-events-none" style="display: none;">
+                                        </div>
+                                    </div>
+                                    <div id="selected-layer-text" class="text-xs text-gray-400 mt-2">Click layers to preview</div>
+                                </div>
                             </div>
                         </div>
-                        <div class="preview-container h-64 bg-grid rounded-md overflow-hidden relative" data-preview="all">
-                            <div class="preview-content w-full h-full flex items-center justify-center" style="transform-origin: center center;">
-                                <img id="svg-preview" class="max-w-full max-h-full pointer-events-none" style="display: none;">
+
+                        <!-- Layer Selection Grid -->
+                        <div class="output-grid">
+                            <div class="output-col-half">
+                                <div class="output-card">
+                                    <div class="output-card-header">
+                                        <h4 class="output-card-title">Available Layers</h4>
+                                        <button id="toggle-available-layers" class="section-toggle text-xs text-blue-400 hover:text-blue-300">Hide</button>
+                                    </div>
+                                    <div id="available-layers-content" class="output-card-content">
+                                        <div id="palette-row" style="display:none;">
+                                            <div class="text-xs text-gray-500 mb-2">Layer 0 is the background layer</div>
+                                            <div id="palette-container" class="flex flex-wrap gap-2"></div>
+                                        </div>
+                                        <div id="layer-merging-section" style="display:none;">
+                                            <h5 class="text-xs font-semibold text-gray-400 mb-2">Layer Merging</h5>
+                                            <div id="merge-rules-container" class="space-y-2 mb-3"></div>
+                                            <button id="add-merge-rule-btn" class="btn-secondary text-xs font-semibold py-1 px-3 rounded-md" disabled>+ Add Merge Rule</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="output-col-half">
+                                <div class="output-card">
+                                    <div class="output-card-header">
+                                        <h4 class="output-card-title">Final Layer Colors</h4>
+                                        <button id="toggle-final-palette" class="section-toggle text-xs text-blue-400 hover:text-blue-300">Hide</button>
+                                    </div>
+                                    <div id="final-palette-content" class="output-card-content">
+                                        <div id="final-palette-container" class="flex flex-wrap gap-2 min-h-[36px]"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Export Section -->
+                        <div class="output-grid">
+                            <div class="output-col-full">
+                                <div class="output-card">
+                                    <div class="output-card-header">
+                                        <h4 class="output-card-title">Vector Exports</h4>
+                                    </div>
+                                    <div class="output-card-content">
+                                        <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                            <button id="download-tinkercad-btn" class="btn-primary font-semibold py-2 px-5 rounded-md disabled:bg-gray-600 disabled:cursor-not-allowed" disabled>All Layers (SVG)</button>
+                                            <button id="download-silhouette-btn" class="btn-secondary font-semibold py-2 px-5 rounded-md disabled:bg-gray-600 disabled:cursor-not-allowed" disabled>Background (SVG)</button>
+                                            <button id="combine-and-download-btn" class="bg-green-600 text-white font-semibold py-2 px-5 rounded-md hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed" disabled>Final/Merged (SVG)</button>
+                                            <button id="download-combined-layers-btn" class="btn-secondary font-semibold py-2 px-5 rounded-md disabled:bg-gray-600 disabled:cursor-not-allowed" disabled>Combined (SVG)</button>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
 
-                    <div class="card p-4">
-                        <div class="flex justify-between items-center mb-2">
-                            <h3 class="font-semibold text-gray-200">Selected Layer Preview</h3>
-                            <div class="flex items-center gap-2">
-                                <div class="zoom-controls flex bg-gray-800 rounded-md border border-gray-600">
-                                    <button id="zoom-out-selected" class="p-1 hover:bg-gray-700 rounded-l-md" title="Zoom Out">
-                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"></path>
-                                        </svg>
-                                    </button>
-                                    <button id="zoom-reset-selected" class="p-1 hover:bg-gray-700 border-l border-r border-gray-600 text-xs font-mono" title="Reset Zoom">1x</button>
-                                    <button id="zoom-in-selected" class="p-1 hover:bg-gray-700 rounded-r-md" title="Zoom In">
-                                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
-                                        </svg>
-                                    </button>
+                    <!-- JPG/PNG/TGA Tab Content -->
+                    <div id="tab-raster" class="export-panel hidden">
+                        <!-- Dimensions Section -->
+                        <div class="output-grid">
+                            <div class="output-col-full">
+                                <div class="output-card">
+                                    <div class="output-card-header">
+                                        <h4 class="output-card-title">Dimensions</h4>
+                                    </div>
+                                    <div class="output-card-content">
+                                        <div class="flex items-center justify-center gap-3 text-sm text-gray-300">
+                                            <span class="text-gray-400">Current:</span>
+                                            <span id="export-size-current" class="font-mono text-gray-100 font-semibold">—</span>
+                                            <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"></path>
+                                            </svg>
+                                            <span id="export-size-target" class="font-mono text-blue-400 font-semibold">—</span>
+                                        </div>
+                                    </div>
                                 </div>
-                                <div id="selected-layer-text" class="text-xs text-gray-400">Click layers to preview</div>
                             </div>
                         </div>
-                        <div class="preview-container h-64 bg-grid rounded-md overflow-hidden relative" data-preview="selected">
-                            <div class="preview-content w-full h-full flex items-center justify-center" style="transform-origin: center center;">
-                                <img id="svg-preview-filtered" class="max-w-full max-h-full pointer-events-none" style="display: none;">
-                            </div>
-                        </div>
-                    </div>
-                </div>
 
-                <div id="output-section" class="card p-6 flex-1 flex flex-col min-h-0" style="display:none;">
-    
-                    <div class="flex-grow grid grid-cols-1 md:grid-cols-2 gap-8 overflow-y-auto">
-                        <div>
-                             <div id="palette-row" class="mb-4" style="display:none;">
-                                <h4 class="font-semibold text-sm mb-2 text-gray-400">Available Layers (Click to select)</h4>
-                                <div class="text-xs text-gray-500 mb-2">Layer 0 is the background layer</div>
-                                <div id="palette-container" class="flex flex-wrap gap-2"></div>
-                             </div>
-                             <div id="layer-merging-section" style="display:none;">
-                                 <h4 class="font-semibold text-sm text-gray-400 mb-2">Layer Merging</h4>
-                                 <div id="merge-rules-container" class="space-y-2 mb-3"></div>
-                                 <button id="add-merge-rule-btn" class="btn-secondary text-xs font-semibold py-1 px-3 rounded-md" disabled>+ Add Merge Rule</button>
-                             </div>
+                        <!-- Resize Options Section -->
+                        <div class="output-grid">
+                            <div class="output-col-full">
+                                <div class="output-card">
+                                    <div class="output-card-header">
+                                        <h4 class="output-card-title">Resize Options</h4>
+                                    </div>
+                                    <div class="output-card-content">
+                                        <div class="flex flex-wrap gap-2 justify-center">
+                                            <button class="resize-chip" data-scale="25">25%</button>
+                                            <button class="resize-chip" data-scale="50">50%</button>
+                                            <button class="resize-chip" data-scale="100">100%</button>
+                                            <button class="resize-chip" data-scale="200">200%</button>
+                                            <button class="resize-chip" data-scale="300">300%</button>
+                                        </div>
+                                        <div class="flex items-center justify-center gap-2 pt-3 border-t border-gray-700">
+                                            <span class="text-xs text-gray-400">Custom:</span>
+                                            <input id="resize-custom" type="number" min="1" max="500" class="w-20 text-sm p-2 rounded border border-gray-600 bg-gray-900 text-white" placeholder="100">
+                                            <span class="text-xs text-gray-400">%</span>
+                                            <button id="apply-custom-resize" class="btn-secondary text-xs font-semibold py-1 px-3 rounded-md">Apply</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
-                        <div>
-                            <h4 class="font-semibold text-sm text-gray-400 mb-2">Final Layer Colors</h4>
-                            <div id="final-palette-container" class="flex flex-wrap gap-2 min-h-[36px]"></div>
+
+                        <!-- Download Section -->
+                        <div class="output-grid">
+                            <div class="output-col-full">
+                                <div class="output-card">
+                                    <div class="output-card-header">
+                                        <h4 class="output-card-title">Download</h4>
+                                    </div>
+                                    <div class="output-card-content">
+                                        <div class="grid grid-cols-1 gap-3">
+                                            <div class="flex items-center justify-between gap-3 p-3 bg-gray-800 rounded-md">
+                                                <div class="flex items-center gap-3">
+                                                    <span class="text-sm font-semibold text-gray-200">PNG</span>
+                                                    <span id="size-est-png" class="text-xs text-gray-400">—</span>
+                                                </div>
+                                                <button id="save-resized-png-btn" class="btn-primary font-semibold py-2 px-4 rounded-md disabled:bg-gray-600 disabled:cursor-not-allowed" disabled>Download</button>
+                                            </div>
+                                            <div class="flex items-center justify-between gap-3 p-3 bg-gray-800 rounded-md">
+                                                <div class="flex items-center gap-3">
+                                                    <span class="text-sm font-semibold text-gray-200">JPG</span>
+                                                    <span id="size-est-jpg" class="text-xs text-gray-400">—</span>
+                                                </div>
+                                                <button id="save-resized-jpg-btn" class="btn-secondary font-semibold py-2 px-4 rounded-md disabled:bg-gray-600 disabled:cursor-not-allowed" disabled>Download</button>
+                                            </div>
+                                            <div class="flex items-center justify-between gap-3 p-3 bg-gray-800 rounded-md">
+                                                <div class="flex items-center gap-3">
+                                                    <span class="text-sm font-semibold text-gray-200">TGA</span>
+                                                    <span id="size-est-tga" class="text-xs text-gray-400">—</span>
+                                                </div>
+                                                <button id="save-resized-tga-btn" class="btn-secondary font-semibold py-2 px-4 rounded-md disabled:bg-gray-600 disabled:cursor-not-allowed" disabled>Download</button>
+                                            </div>
+                                        </div>
+                                        <label class="flex items-center gap-2 text-xs text-gray-300 mt-3 pt-3 border-t border-gray-700 cursor-pointer">
+                                            <input id="preserve-alpha" type="checkbox" class="accent-blue-500 cursor-pointer">
+                                            <span>Preserve transparency (PNG/TGA only)</span>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
-                     <div class="mt-6 pt-6 border-t border-gray-700 flex flex-wrap gap-4 flex-shrink-0">
-                         <button id="download-tinkercad-btn" class="btn-primary font-semibold py-2 px-5 rounded-md disabled:bg-gray-600 disabled:cursor-not-allowed" disabled>Download All Layers</button>
-                         <button id="download-silhouette-btn" class="btn-secondary font-semibold py-2 px-5 rounded-md disabled:bg-gray-600 disabled:cursor-not-allowed" disabled>Download Background</button>
-                         <button id="combine-and-download-btn" class="bg-green-600 text-white font-semibold py-2 px-5 rounded-md hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed" disabled>Download Final</button>
-                         <button id="download-combined-layers-btn" class="btn-secondary font-semibold py-2 px-5 rounded-md disabled:bg-gray-600 disabled:cursor-not-allowed" disabled>Download Combined Layers</button>
-                     </div>
-                </div>
-            </div>
+                </div><!-- Close output-section -->
+            </div><!-- Close main-content -->
 
             <a href="https://buymeacoffee.com/genesisframeworks" target="_blank" class="buy-me-coffee fixed bottom-6 right-6 bg-yellow-400 text-gray-900 font-bold py-3 px-5 rounded-full shadow-lg flex items-center gap-2">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm-2.5-8.5c.83 0 1.5-.67 1.5-1.5s-.67-1.5-1.5-1.5-1.5.67-1.5 1.5.67 1.5 1.5 1.5zm5 0c.83 0 1.5-.67 1.5-1.5s-.67-1.5-1.5-1.5-1.5.67-1.5 1.5.67 1.5 1.5 1.5zm-2.5 4c2.33 0 4.31-1.46 5.11-3.5H6.89c.8 2.04 2.78 3.5 5.11 3.5z"/></svg>

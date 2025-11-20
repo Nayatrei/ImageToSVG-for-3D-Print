@@ -4,6 +4,7 @@ document.addEventListener('DOMContentLoaded', () => {
         welcomeScreen: document.getElementById('welcome-screen'),
         mainContent: document.getElementById('main-content'),
         loaderOverlay: document.getElementById('loader-overlay'),
+        workspace: document.querySelector('.workspace'),
         sourceImage: document.getElementById('source-image'),
         statusText: document.getElementById('status-text'),
         importBtn: document.getElementById('import-btn'),
@@ -47,7 +48,25 @@ document.addEventListener('DOMContentLoaded', () => {
         mergeRulesContainer: document.getElementById('merge-rules-container'),
         addMergeRuleBtn: document.getElementById('add-merge-rule-btn'),
         combineAndDownloadBtn: document.getElementById('combine-and-download-btn'),
-        downloadCombinedLayersBtn: document.getElementById('download-combined-layers-btn')
+        downloadCombinedLayersBtn: document.getElementById('download-combined-layers-btn'),
+        exportTabs: document.querySelectorAll('.segmented-control-tab'),
+        exportPanels: document.querySelectorAll('.export-panel'),
+        resizeChips: document.querySelectorAll('.resize-chip'),
+        resizeCustomInput: document.getElementById('resize-custom'),
+        applyCustomResizeBtn: document.getElementById('apply-custom-resize'),
+        saveResizedPngBtn: document.getElementById('save-resized-png-btn'),
+        saveResizedJpgBtn: document.getElementById('save-resized-jpg-btn'),
+        saveResizedTgaBtn: document.getElementById('save-resized-tga-btn'),
+        preserveAlphaCheckbox: document.getElementById('preserve-alpha'),
+        exportSizeCurrent: document.getElementById('export-size-current'),
+        exportSizeTarget: document.getElementById('export-size-target'),
+        sizeEstPng: document.getElementById('size-est-png'),
+        sizeEstJpg: document.getElementById('size-est-jpg'),
+        sizeEstTga: document.getElementById('size-est-tga'),
+        availableLayersContent: document.getElementById('available-layers-content'),
+        finalPaletteContent: document.getElementById('final-palette-content'),
+        toggleAvailableLayersBtn: document.getElementById('toggle-available-layers'),
+        toggleFinalPaletteBtn: document.getElementById('toggle-final-palette')
     };
 
     // --- State Management ---
@@ -64,6 +83,10 @@ document.addEventListener('DOMContentLoaded', () => {
         selectedFinalLayerIndices: new Set(),
         tooltipTimeout: null,
         colorsAnalyzed: false,
+        exportScale: 100,
+        preserveAlpha: true,
+        showAvailableLayers: true,
+        showFinalPalette: true,
         zoom: {
             all: { scale: 1, x: 0, y: 0, isDragging: false },
             selected: { scale: 1, x: 0, y: 0, isDragging: false }
@@ -84,8 +107,13 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function showWorkspace(show) {
-        elements.welcomeScreen.style.display = show ? 'none' : 'flex';
-        elements.mainContent.style.display = show ? 'flex' : 'none';
+        if (show) {
+            elements.welcomeScreen.style.display = 'none';
+            elements.mainContent.classList.remove('hidden');
+        } else {
+            elements.welcomeScreen.style.display = 'flex';
+            elements.mainContent.classList.add('hidden');
+        }
     }
 
     function saveInitialSliderValues() {
@@ -152,6 +180,129 @@ document.addEventListener('DOMContentLoaded', () => {
     async function optimizePathsClick() {
         if (!state.quantizedData) return;
         await traceVectorPaths();
+    }
+
+    function switchExportTab(target) {
+        elements.exportTabs.forEach(btn => {
+            const isActive = btn.dataset.tab === target;
+            btn.classList.toggle('active', isActive);
+        });
+        elements.exportPanels.forEach(panel => {
+            const isVisible = panel.id === `tab-${target}`;
+            panel.classList.toggle('hidden', !isVisible);
+        });
+
+        // Update segmented control indicator
+        updateSegmentedControlIndicator();
+
+        if (target === 'raster') {
+            setAvailableLayersVisible(false);
+            setFinalPaletteVisible(false);
+        } else {
+            setAvailableLayersVisible(true);
+            setFinalPaletteVisible(true);
+        }
+    }
+
+    function updateSegmentedControlIndicator() {
+        const activeTab = document.querySelector('.segmented-control-tab.active');
+        const indicator = document.querySelector('.segmented-control-indicator');
+
+        if (!activeTab || !indicator) return;
+
+        const tabRect = activeTab.getBoundingClientRect();
+        const containerRect = activeTab.parentElement.getBoundingClientRect();
+        const offsetLeft = tabRect.left - containerRect.left;
+
+        indicator.style.width = `${tabRect.width}px`;
+        indicator.style.transform = `translateX(${offsetLeft}px)`;
+    }
+
+
+    function updateExportScaleDisplay() {
+        if (!elements.exportSizeCurrent || !elements.exportSizeTarget) return;
+        const dims = getBaseDimensions();
+        if (!dims) {
+            elements.exportSizeCurrent.textContent = '—';
+            elements.exportSizeTarget.textContent = '—';
+            updateSizeEstimates(null);
+            return;
+        }
+        const target = getScaledDimensions(dims, state.exportScale);
+        elements.exportSizeCurrent.textContent = `${dims.width}×${dims.height}px`;
+        elements.exportSizeTarget.textContent = `${target.width}×${target.height}px (${state.exportScale}%)`;
+        updateSizeEstimates(target);
+    }
+
+    function getBaseDimensions() {
+        if (state.tracedata?.width && state.tracedata?.height) {
+            return { width: state.tracedata.width, height: state.tracedata.height };
+        }
+        if (elements.sourceImage?.naturalWidth && elements.sourceImage?.naturalHeight) {
+            return { width: elements.sourceImage.naturalWidth, height: elements.sourceImage.naturalHeight };
+        }
+        return null;
+    }
+
+    function getScaledDimensions(dims, scale) {
+        return {
+            width: Math.max(1, Math.round(dims.width * (scale / 100))),
+            height: Math.max(1, Math.round(dims.height * (scale / 100)))
+        };
+    }
+
+    function setExportScale(scale) {
+        state.exportScale = Math.min(500, Math.max(1, Math.round(scale)));
+        elements.resizeChips.forEach(chip => {
+            chip.classList.toggle('active', parseInt(chip.dataset.scale) === state.exportScale);
+        });
+        updateExportScaleDisplay();
+    }
+
+    function getDataToExport() {
+        if (!state.tracedata) return null;
+        const visibleIndices = getVisibleLayerIndices();
+        if (!visibleIndices.length) return null;
+        if (state.mergeRules && state.mergeRules.length > 0) {
+            return createMergedTracedata(state.tracedata, visibleIndices, state.mergeRules);
+        }
+        return buildTracedataSubset(state.tracedata, visibleIndices);
+    }
+
+    async function saveRaster(type = 'png') {
+        const data = getDataToExport();
+        if (!data) return;
+        const svgString = ImageTracer.getsvgstring(data, state.lastOptions);
+        const dims = getBaseDimensions();
+        if (!dims) return;
+        const target = getScaledDimensions(dims, state.exportScale);
+        const preserveAlpha = !!state.preserveAlpha;
+
+        try {
+            const pngDataUrl = await svgToPng(svgString, null, target, preserveAlpha);
+            if (type === 'png') {
+                downloadBlob(dataUrlToBlob(pngDataUrl), `${getImageBaseName()}_${target.width}x${target.height}.png`);
+                elements.statusText.textContent = `Saved PNG at ${target.width}×${target.height}.`;
+                return;
+            }
+
+            if (type === 'jpg') {
+                const jpgDataUrl = await pngToJpgDataUrl(pngDataUrl);
+                downloadBlob(dataUrlToBlob(jpgDataUrl), `${getImageBaseName()}_${target.width}x${target.height}.jpg`);
+                elements.statusText.textContent = `Saved JPG at ${target.width}×${target.height}.`;
+                return;
+            }
+
+            if (type === 'tga') {
+                const tgaBlob = await pngDataUrlToTgaBlob(pngDataUrl, preserveAlpha);
+                downloadBlob(tgaBlob, `${getImageBaseName()}_${target.width}x${target.height}.tga`);
+                elements.statusText.textContent = `Saved TGA at ${target.width}×${target.height}.${preserveAlpha ? ' Includes alpha.' : ''}`;
+                return;
+            }
+        } catch (error) {
+            console.error('Raster export failed:', error);
+            elements.statusText.textContent = 'Failed to export image.';
+        }
     }
 
     async function analyzeColors() {
@@ -236,19 +387,27 @@ document.addEventListener('DOMContentLoaded', () => {
                     // Now display palette based on traced data
                     displayPalette();
                     prepareMergeUIAfterGeneration();
+
+                    // Show output section
                     elements.outputSection.style.display = 'flex';
 
-                    renderPreviews();
-                    updateFilteredPreview();
+                    // Initialize segmented control indicator
+                    setTimeout(() => updateSegmentedControlIndicator(), 100);
+
+                    // Render previews
+                    await renderPreviews();
+                    await updateFilteredPreview();
+
                     const quality = assess3DPrintQuality(state.tracedata);
                     updateQualityDisplay(quality);
                     elements.statusText.textContent = 'Preview generated!';
                     enableDownloadButtons();
+                    updateExportScaleDisplay();
                     resolve();
 
-                } catch (error) {
-                    console.error('Tracing error:', error);
-                    elements.statusText.textContent = `Error: ${error.message}`;
+    } catch (error) {
+        console.error('Tracing error:', error);
+        elements.statusText.textContent = `Error: ${error.message}`;
                     reject(error);
                 } finally {
                     showLoader(false);
@@ -345,18 +504,21 @@ document.addEventListener('DOMContentLoaded', () => {
     function updateZoomDisplay(type) {
         const zoomLevel = Math.round(state.zoom[type].scale * 100);
         const resetButton = document.getElementById(`zoom-reset-${type}`);
-        resetButton.textContent = `${zoomLevel}%`;
-        
+        if (resetButton) {
+            resetButton.textContent = `${zoomLevel}%`;
+        }
+
         // Update button states
         const zoomInBtn = document.getElementById(`zoom-in-${type}`);
         const zoomOutBtn = document.getElementById(`zoom-out-${type}`);
-        
-        zoomInBtn.disabled = state.zoom[type].scale >= 5;
-        zoomOutBtn.disabled = state.zoom[type].scale <= 0.1;
+
+        if (zoomInBtn) zoomInBtn.disabled = state.zoom[type].scale >= 5;
+        if (zoomOutBtn) zoomOutBtn.disabled = state.zoom[type].scale <= 0.1;
     }
     
     function setupPanControls(type) {
         const container = document.querySelector(`[data-preview="${type}"]`);
+        if (!container) return; // Preview containers don't exist in new design
         const content = container.querySelector('.preview-content');
         let startX, startY, initialX, initialY;
         
@@ -440,9 +602,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- SVG to PNG Conversion ---
     
-    function svgToPng(svgString, maxSize = null) {
+    function svgToPng(svgString, maxSize = null, fixedSize = null, preserveAlpha = false) {
         return new Promise((resolve, reject) => {
-            // Get selected resolution or use default
             const selectedRes = maxSize || parseInt(elements.previewResolution?.value || '512');
             const maxWidth = selectedRes;
             const maxHeight = selectedRes;
@@ -455,28 +616,35 @@ document.addEventListener('DOMContentLoaded', () => {
             const img = new Image();
             img.onload = () => {
                 try {
-                    // Calculate dimensions while maintaining aspect ratio
-                    let { width, height } = img;
-                    const aspectRatio = width / height;
-                    
-                    // Ensure minimum size while maintaining aspect ratio
-                    if (width > height) {
-                        if (width < maxWidth) {
-                            width = maxWidth;
-                            height = width / aspectRatio;
-                        }
-                        if (width > maxWidth) {
-                            width = maxWidth;
-                            height = width / aspectRatio;
-                        }
+                    let width;
+                    let height;
+                    if (fixedSize && fixedSize.width && fixedSize.height) {
+                        width = fixedSize.width;
+                        height = fixedSize.height;
                     } else {
-                        if (height < maxHeight) {
-                            height = maxHeight;
-                            width = height * aspectRatio;
-                        }
-                        if (height > maxHeight) {
-                            height = maxHeight;
-                            width = height * aspectRatio;
+                        // Calculate dimensions while maintaining aspect ratio
+                        width = img.width || img.naturalWidth;
+                        height = img.height || img.naturalHeight;
+                        const aspectRatio = width / height;
+                        
+                        if (width > height) {
+                            if (width < maxWidth) {
+                                width = maxWidth;
+                                height = width / aspectRatio;
+                            }
+                            if (width > maxWidth) {
+                                width = maxWidth;
+                                height = width / aspectRatio;
+                            }
+                        } else {
+                            if (height < maxHeight) {
+                                height = maxHeight;
+                                width = height * aspectRatio;
+                            }
+                            if (height > maxHeight) {
+                                height = maxHeight;
+                                width = height * aspectRatio;
+                            }
                         }
                     }
                     
@@ -486,8 +654,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     canvas.height = height;
                     
                     const ctx = canvas.getContext('2d');
-                    ctx.fillStyle = 'white';
-                    ctx.fillRect(0, 0, width, height);
+                    if (!preserveAlpha) {
+                        ctx.fillStyle = 'white';
+                        ctx.fillRect(0, 0, width, height);
+                    }
                     ctx.drawImage(img, 0, 0, width, height);
                     
                     // Convert to PNG data URL
@@ -514,24 +684,26 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function renderPreviews() {
         if (!state.tracedata) return;
-        
+        if (!elements.svgPreview) return; // Preview not in new minimal design
+
         try {
             const visibleIndices = getVisibleLayerIndices();
             const previewData = buildTracedataSubset(state.tracedata, visibleIndices);
             const svgString = ImageTracer.getsvgstring(previewData, state.lastOptions);
-            
+
             const pngDataUrl = await svgToPng(svgString);
             elements.svgPreview.src = pngDataUrl;
             elements.svgPreview.style.display = 'block';
-            
+
         } catch (error) {
             console.error('Preview rendering failed:', error);
-            elements.svgPreview.style.display = 'none';
+            if (elements.svgPreview) elements.svgPreview.style.display = 'none';
         }
     }
     
     async function updateFilteredPreview() {
         if (!state.tracedata) return;
+        if (!elements.svgPreviewFiltered) return; // Preview not in new minimal design
 
         let dataToShow = state.tracedata;
         let indicesToRender = [];
@@ -539,46 +711,50 @@ document.addEventListener('DOMContentLoaded', () => {
         if (state.mergeRules.length > 0) {
             const visibleIndices = getVisibleLayerIndices();
             dataToShow = createMergedTracedata(state.tracedata, visibleIndices, state.mergeRules);
-            
+
             // Use selected final layers if any, otherwise show selected original layers
             if (state.selectedFinalLayerIndices.size > 0) {
                 indicesToRender = Array.from(state.selectedFinalLayerIndices);
-                elements.selectedLayerText.textContent = `Final Preview (${indicesToRender.length} layer(s))`;
+                if (elements.selectedLayerText) elements.selectedLayerText.textContent = `Final Preview (${indicesToRender.length} layer(s))`;
             } else {
                 indicesToRender = Array.from(state.selectedLayerIndices);
-                elements.selectedLayerText.textContent = state.selectedLayerIndices.size > 0 
-                    ? `Previewing ${indicesToRender.length} original layer(s)` 
+                if (elements.selectedLayerText) elements.selectedLayerText.textContent = state.selectedLayerIndices.size > 0
+                    ? `Previewing ${indicesToRender.length} original layer(s)`
                     : 'Select final layers to preview';
             }
         } else {
             // Original mode - use selected original layers
             indicesToRender = Array.from(state.selectedLayerIndices);
-            elements.selectedLayerText.textContent = state.selectedLayerIndices.size > 0
+            if (elements.selectedLayerText) elements.selectedLayerText.textContent = state.selectedLayerIndices.size > 0
                 ? `Previewing ${indicesToRender.length} layer(s)`
                 : 'Select layers to preview';
         }
 
         if (indicesToRender.length === 0) {
-            elements.svgPreviewFiltered.style.display = 'none';
+            if (elements.svgPreviewFiltered) elements.svgPreviewFiltered.style.display = 'none';
             return;
         }
         
         try {
             const filteredData = buildTracedataSubset(dataToShow, indicesToRender);
             const svgString = ImageTracer.getsvgstring(filteredData, state.lastOptions);
-            
+
             const pngDataUrl = await svgToPng(svgString);
-            elements.svgPreviewFiltered.src = pngDataUrl;
-            elements.svgPreviewFiltered.style.display = 'block';
-            
+            if (elements.svgPreviewFiltered) {
+                elements.svgPreviewFiltered.src = pngDataUrl;
+                elements.svgPreviewFiltered.style.display = 'block';
+            }
+
         } catch (error) {
             console.error('Filtered preview rendering failed:', error);
-            elements.svgPreviewFiltered.style.display = 'none';
+            if (elements.svgPreviewFiltered) elements.svgPreviewFiltered.style.display = 'none';
         }
     }
 
     function updateQualityDisplay(quality) {
-        elements.qualityIndicator.textContent = `${quality.pathCount} paths, ${quality.colorCount} colors`;
+        if (elements.qualityIndicator) {
+            elements.qualityIndicator.textContent = `${quality.pathCount} paths, ${quality.colorCount} colors`;
+        }
     }
 
     // --- Event Listeners ---
@@ -601,6 +777,39 @@ document.addEventListener('DOMContentLoaded', () => {
     elements.analyzeColorsBtn.addEventListener('click', analyzeColorsClick);
     elements.optimizePathsBtn.addEventListener('click', optimizePathsClick);
     elements.resetBtn.addEventListener('click', resetSlidersToInitial);
+    elements.exportTabs.forEach(btn => {
+        btn.addEventListener('click', () => {
+            switchExportTab(btn.dataset.tab);
+        });
+    });
+    elements.resizeChips.forEach(chip => {
+        chip.addEventListener('click', () => {
+            const scale = parseInt(chip.dataset.scale);
+            if (!isNaN(scale)) setExportScale(scale);
+        });
+    });
+    if (elements.applyCustomResizeBtn) {
+        elements.applyCustomResizeBtn.addEventListener('click', () => {
+            const val = parseInt(elements.resizeCustomInput.value);
+            if (!isNaN(val)) setExportScale(val);
+        });
+    }
+    if (elements.saveResizedPngBtn) elements.saveResizedPngBtn.addEventListener('click', () => saveRaster('png'));
+    if (elements.saveResizedJpgBtn) elements.saveResizedJpgBtn.addEventListener('click', () => saveRaster('jpg'));
+    if (elements.saveResizedTgaBtn) elements.saveResizedTgaBtn.addEventListener('click', () => saveRaster('tga'));
+    if (elements.preserveAlphaCheckbox) {
+        elements.preserveAlphaCheckbox.checked = state.preserveAlpha;
+        elements.preserveAlphaCheckbox.addEventListener('change', () => {
+            state.preserveAlpha = elements.preserveAlphaCheckbox.checked;
+            updateExportScaleDisplay();
+        });
+    }
+    if (elements.toggleAvailableLayersBtn) {
+        elements.toggleAvailableLayersBtn.addEventListener('click', () => setAvailableLayersVisible(!state.showAvailableLayers));
+    }
+    if (elements.toggleFinalPaletteBtn) {
+        elements.toggleFinalPaletteBtn.addEventListener('click', () => setFinalPaletteVisible(!state.showFinalPalette));
+    }
 
     // Zoom control event listeners
     setupZoomControls();
@@ -651,6 +860,42 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
+    function setupWorkspaceDragAndDrop() {
+        if (!elements.workspace) return;
+
+        const clearDragState = () => elements.workspace.classList.remove('drag-over');
+
+        elements.workspace.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            elements.workspace.classList.add('drag-over');
+        });
+
+        elements.workspace.addEventListener('dragleave', clearDragState);
+
+        elements.workspace.addEventListener('drop', (e) => {
+            e.preventDefault();
+            clearDragState();
+
+            const dt = e.dataTransfer;
+            if (dt?.files?.length) {
+                const file = Array.from(dt.files).find(f => f.type.startsWith('image/'));
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = (ev) => loadImage(ev.target.result, file.name);
+                    reader.readAsDataURL(file);
+                    return;
+                }
+            }
+
+            const url = dt?.getData('text/uri-list') || dt?.getData('text/plain');
+            if (url) {
+                loadImageFromUrl(url.trim());
+            }
+        });
+    }
+
+    setupWorkspaceDragAndDrop();
+
     // --- Image Loading ---
 
     function loadImage(src, name) {
@@ -695,10 +940,11 @@ document.addEventListener('DOMContentLoaded', () => {
     elements.sourceImage.onload = () => {
         showWorkspace(true);
         elements.analyzeColorsBtn.disabled = false;
-        
+
         const w = elements.sourceImage.naturalWidth;
         const h = elements.sourceImage.naturalHeight;
         elements.originalResolution.textContent = `${w}×${h} px`;
+
         // Enable original save buttons once image is loaded
         if (elements.savePngBtn) elements.savePngBtn.disabled = false;
         if (elements.saveJpgBtn) elements.saveJpgBtn.disabled = false;
@@ -716,23 +962,55 @@ document.addEventListener('DOMContentLoaded', () => {
         saveInitialSliderValues();
         elements.analyzeColorsBtn.click();
         
+        updateExportScaleDisplay();
+        if (elements.exportTabs) {
+            const activeTab = Array.from(elements.exportTabs).find(b => b.classList.contains('active'));
+            const tabName = activeTab?.dataset.tab;
+            if (tabName === 'raster') {
+                setAvailableLayersVisible(false);
+                setFinalPaletteVisible(false);
+            }
+        }
+        
         showLoader(false);
     };
     
     // --- Utility & Helper Functions ---
 
     function disableDownloadButtons() {
-        [elements.downloadTinkercadBtn, elements.downloadSilhouetteBtn, elements.combineAndDownloadBtn, elements.downloadCombinedLayersBtn].forEach(btn => {
+        [
+            elements.downloadTinkercadBtn,
+            elements.downloadSilhouetteBtn,
+            elements.combineAndDownloadBtn,
+            elements.downloadCombinedLayersBtn,
+            elements.saveResizedPngBtn,
+            elements.saveResizedJpgBtn,
+            elements.saveResizedTgaBtn
+        ].forEach(btn => {
             if(btn) btn.disabled = true;
         });
     }
 
     function enableDownloadButtons() {
-        [elements.downloadTinkercadBtn, elements.downloadSilhouetteBtn].forEach(btn => {
+        [
+            elements.downloadTinkercadBtn,
+            elements.downloadSilhouetteBtn,
+            elements.saveResizedPngBtn,
+            elements.saveResizedJpgBtn,
+            elements.saveResizedTgaBtn
+        ].forEach(btn => {
             if(btn) btn.disabled = false;
         });
         elements.combineAndDownloadBtn.disabled = state.mergeRules.length === 0;
         if (elements.downloadCombinedLayersBtn) elements.downloadCombinedLayersBtn.disabled = false;
+        if (elements.exportTabs) {
+            const activeTab = Array.from(elements.exportTabs).find(b => b.classList.contains('active'));
+            const tabName = activeTab?.dataset.tab;
+            if (tabName === 'raster') {
+                setAvailableLayersVisible(false);
+                setFinalPaletteVisible(false);
+            }
+        }
     }
 
     // NEW: Get visible layer indices based on traced data (only layers with actual paths)
@@ -867,6 +1145,140 @@ document.addEventListener('DOMContentLoaded', () => {
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
+    }
+
+    function dataUrlToBlob(dataUrl) {
+        const parts = dataUrl.split(',');
+        const mimeMatch = parts[0].match(/:(.*?);/);
+        const mime = mimeMatch ? mimeMatch[1] : 'image/png';
+        const binary = atob(parts[1]);
+        const len = binary.length;
+        const u8arr = new Uint8Array(len);
+        for (let i = 0; i < len; i++) {
+            u8arr[i] = binary.charCodeAt(i);
+        }
+        return new Blob([u8arr], { type: mime });
+    }
+
+    function pngToJpgDataUrl(pngDataUrl, quality = 0.92) {
+        return new Promise((resolve, reject) => {
+            const img = new Image();
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                canvas.width = img.width;
+                canvas.height = img.height;
+                const ctx = canvas.getContext('2d');
+                ctx.fillStyle = 'white';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.drawImage(img, 0, 0);
+                resolve(canvas.toDataURL('image/jpeg', quality));
+            };
+            img.onerror = reject;
+            img.src = pngDataUrl;
+        });
+    }
+
+    function pngDataUrlToTgaBlob(pngDataUrl, includeAlpha) {
+        return new Promise((resolve, reject) => {
+            const img = new Image();
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                canvas.width = img.width;
+                canvas.height = img.height;
+                const ctx = canvas.getContext('2d');
+                if (!includeAlpha) {
+                    ctx.fillStyle = 'white';
+                    ctx.fillRect(0, 0, canvas.width, canvas.height);
+                }
+                ctx.drawImage(img, 0, 0);
+                const { data, width, height } = ctx.getImageData(0, 0, canvas.width, canvas.height);
+                const hasAlpha = includeAlpha;
+
+                const header = new Uint8Array(18);
+                header[2] = 2; // uncompressed true-color
+                header[12] = width & 0xff;
+                header[13] = (width >> 8) & 0xff;
+                header[14] = height & 0xff;
+                header[15] = (height >> 8) & 0xff;
+                header[16] = hasAlpha ? 32 : 24;
+                header[17] = hasAlpha ? 8 : 0; // alpha bits
+
+                const pixelSize = hasAlpha ? 4 : 3;
+                const imageSize = width * height * pixelSize;
+                const pixels = new Uint8Array(imageSize);
+                for (let i = 0, p = 0; i < data.length; i += 4, p += pixelSize) {
+                    const r = data[i];
+                    const g = data[i + 1];
+                    const b = data[i + 2];
+                    const a = data[i + 3];
+                    pixels[p] = b;
+                    pixels[p + 1] = g;
+                    pixels[p + 2] = r;
+                    if (hasAlpha) pixels[p + 3] = a;
+                }
+
+                const tgaData = new Uint8Array(header.length + pixels.length);
+                tgaData.set(header, 0);
+                tgaData.set(pixels, header.length);
+                resolve(new Blob([tgaData], { type: 'image/x-tga' }));
+            };
+            img.onerror = reject;
+            img.src = pngDataUrl;
+        });
+    }
+
+    function estimateSizeBytes(width, height, format, alpha) {
+        if (!width || !height) return 0;
+        const channels = alpha ? 4 : 3;
+        const rawBytes = width * height * channels;
+        let factor = 1;
+        if (format === 'png') factor = 0.45; // rough compression heuristic
+        if (format === 'jpg') factor = 0.16; // jpeg compression (~10:1–8:1)
+        if (format === 'tga') factor = 1.0; // uncompressed true color
+        return Math.max(1, Math.round(rawBytes * factor));
+    }
+
+    function formatBytes(bytes) {
+        if (!bytes || bytes < 0) return '—';
+        if (bytes < 1024) return `${bytes} B`;
+        const kb = bytes / 1024;
+        if (kb < 1024) return `${kb.toFixed(1)} KB`;
+        const mb = kb / 1024;
+        return `${mb.toFixed(1)} MB`;
+    }
+
+    function updateSizeEstimates(targetDims) {
+        if (!elements.sizeEstPng || !elements.sizeEstJpg || !elements.sizeEstTga) return;
+        if (!targetDims) {
+            elements.sizeEstPng.textContent = '—';
+            elements.sizeEstJpg.textContent = '—';
+            elements.sizeEstTga.textContent = '—';
+            return;
+        }
+        const alpha = !!state.preserveAlpha;
+        elements.sizeEstPng.textContent = formatBytes(estimateSizeBytes(targetDims.width, targetDims.height, 'png', alpha));
+        elements.sizeEstJpg.textContent = formatBytes(estimateSizeBytes(targetDims.width, targetDims.height, 'jpg', false));
+        elements.sizeEstTga.textContent = formatBytes(estimateSizeBytes(targetDims.width, targetDims.height, 'tga', alpha));
+    }
+
+    function setAvailableLayersVisible(show) {
+        state.showAvailableLayers = show;
+        if (elements.availableLayersContent) {
+            elements.availableLayersContent.style.display = show ? 'block' : 'none';
+        }
+        if (elements.toggleAvailableLayersBtn) {
+            elements.toggleAvailableLayersBtn.textContent = show ? 'Hide' : 'Show';
+        }
+    }
+
+    function setFinalPaletteVisible(show) {
+        state.showFinalPalette = show;
+        if (elements.finalPaletteContent) {
+            elements.finalPaletteContent.style.display = show ? 'block' : 'none';
+        }
+        if (elements.toggleFinalPaletteBtn) {
+            elements.toggleFinalPaletteBtn.textContent = show ? 'Hide' : 'Show';
+        }
     }
 
     function getImageBaseName() {
@@ -1254,6 +1666,15 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
     }
+
+    switchExportTab('svg');
+    setExportScale(state.exportScale);
+    setAvailableLayersVisible(true);
+    setFinalPaletteVisible(true);
+    updateExportScaleDisplay();
+
+    // Update segmented control indicator on window resize
+    window.addEventListener('resize', () => updateSegmentedControlIndicator());
 
     // Check for stored image URL from context menu on page load
     if (typeof chrome !== 'undefined' && chrome.storage) {
