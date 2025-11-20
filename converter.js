@@ -578,18 +578,25 @@ document.addEventListener('DOMContentLoaded', () => {
     
     function setupZoomControls() {
         // Zoom button event listeners
-        document.getElementById('zoom-in-all').addEventListener('click', () => zoomPreview('all', 1.25));
-        document.getElementById('zoom-out-all').addEventListener('click', () => zoomPreview('all', 0.8));
-        document.getElementById('zoom-reset-all').addEventListener('click', () => resetZoom('all'));
-        
-        document.getElementById('zoom-in-selected').addEventListener('click', () => zoomPreview('selected', 1.25));
-        document.getElementById('zoom-out-selected').addEventListener('click', () => zoomPreview('selected', 0.8));
-        document.getElementById('zoom-reset-selected').addEventListener('click', () => resetZoom('selected'));
-        
+        const zoomInAll = document.getElementById('zoom-in-all');
+        const zoomOutAll = document.getElementById('zoom-out-all');
+        const zoomResetAll = document.getElementById('zoom-reset-all');
+        const zoomInSelected = document.getElementById('zoom-in-selected');
+        const zoomOutSelected = document.getElementById('zoom-out-selected');
+        const zoomResetSelected = document.getElementById('zoom-reset-selected');
+
+        if (zoomInAll) zoomInAll.addEventListener('click', () => zoomPreview('all', 1.25));
+        if (zoomOutAll) zoomOutAll.addEventListener('click', () => zoomPreview('all', 0.8));
+        if (zoomResetAll) zoomResetAll.addEventListener('click', () => resetZoom('all'));
+
+        if (zoomInSelected) zoomInSelected.addEventListener('click', () => zoomPreview('selected', 1.25));
+        if (zoomOutSelected) zoomOutSelected.addEventListener('click', () => zoomPreview('selected', 0.8));
+        if (zoomResetSelected) zoomResetSelected.addEventListener('click', () => resetZoom('selected'));
+
         // Pan/drag functionality for both preview containers
         setupPanControls('all');
         setupPanControls('selected');
-        
+
         // Initialize zoom displays
         updateZoomDisplay('all');
         updateZoomDisplay('selected');
