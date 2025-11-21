@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: imagetosvg-converter
+    name: genesis-image-converter
     env: static
     buildCommand: ""
     staticPublishPath: .
