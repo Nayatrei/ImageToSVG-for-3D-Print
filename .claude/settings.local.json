@@ -1,7 +1,12 @@
 {
   "permissions": {
     "allow": [
-      "Bash(open converter.html)"
+      "Bash(open converter.html)",
+      "Bash(git rm:*)",
+      "Bash(git add:*)",
+      "Bash(git reset:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)"
     ],
     "deny": [],
     "ask": []
