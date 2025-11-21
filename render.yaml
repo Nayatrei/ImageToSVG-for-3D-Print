@@ -1,0 +1,6 @@
+services:
+  - type: web
+    name: imagetosvg-converter
+    env: static
+    buildCommand: ""
+    staticPublishPath: .
