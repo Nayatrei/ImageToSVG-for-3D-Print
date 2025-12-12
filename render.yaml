@@ -1,0 +1,6 @@
+services:
+  - type: web
+    name: genesis-image-converter
+    env: static
+    buildCommand: ""
+    staticPublishPath: .

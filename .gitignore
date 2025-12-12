@@ -1,0 +1,10 @@
+# System files
+.DS_Store
+.claude/
+
+# Extension files (not needed for web)
+manifest.json
+background.js
+
+# Image files (optional - can keep for demo)
+before.png
