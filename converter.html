@@ -441,6 +441,41 @@
             text-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
         }
 
+        /* Export tabs overlay */
+        #output-section {
+            position: relative;
+            padding-top: 3.5rem;
+        }
+
+        .export-tabs-overlay {
+            position: absolute;
+            top: 0.25rem;
+            right: clamp(0.75rem, 2vw, 1.25rem);
+            margin-bottom: 0;
+            justify-content: flex-end;
+            width: max-content;
+            z-index: 5;
+        }
+
+        .export-tabs-overlay .segmented-control {
+            box-shadow:
+                inset 0 1px 3px rgba(0, 0, 0, 0.3),
+                0 8px 24px rgba(0, 0, 0, 0.35);
+        }
+
+        @media (max-width: 720px) {
+            #output-section {
+                padding-top: 1.5rem;
+            }
+
+            .export-tabs-overlay {
+                position: static;
+                margin-bottom: clamp(0.75rem, 1.5vw, 1rem);
+                width: 100%;
+                justify-content: center;
+            }
+        }
+
         .export-panel.hidden {
             display: none;
         }
@@ -1252,7 +1287,7 @@
             <div id="main-content" class="hidden h-full flex flex-col">
                 <!-- Tabs Section -->
                 <div id="output-section" class="card p-6 flex-1 min-h-0 overflow-hidden flex flex-col gap-4" style="display:none;">
-                    <div class="segmented-control-container mb-4">
+                    <div class="segmented-control-container export-tabs-overlay">
                         <div class="segmented-control">
                             <div class="segmented-control-indicator"></div>
                             <button class="segmented-control-tab export-tab active" data-tab="svg">SVG</button>
