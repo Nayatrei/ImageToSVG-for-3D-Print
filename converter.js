@@ -33,6 +33,9 @@ document.addEventListener('DOMContentLoaded', () => {
         colorPrecisionSlider: document.getElementById('color-precision'),
         colorPrecisionValue: document.getElementById('color-precision-value'),
         colorPrecisionTooltip: document.getElementById('color-precision-tooltip'),
+        maxColorsSlider: document.getElementById('max-colors'),
+        maxColorsValue: document.getElementById('max-colors-value'),
+        maxColorsTooltip: document.getElementById('max-colors-tooltip'),
         svgPreview: document.getElementById('svg-preview'),
         svgPreviewFiltered: document.getElementById('svg-preview-filtered'),
         previewResolution: document.getElementById('preview-resolution'),
@@ -99,7 +102,8 @@ document.addEventListener('DOMContentLoaded', () => {
         'path-simplification': 'Higher values remove more small details and noise.',
         'corner-sharpness': 'Higher values create crisper, more defined corners.',
         'curve-straightness': 'Higher values make curved lines more straight.',
-        'color-precision': 'Higher values find more distinct color layers.'
+        'color-precision': 'Higher values find more distinct color layers.',
+        'max-colors': 'Caps the maximum number of colors created.'
     };
 
     // --- Core Functions ---
@@ -123,7 +127,8 @@ document.addEventListener('DOMContentLoaded', () => {
             pathSimplification: elements.pathSimplificationSlider.value,
             cornerSharpness: elements.cornerSharpnessSlider.value,
             curveStraightness: elements.curveStraightnessSlider.value,
-            colorPrecision: elements.colorPrecisionSlider.value
+            colorPrecision: elements.colorPrecisionSlider.value,
+            maxColors: elements.maxColorsSlider ? elements.maxColorsSlider.value : '4'
         };
         state.isDirty = false;
         elements.resetBtn.style.display = 'none';
@@ -136,6 +141,9 @@ document.addEventListener('DOMContentLoaded', () => {
         elements.cornerSharpnessSlider.value = state.initialSliderValues.cornerSharpness;
         elements.curveStraightnessSlider.value = state.initialSliderValues.curveStraightness;
         elements.colorPrecisionSlider.value = state.initialSliderValues.colorPrecision;
+        if (elements.maxColorsSlider) {
+            elements.maxColorsSlider.value = state.initialSliderValues.maxColors;
+        }
 
         updateAllSliderDisplays();
         
@@ -154,6 +162,9 @@ document.addEventListener('DOMContentLoaded', () => {
         elements.cornerSharpnessValue.textContent = elements.cornerSharpnessSlider.value;
         elements.curveStraightnessValue.textContent = elements.curveStraightnessSlider.value;
         elements.colorPrecisionValue.textContent = elements.colorPrecisionSlider.value;
+        if (elements.maxColorsValue && elements.maxColorsSlider) {
+            elements.maxColorsValue.textContent = elements.maxColorsSlider.value;
+        }
     }
     
     const debounce = (fn, ms = 250) => {
@@ -612,6 +623,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const C = parseInt(elements.cornerSharpnessSlider.value);
         const S = parseInt(elements.curveStraightnessSlider.value);
         const CP = parseInt(elements.colorPrecisionSlider.value);
+        const MC = elements.maxColorsSlider ? parseInt(elements.maxColorsSlider.value) : 4;
 
         const map = (t, a, b) => (a + (b - a) * (t / 100));
         const mapInv = (t, a, b) => (a + (b - a) * (1 - (t / 100)));
@@ -634,6 +646,9 @@ document.addEventListener('DOMContentLoaded', () => {
         options.colorquantcycles = Math.max(1, Math.round(map(CP, 3, 10)));
         options.mincolorratio = +mapInv(CP, 0.03, 0.0).toFixed(3);
         options.numberofcolors = Math.max(4, Math.min(20, 4 + Math.round(CP * 0.16)));
+        if (!Number.isNaN(MC)) {
+            options.numberofcolors = Math.max(2, Math.min(options.numberofcolors, MC));
+        }
 
         return options;
     }
@@ -1048,8 +1063,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 }, 2000);
             }
 
-            // If color precision changes, we need to re-analyze colors
-            if (e.target.id === 'color-precision') {
+            // If color settings change, we need to re-analyze colors
+            if (e.target.id === 'color-precision' || e.target.id === 'max-colors') {
                 if (state.colorsAnalyzed && elements.sourceImage.src) {
                     state.colorsAnalyzed = false;
                     elements.optimizePathsBtn.disabled = true;

@@ -447,13 +447,13 @@
         }
 
         .export-tabs-overlay {
-            position: absolute;
-            top: 0.5rem;
-            right: clamp(0.75rem, 2vw, 1.25rem);
+            position: fixed;
+            top: clamp(4.25rem, 6vw, 5.5rem);
+            right: clamp(0.75rem, 2vw, 1.5rem);
             margin-bottom: 0;
             justify-content: flex-end;
             width: max-content;
-            z-index: 5;
+            z-index: 60;
         }
 
         .export-tabs-overlay .segmented-control {
@@ -463,13 +463,6 @@
         }
 
         @media (max-width: 720px) {
-            .export-tabs-overlay {
-                position: static;
-                margin-bottom: clamp(0.75rem, 1.5vw, 1rem);
-                width: 100%;
-                justify-content: center;
-            }
-
             .original-image-header {
                 padding-right: 0;
             }
@@ -1221,13 +1214,21 @@
                     <div class="space-y-4 p-4 bg-gray-800 rounded-lg border border-gray-700">
                         <fieldset id="color-controls">
                             <h3 class="text-md font-semibold text-gray-300 mb-2">Color Settings</h3>
-                             <div>
+                            <div>
                                 <label for="color-precision" class="text-sm font-medium text-gray-300">Color Precision</label>
                                 <div class="flex items-center space-x-2">
                                     <input type="range" id="color-precision" min="0" max="100" value="75" step="1">
                                     <span id="color-precision-value" class="text-sm font-mono bg-gray-700 border border-gray-600 rounded-md px-2 py-0.5 w-12 text-center text-gray-200">75</span>
                                 </div>
                                  <p id="color-precision-tooltip" class="slider-tooltip text-xs text-gray-400 mt-1 h-4 opacity-0"></p>
+                            </div>
+                            <div>
+                                <label for="max-colors" class="text-sm font-medium text-gray-300">Max Colors</label>
+                                <div class="flex items-center space-x-2">
+                                    <input type="range" id="max-colors" min="2" max="8" value="4" step="1">
+                                    <span id="max-colors-value" class="text-sm font-mono bg-gray-700 border border-gray-600 rounded-md px-2 py-0.5 w-12 text-center text-gray-200">4</span>
+                                </div>
+                                 <p id="max-colors-tooltip" class="slider-tooltip text-xs text-gray-400 mt-1 h-4 opacity-0"></p>
                             </div>
                         </fieldset>
                         <fieldset id="path-controls" class="pt-4 border-t border-gray-700" disabled>
@@ -1280,6 +1281,13 @@
                 </svg>
                 <span class="text-sm">Buy Me a Coffee</span>
             </a>
+            <div class="segmented-control-container export-tabs-overlay" aria-label="Export Tabs">
+                <div class="segmented-control">
+                    <div class="segmented-control-indicator"></div>
+                    <button class="segmented-control-tab export-tab active" data-tab="svg">SVG</button>
+                    <button class="segmented-control-tab export-tab" data-tab="raster">JPG / PNG / TGA</button>
+                </div>
+            </div>
             <div id="welcome-screen" class="h-full flex flex-col items-center justify-center text-center">
                 <svg class="w-24 h-24 text-gray-600 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
                 <h2 class="text-2xl font-bold text-gray-500">Your Workspace</h2>
@@ -1290,14 +1298,6 @@
             <div id="main-content" class="hidden h-full min-h-0 flex flex-col">
                 <!-- Tabs Section -->
                 <div id="output-section" class="card p-6 flex-1 min-h-0 overflow-y-auto flex flex-col gap-4" style="display:none;">
-                    <div class="segmented-control-container export-tabs-overlay">
-                        <div class="segmented-control">
-                            <div class="segmented-control-indicator"></div>
-                            <button class="segmented-control-tab export-tab active" data-tab="svg">SVG</button>
-                            <button class="segmented-control-tab export-tab" data-tab="raster">JPG / PNG / TGA</button>
-                        </div>
-                    </div>
-
                     <div class="card-inner bg-gray-800 rounded-lg flex-shrink-0" style="padding: clamp(0.75rem, 2vw, 1rem); margin-bottom: clamp(0.75rem, 1.5vw, 1rem);">
                         <div class="flex justify-between items-center mb-2 original-image-header">
                             <h3 class="font-semibold text-gray-200" style="font-size: clamp(0.875rem, 1.5vw, 1rem);">Original Image</h3>
