@@ -13,7 +13,6 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="imagetracer_v1.2.6.js"></script>
-    <script src="converter.js"></script>
     <script type="module">
         import * as THREE from 'https://esm.sh/three@0.160.0';
         import { SVGLoader } from 'https://esm.sh/three@0.160.0/examples/jsm/loaders/SVGLoader.js';
@@ -24,6 +23,7 @@
         window.OBJExporter = OBJExporter;
         window.GLTFExporter = GLTFExporter;
     </script>
+    <script type="module" src="converter.js"></script>
     <style>
         :root {
             --bg-main: #111827;
@@ -100,6 +100,12 @@
             color: #9ca3af !important;
             border-color: #4b5563 !important;
             cursor: not-allowed !important;
+        }
+
+        .btn-secondary.active {
+            border-color: #60a5fa;
+            box-shadow: 0 0 0 1px rgba(96, 165, 250, 0.35);
+            color: #f9fafb;
         }
 
         /* Custom utility classes to replace Tailwind */
@@ -1202,6 +1208,80 @@
             background-color: #374151;
             color: #9ca3af;
         }
+
+        .toggle-controls button {
+            border-right: 1px solid #4b5563;
+            color: #d1d5db;
+        }
+
+        .toggle-controls button:last-child {
+            border-right: none;
+        }
+
+        .toggle-controls button.active {
+            background-color: #374151;
+            color: #f9fafb;
+        }
+
+        .layer-stack-card {
+            margin-top: 0.75rem;
+            background: #1f2937;
+            border: 1px solid #374151;
+            border-radius: 0.75rem;
+            padding: 0.75rem;
+        }
+
+        .layer-stack-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.75rem;
+            color: #9ca3af;
+            margin-bottom: 0.5rem;
+        }
+
+        .layer-stack-list {
+            display: flex;
+            flex-direction: column;
+            gap: 0.35rem;
+        }
+
+        .layer-stack-item {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.75rem;
+            color: #e5e7eb;
+            background: rgba(17, 24, 39, 0.7);
+            border: 1px solid #374151;
+            border-radius: 0.5rem;
+            padding: 0.35rem 0.5rem;
+        }
+
+        .layer-stack-item.selected {
+            border-color: #60a5fa;
+            box-shadow: 0 0 0 1px rgba(96, 165, 250, 0.4);
+        }
+
+        .layer-stack-item.ghosted {
+            opacity: 0.5;
+        }
+
+        .layer-stack-swatch {
+            width: 14px;
+            height: 14px;
+            border-radius: 4px;
+            border: 1px solid #4b5563;
+        }
+
+        .layer-stack-label {
+            flex: 1;
+        }
+
+        .layer-stack-range {
+            font-size: 0.7rem;
+            color: #9ca3af;
+        }
     </style>
 </head>
 <body class="h-screen w-screen overflow-hidden antialiased">
@@ -1420,6 +1500,13 @@
                                         <span class="text-xs text-gray-400 font-normal">Drag to rotate · Scroll to zoom</span>
                                     </h3>
                                     <div class="flex items-center gap-2">
+                                        <div class="toggle-controls flex bg-gray-800 rounded-md border border-gray-600">
+                                            <button id="obj-mode-ghost" class="px-2 py-1 text-xs">Ghost</button>
+                                            <button id="obj-mode-solo" class="px-2 py-1 text-xs">Solo</button>
+                                        </div>
+                                        <button id="obj-fit-view" class="btn-secondary text-xs px-2 py-1 rounded-md" title="Fit model to view">Fit</button>
+                                        <button id="obj-reset-view" class="btn-secondary text-xs px-2 py-1 rounded-md" title="Reset view and zoom">Reset</button>
+                                        <button id="obj-target-lock" class="btn-secondary text-xs px-2 py-1 rounded-md" title="Toggle target lock (pan when unlocked)">Lock</button>
                                         <div class="zoom-controls flex bg-gray-800 rounded-md border border-gray-600">
                                             <button id="obj-zoom-out" class="p-1 hover:bg-gray-700 rounded-l-md" title="Zoom Out">
                                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1438,6 +1525,13 @@
                                 <div class="preview-container preview-container-flexible bg-grid rounded-md overflow-hidden relative">
                                     <canvas id="obj-preview-canvas" class="obj-preview-canvas"></canvas>
                                     <div id="obj-preview-placeholder" class="preview-placeholder">3D preview will appear after analysis.</div>
+                                </div>
+                                <div class="layer-stack-card">
+                                    <div class="layer-stack-header">
+                                        <span>Layer Stack (bottom -> top)</span>
+                                        <span id="layer-stack-meta">—</span>
+                                    </div>
+                                    <div id="layer-stack-list" class="layer-stack-list"></div>
                                 </div>
                             </div>
                         </div>

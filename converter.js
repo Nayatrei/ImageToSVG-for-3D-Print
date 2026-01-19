@@ -1,3 +1,7 @@
+import { SLIDER_TOOLTIPS, TRANSPARENT_ALPHA_CUTOFF } from './modules/config.js';
+import { createObjPreview } from './modules/preview3d.js';
+import { createObjExporter } from './modules/export3d.js';
+
 document.addEventListener('DOMContentLoaded', () => {
     // --- DOM elements ---
     const elements = {
@@ -44,6 +48,13 @@ document.addEventListener('DOMContentLoaded', () => {
         objZoomIn: document.getElementById('obj-zoom-in'),
         objZoomOut: document.getElementById('obj-zoom-out'),
         objZoomReset: document.getElementById('obj-zoom-reset'),
+        objFitView: document.getElementById('obj-fit-view'),
+        objResetView: document.getElementById('obj-reset-view'),
+        objTargetLock: document.getElementById('obj-target-lock'),
+        objModeGhost: document.getElementById('obj-mode-ghost'),
+        objModeSolo: document.getElementById('obj-mode-solo'),
+        layerStackList: document.getElementById('layer-stack-list'),
+        layerStackMeta: document.getElementById('layer-stack-meta'),
         previewResolution: document.getElementById('preview-resolution'),
         qualityIndicator: document.getElementById('quality-indicator'),
         selectedLayerText: document.getElementById('selected-layer-text'),
@@ -120,7 +131,14 @@ document.addEventListener('DOMContentLoaded', () => {
             interactionsBound: false,
             retryScheduled: false,
             zoom: 1,
-            target: null
+            target: null,
+            fitTarget: null,
+            panX: 0,
+            panY: 0,
+            panScale: 1,
+            basePosition: null,
+            targetLocked: true,
+            layerDisplayMode: 'ghost'
         },
         zoom: {
             all: { scale: 1, x: 0, y: 0, isDragging: false },
@@ -128,47 +146,9 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    const SLIDER_TOOLTIPS = {
-        'path-simplification': 'Higher values remove more small details and noise.',
-        'corner-sharpness': 'Higher values create crisper, more defined corners.',
-        'curve-straightness': 'Higher values make curved lines more straight.',
-        'color-precision': 'Higher values find more distinct color layers.',
-        'max-colors': 'Caps the maximum number of colors created.',
-        'obj-detail': 'Lower values reduce OBJ size by simplifying curved edges.'
-    };
+    // constants are imported from modules/config.js
 
-    const TRANSPARENT_ALPHA_CUTOFF = 10;
-    const OBJ_ZOOM_MIN = 0.5;
-    const OBJ_ZOOM_MAX = 3;
-
-    const BED_PRESETS = {
-        x1: { width: 256, depth: 256, label: 'Bambu X1/X1C' },
-        a1mini: { width: 180, depth: 180, label: 'Bambu A1 mini' },
-        h2d: { width: 325, depth: 320, label: 'Bambu H2D (single nozzle)' }
-    };
-
-    function buildLayerIndexMap(palette) {
-        const map = new Map();
-        if (!Array.isArray(palette)) return map;
-        palette.forEach((color, index) => {
-            if (!color) return;
-            const r = Math.max(0, Math.min(255, color.r ?? 0));
-            const g = Math.max(0, Math.min(255, color.g ?? 0));
-            const b = Math.max(0, Math.min(255, color.b ?? 0));
-            const hex = ((r << 16) | (g << 8) | b).toString(16).padStart(6, '0');
-            map.set(hex, index);
-        });
-        return map;
-    }
-
-    function getLayerIndexForColor(layerIndexMap, hex) {
-        if (!layerIndexMap || !hex) return 0;
-        const key = hex.toLowerCase();
-        if (layerIndexMap.has(key)) return layerIndexMap.get(key);
-        const nextIndex = layerIndexMap.size;
-        layerIndexMap.set(key, nextIndex);
-        return nextIndex;
-    }
+    // obj layer helpers moved to modules/obj-layers.js
 
     // --- Core Functions ---
 
@@ -339,7 +319,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             setAvailableLayersVisible(true);
             setFinalPaletteVisible(true);
-            renderObjPreview();
+            objPreview.render();
         }
     }
 
@@ -834,46 +814,7 @@ document.addEventListener('DOMContentLoaded', () => {
         updateZoomDisplay('selected');
     }
 
-    function setupObjZoomControls() {
-        if (elements.objZoomIn) {
-            elements.objZoomIn.addEventListener('click', () => {
-                setObjZoom(state.objPreview.zoom * 1.15);
-            });
-        }
-        if (elements.objZoomOut) {
-            elements.objZoomOut.addEventListener('click', () => {
-                setObjZoom(state.objPreview.zoom * 0.87);
-            });
-        }
-        if (elements.objZoomReset) {
-            elements.objZoomReset.addEventListener('click', () => resetObjZoom());
-        }
-        updateObjZoomDisplay();
-    }
-
-    function setObjZoom(value) {
-        const preview = state.objPreview;
-        const next = Math.min(OBJ_ZOOM_MAX, Math.max(OBJ_ZOOM_MIN, value));
-        preview.zoom = next;
-        updateObjZoomDisplay();
-        renderObjPreviewFrame();
-    }
-
-    function resetObjZoom() {
-        setObjZoom(1);
-    }
-
-    function updateObjZoomDisplay() {
-        if (elements.objZoomReset) {
-            elements.objZoomReset.textContent = `${Math.round(state.objPreview.zoom * 100)}%`;
-        }
-        if (elements.objZoomIn) {
-            elements.objZoomIn.disabled = state.objPreview.zoom >= OBJ_ZOOM_MAX;
-        }
-        if (elements.objZoomOut) {
-            elements.objZoomOut.disabled = state.objPreview.zoom <= OBJ_ZOOM_MIN;
-        }
-    }
+    // obj preview controls moved to modules/preview3d.js
     
     function zoomPreview(type, factor) {
         const zoomState = state.zoom[type];
@@ -1088,234 +1029,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- UI Update Functions ---
 
-    function ensureObjPreview() {
-        if (state.objPreview.renderer) return true;
-        if (!elements.objPreviewCanvas) return false;
-
-        const THREERef = window.THREE;
-        const SVGLoader = window.SVGLoader;
-        if (!THREERef || !SVGLoader) return false;
-
-        const renderer = new THREERef.WebGLRenderer({
-            canvas: elements.objPreviewCanvas,
-            antialias: true,
-            alpha: true
-        });
-        renderer.setPixelRatio(window.devicePixelRatio || 1);
-
-        const scene = new THREERef.Scene();
-        const camera = new THREERef.PerspectiveCamera(45, 1, 0.1, 10000);
-        const group = new THREERef.Group();
-        scene.add(group);
-
-        const ambient = new THREERef.AmbientLight(0xffffff, 0.8);
-        const directional = new THREERef.DirectionalLight(0xffffff, 0.8);
-        directional.position.set(0, -1, 2);
-        scene.add(ambient, directional);
-
-        state.objPreview.renderer = renderer;
-        state.objPreview.scene = scene;
-        state.objPreview.camera = camera;
-        state.objPreview.group = group;
-
-        bindObjPreviewInteractions();
-        resizeObjPreview();
-        return true;
-    }
-
-    function bindObjPreviewInteractions() {
-        const preview = state.objPreview;
-        const canvas = elements.objPreviewCanvas;
-        if (!canvas || preview.interactionsBound) return;
-
-        preview.interactionsBound = true;
-
-        const onPointerDown = (event) => {
-            preview.isDragging = true;
-            preview.lastX = event.clientX;
-            preview.lastY = event.clientY;
-            if (canvas.setPointerCapture) canvas.setPointerCapture(event.pointerId);
-        };
-
-        const onPointerMove = (event) => {
-            if (!preview.isDragging || !preview.group) return;
-            const deltaX = event.clientX - preview.lastX;
-            const deltaY = event.clientY - preview.lastY;
-            preview.lastX = event.clientX;
-            preview.lastY = event.clientY;
-
-            preview.rotationY += deltaX * 0.01;
-            preview.rotationX += deltaY * 0.01;
-            preview.group.rotation.set(preview.rotationX, preview.rotationY, 0);
-            renderObjPreviewFrame();
-        };
-
-        const onPointerUp = (event) => {
-            preview.isDragging = false;
-            if (canvas.releasePointerCapture) canvas.releasePointerCapture(event.pointerId);
-        };
-
-        const onWheel = (event) => {
-            event.preventDefault();
-            const delta = Math.sign(event.deltaY);
-            setObjZoom(preview.zoom * (delta > 0 ? 1.08 : 0.92));
-        };
-
-        canvas.addEventListener('pointerdown', onPointerDown);
-        window.addEventListener('pointermove', onPointerMove);
-        window.addEventListener('pointerup', onPointerUp);
-        canvas.addEventListener('pointerleave', onPointerUp);
-        canvas.addEventListener('wheel', onWheel, { passive: false });
-    }
-
-    function resizeObjPreview() {
-        const preview = state.objPreview;
-        if (!preview.renderer || !preview.camera || !elements.objPreviewCanvas) return;
-        const container = elements.objPreviewCanvas.parentElement;
-        if (!container) return;
-        const width = container.clientWidth || 1;
-        const height = container.clientHeight || 1;
-        preview.renderer.setSize(width, height, false);
-        preview.camera.aspect = width / height;
-        preview.camera.updateProjectionMatrix();
-    }
-
-    function clearObjPreview() {
-        const preview = state.objPreview;
-        if (!preview.group) return;
-        preview.group.children.forEach(child => {
-            if (child.geometry) child.geometry.dispose();
-            if (child.material) child.material.dispose();
-        });
-        preview.group.clear();
-    }
-
-    function renderObjPreviewFrame() {
-        const preview = state.objPreview;
-        if (!preview.renderer || !preview.scene || !preview.camera) return;
-        if (preview.target) {
-            const base = preview.target.clone();
-            const zoomed = base.divideScalar(Math.max(0.5, preview.zoom));
-            preview.camera.position.copy(zoomed);
-            preview.camera.lookAt(0, 0, 0);
-        }
-        preview.renderer.render(preview.scene, preview.camera);
-    }
-
-    function setObjPreviewPlaceholder(text, show = true) {
-        if (!elements.objPreviewPlaceholder) return;
-        elements.objPreviewPlaceholder.textContent = text;
-        elements.objPreviewPlaceholder.style.display = show ? 'flex' : 'none';
-    }
-
-    function scheduleObjPreviewRetry() {
-        if (state.objPreview.retryScheduled) return;
-        state.objPreview.retryScheduled = true;
-        setTimeout(() => {
-            state.objPreview.retryScheduled = false;
-            renderObjPreview();
-        }, 300);
-    }
-
-    function renderObjPreview() {
-        if (!elements.objPreviewCanvas) return;
-        if (!window.THREE || !window.SVGLoader) {
-            setObjPreviewPlaceholder('Loading 3D preview...', true);
-            scheduleObjPreviewRetry();
-            return;
-        }
-        if (!ensureObjPreview()) return;
-
-        const preview = state.objPreview;
-        const THREERef = window.THREE;
-        const SVGLoader = window.SVGLoader;
-        if (!preview.group || !THREERef || !SVGLoader) return;
-
-        resizeObjPreview();
-        const dataToExport = getDataToExport();
-        if (!state.tracedata || !dataToExport) {
-            clearObjPreview();
-            setObjPreviewPlaceholder('3D preview will appear after analysis.', true);
-            renderObjPreviewFrame();
-            return;
-        }
-
-        try {
-            clearObjPreview();
-
-            const thicknessValue = elements.objThicknessSlider ? parseFloat(elements.objThicknessSlider.value) : 4;
-            const thickness = Number.isFinite(thicknessValue) ? thicknessValue : 4;
-            const detailValue = elements.objDetailSlider ? parseInt(elements.objDetailSlider.value, 10) : 6;
-            const curveSegments = Number.isFinite(detailValue) ? Math.max(1, detailValue) : 6;
-            const bedKey = elements.objBedSelect?.value || 'x1';
-            const bed = BED_PRESETS[bedKey] || BED_PRESETS.x1;
-            const marginValue = elements.objMarginInput ? parseFloat(elements.objMarginInput.value) : 5;
-            const margin = Number.isFinite(marginValue) ? Math.max(0, marginValue) : 5;
-
-            const svgString = ImageTracer.getsvgstring(dataToExport, state.lastOptions);
-            const loader = new SVGLoader();
-            const svgData = loader.parse(svgString);
-            const layerIndexMap = buildLayerIndexMap(dataToExport.palette);
-
-            svgData.paths.forEach((path) => {
-                const shapes = SVGLoader.createShapes(path);
-                if (!shapes || !shapes.length) return;
-                const sourceColor = path.color instanceof THREERef.Color
-                    ? path.color
-                    : new THREERef.Color(path.color || '#000');
-                const layerIndex = getLayerIndexForColor(layerIndexMap, sourceColor.getHexString());
-                const layerZ = layerIndex * thickness;
-                const material = new THREERef.MeshStandardMaterial({
-                    color: sourceColor,
-                    side: THREERef.DoubleSide
-                });
-
-                shapes.forEach((shape) => {
-                    const geometry = new THREERef.ExtrudeGeometry(shape, {
-                        depth: thickness,
-                        curveSegments,
-                        bevelEnabled: false
-                    });
-                    geometry.rotateX(Math.PI);
-                    geometry.computeVertexNormals();
-                    const mesh = new THREERef.Mesh(geometry, material);
-                    mesh.position.z = layerZ;
-                    preview.group.add(mesh);
-                });
-            });
-
-            const bbox = new THREERef.Box3().setFromObject(preview.group);
-            const size = new THREERef.Vector3();
-            bbox.getSize(size);
-
-            if (size.x > 0 && size.y > 0) {
-                const maxWidth = Math.max(1, bed.width - margin * 2);
-                const maxDepth = Math.max(1, bed.depth - margin * 2);
-                const scale = Math.min(maxWidth / size.x, maxDepth / size.y, 1);
-                preview.group.scale.set(scale, scale, 1);
-            }
-
-            const centeredBox = new THREERef.Box3().setFromObject(preview.group);
-            const center = new THREERef.Vector3();
-            centeredBox.getCenter(center);
-            preview.group.position.set(-center.x, -center.y, -center.z);
-            preview.group.rotation.set(preview.rotationX, preview.rotationY, 0);
-
-            const finalSize = new THREERef.Vector3();
-            centeredBox.getSize(finalSize);
-            const maxDim = Math.max(finalSize.x, finalSize.y, finalSize.z, thickness);
-            const distance = maxDim * 1.4 + thickness * 2;
-            preview.target = new THREERef.Vector3(0, -distance, distance);
-
-            setObjPreviewPlaceholder('', false);
-            updateObjZoomDisplay();
-            renderObjPreviewFrame();
-        } catch (error) {
-            console.error('3D preview failed:', error);
-            setObjPreviewPlaceholder('3D preview failed. Try re-analyzing.', true);
-        }
-    }
-
     async function renderPreviews() {
         if (!state.tracedata) return;
         if (!elements.svgPreview) return; // Preview not in new minimal design
@@ -1336,7 +1049,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     async function updateFilteredPreview() {
-        renderObjPreview();
+        objPreview.render();
         if (!state.tracedata) return;
         if (!elements.svgPreviewFiltered) return; // Preview not in new minimal design
 
@@ -1391,6 +1104,24 @@ document.addEventListener('DOMContentLoaded', () => {
             elements.qualityIndicator.textContent = `${quality.pathCount} paths, ${quality.colorCount} colors`;
         }
     }
+
+    const objPreview = createObjPreview({
+        state,
+        elements,
+        getDataToExport,
+        getVisibleLayerIndices,
+        ImageTracer
+    });
+
+    const objExporter = createObjExporter({
+        state,
+        elements,
+        getDataToExport,
+        ImageTracer,
+        showLoader,
+        downloadBlob,
+        getImageBaseName
+    });
 
     // --- Event Listeners ---
 
@@ -1455,11 +1186,12 @@ document.addEventListener('DOMContentLoaded', () => {
         elements.objMarginInput.addEventListener('input', () => updateFilteredPreview());
     }
     if (elements.exportObjBtn) {
-        elements.exportObjBtn.addEventListener('click', () => exportAsOBJ());
+        elements.exportObjBtn.addEventListener('click', () => objExporter.exportAsOBJ());
     }
     if (elements.exportGlbBtn) {
-        elements.exportGlbBtn.addEventListener('click', () => exportAsGLB());
+        elements.exportGlbBtn.addEventListener('click', () => objExporter.exportAsGLB());
     }
+    // obj preview button bindings handled by preview module
     elements.resizeChips.forEach(chip => {
         chip.addEventListener('click', () => {
             const scale = parseInt(chip.dataset.scale);
@@ -1491,7 +1223,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Zoom control event listeners
     setupZoomControls();
-    setupObjZoomControls();
+    objPreview.bindControls();
 
     // Resolution change listener
     if (elements.previewResolution) {
@@ -1847,229 +1579,7 @@ document.addEventListener('DOMContentLoaded', () => {
         URL.revokeObjectURL(url);
     }
 
-    function buildMtl(materials, name) {
-        if (!materials || materials.size === 0) return '';
-        let output = `# ${name}.mtl\n`;
-        materials.forEach((material) => {
-            const color = material.color || { r: 0, g: 0, b: 0 };
-            output += `newmtl ${material.name}\n`;
-            output += `Ka 0 0 0\n`;
-            output += `Kd ${color.r.toFixed(4)} ${color.g.toFixed(4)} ${color.b.toFixed(4)}\n`;
-            output += `Ks 0 0 0\n`;
-            output += `d 1\n`;
-            output += `illum 1\n\n`;
-        });
-        return output;
-    }
-
-    async function exportAsOBJ() {
-        if (!state.tracedata) {
-            elements.statusText.textContent = 'Analyze colors before exporting OBJ.';
-            return;
-        }
-
-        const SVGLoader = window.SVGLoader || window.THREE?.SVGLoader;
-        const OBJExporter = window.OBJExporter || window.THREE?.OBJExporter;
-        const THREERef = window.THREE;
-
-        if (!SVGLoader || !OBJExporter || !THREERef) {
-            elements.statusText.textContent = 'OBJ export libraries are still loading.';
-            return;
-        }
-
-        const dataToExport = getDataToExport();
-        if (!dataToExport) {
-            elements.statusText.textContent = 'No layers available for OBJ export.';
-            return;
-        }
-
-        const thicknessValue = elements.objThicknessSlider ? parseFloat(elements.objThicknessSlider.value) : 4;
-        const thickness = Number.isFinite(thicknessValue) ? thicknessValue : 4;
-        const detailValue = elements.objDetailSlider ? parseInt(elements.objDetailSlider.value, 10) : 6;
-        const curveSegments = Number.isFinite(detailValue) ? Math.max(1, detailValue) : 6;
-        const bedKey = elements.objBedSelect?.value || 'x1';
-        const bed = BED_PRESETS[bedKey] || BED_PRESETS.x1;
-        const marginValue = elements.objMarginInput ? parseFloat(elements.objMarginInput.value) : 5;
-        const margin = Number.isFinite(marginValue) ? Math.max(0, marginValue) : 5;
-
-        try {
-            showLoader(true);
-            elements.statusText.textContent = 'Exporting OBJ...';
-
-            const svgString = ImageTracer.getsvgstring(dataToExport, state.lastOptions);
-            const loader = new SVGLoader();
-            const svgData = loader.parse(svgString);
-            const group = new THREERef.Group();
-            const materials = new Map();
-            const layerIndexMap = buildLayerIndexMap(dataToExport.palette);
-
-            svgData.paths.forEach((path) => {
-                const shapes = SVGLoader.createShapes(path);
-                if (!shapes || !shapes.length) return;
-
-                const sourceColor = path.color instanceof THREERef.Color
-                    ? path.color
-                    : new THREERef.Color(path.color || '#000');
-                const hex = sourceColor.getHexString();
-                const layerIndex = getLayerIndexForColor(layerIndexMap, hex);
-                const layerZ = layerIndex * thickness;
-
-                let material = materials.get(hex);
-                if (!material) {
-                    material = new THREERef.MeshStandardMaterial({ color: sourceColor });
-                    material.name = `mat_${hex}`;
-                    materials.set(hex, material);
-                }
-
-                shapes.forEach((shape) => {
-                    const geometry = new THREERef.ExtrudeGeometry(shape, {
-                        depth: thickness,
-                        curveSegments,
-                        bevelEnabled: false
-                    });
-                    geometry.rotateX(Math.PI);
-                    const mesh = new THREERef.Mesh(geometry, material);
-                    mesh.position.z = layerZ;
-                    group.add(mesh);
-                });
-            });
-
-            const bbox = new THREERef.Box3().setFromObject(group);
-            const size = new THREERef.Vector3();
-            bbox.getSize(size);
-            if (size.x > 0 && size.y > 0) {
-                const maxWidth = Math.max(1, bed.width - margin * 2);
-                const maxDepth = Math.max(1, bed.depth - margin * 2);
-                const scale = Math.min(maxWidth / size.x, maxDepth / size.y, 1);
-                if (scale < 1) {
-                    group.scale.set(scale, scale, 1);
-                }
-            }
-
-            const exporter = new OBJExporter();
-            group.updateMatrixWorld(true);
-            let obj = exporter.parse(group);
-            const baseName = `${getImageBaseName()}_extruded_${Math.round(thickness)}mm`;
-            const mtl = buildMtl(materials, baseName);
-
-            if (mtl) {
-                obj = `mtllib ${baseName}.mtl\n` + obj;
-                downloadBlob(new Blob([mtl], { type: 'text/plain' }), `${baseName}.mtl`);
-            }
-
-            downloadBlob(new Blob([obj], { type: 'text/plain' }), `${baseName}.obj`);
-            elements.statusText.textContent = 'OBJ export complete.';
-        } catch (error) {
-            console.error('OBJ export failed:', error);
-            elements.statusText.textContent = 'Failed to export OBJ.';
-        } finally {
-            showLoader(false);
-        }
-    }
-
-    async function exportAsGLB() {
-        if (!state.tracedata) {
-            elements.statusText.textContent = 'Analyze colors before exporting GLB.';
-            return;
-        }
-
-        const SVGLoader = window.SVGLoader || window.THREE?.SVGLoader;
-        const GLTFExporter = window.GLTFExporter || window.THREE?.GLTFExporter;
-        const THREERef = window.THREE;
-
-        if (!SVGLoader || !GLTFExporter || !THREERef) {
-            elements.statusText.textContent = 'GLB export libraries are still loading.';
-            return;
-        }
-
-        const dataToExport = getDataToExport();
-        if (!dataToExport) {
-            elements.statusText.textContent = 'No layers available for GLB export.';
-            return;
-        }
-
-        const thicknessValue = elements.objThicknessSlider ? parseFloat(elements.objThicknessSlider.value) : 4;
-        const thickness = Number.isFinite(thicknessValue) ? thicknessValue : 4;
-        const detailValue = elements.objDetailSlider ? parseInt(elements.objDetailSlider.value, 10) : 6;
-        const curveSegments = Number.isFinite(detailValue) ? Math.max(1, detailValue) : 6;
-        const bedKey = elements.objBedSelect?.value || 'x1';
-        const bed = BED_PRESETS[bedKey] || BED_PRESETS.x1;
-        const marginValue = elements.objMarginInput ? parseFloat(elements.objMarginInput.value) : 5;
-        const margin = Number.isFinite(marginValue) ? Math.max(0, marginValue) : 5;
-
-        try {
-            showLoader(true);
-            elements.statusText.textContent = 'Exporting GLB...';
-
-            const svgString = ImageTracer.getsvgstring(dataToExport, state.lastOptions);
-            const loader = new SVGLoader();
-            const svgData = loader.parse(svgString);
-            const group = new THREERef.Group();
-            const materials = new Map();
-            const layerIndexMap = buildLayerIndexMap(dataToExport.palette);
-
-            svgData.paths.forEach((path) => {
-                const shapes = SVGLoader.createShapes(path);
-                if (!shapes || !shapes.length) return;
-
-                const sourceColor = path.color instanceof THREERef.Color
-                    ? path.color
-                    : new THREERef.Color(path.color || '#000');
-                const hex = sourceColor.getHexString();
-                const layerIndex = getLayerIndexForColor(layerIndexMap, hex);
-                const layerZ = layerIndex * thickness;
-
-                let material = materials.get(hex);
-                if (!material) {
-                    material = new THREERef.MeshStandardMaterial({ color: sourceColor });
-                    material.name = `mat_${hex}`;
-                    materials.set(hex, material);
-                }
-
-                shapes.forEach((shape) => {
-                    const geometry = new THREERef.ExtrudeGeometry(shape, {
-                        depth: thickness,
-                        curveSegments,
-                        bevelEnabled: false
-                    });
-                    geometry.rotateX(Math.PI);
-                    const mesh = new THREERef.Mesh(geometry, material);
-                    mesh.position.z = layerZ;
-                    group.add(mesh);
-                });
-            });
-
-            const bbox = new THREERef.Box3().setFromObject(group);
-            const size = new THREERef.Vector3();
-            bbox.getSize(size);
-            if (size.x > 0 && size.y > 0) {
-                const maxWidth = Math.max(1, bed.width - margin * 2);
-                const maxDepth = Math.max(1, bed.depth - margin * 2);
-                const scale = Math.min(maxWidth / size.x, maxDepth / size.y, 1);
-                if (scale < 1) {
-                    group.scale.set(scale, scale, 1);
-                }
-            }
-
-            const exporter = new GLTFExporter();
-            group.updateMatrixWorld(true);
-            exporter.parse(
-                group,
-                (result) => {
-                    const baseName = `${getImageBaseName()}_extruded_${Math.round(thickness)}mm`;
-                    const blob = new Blob([result], { type: 'model/gltf-binary' });
-                    downloadBlob(blob, `${baseName}.glb`);
-                    elements.statusText.textContent = 'GLB export complete.';
-                },
-                { binary: true }
-            );
-        } catch (error) {
-            console.error('GLB export failed:', error);
-            elements.statusText.textContent = 'Failed to export GLB.';
-        } finally {
-            showLoader(false);
-        }
-    }
+    // 3D exporters moved to modules/export3d.js
 
     // Save Original Image as PNG/JPG with same pixel dimensions
     function downloadBlob(blob, filename) {
@@ -2664,8 +2174,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // Update segmented control indicator on window resize
     window.addEventListener('resize', () => {
         updateSegmentedControlIndicator();
-        resizeObjPreview();
-        renderObjPreview();
+        objPreview.resize();
+        objPreview.render();
     });
 
     // Collapsible layers section toggle
