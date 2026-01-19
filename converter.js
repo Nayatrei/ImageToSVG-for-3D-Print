@@ -470,6 +470,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     const imageData = ctx.getImageData(0, 0, width, height);
 
                     const options = buildOptimizedOptions();
+                    const dominantColorCount = estimateDominantColors(imageData);
+                    if (dominantColorCount) {
+                        options.numberofcolors = Math.max(2, Math.min(options.numberofcolors, dominantColorCount));
+                    }
                     state.lastOptions = options;
                     
                     state.quantizedData = ImageTracer.colorquantization(imageData, options);
@@ -489,6 +493,47 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }, 50);
         });
+    }
+
+    function estimateDominantColors(imageData) {
+        const width = imageData.width;
+        const height = imageData.height;
+        if (!width || !height) return null;
+
+        const data = imageData.data;
+        const maxSamples = 4096;
+        const step = Math.max(1, Math.floor(Math.sqrt((width * height) / maxSamples)));
+        const counts = new Map();
+        let samples = 0;
+
+        for (let y = 0; y < height; y += step) {
+            for (let x = 0; x < width; x += step) {
+                const idx = (y * width + x) * 4;
+                const a = data[idx + 3];
+                if (a < 16) continue;
+                const r = data[idx] >> 4;
+                const g = data[idx + 1] >> 4;
+                const b = data[idx + 2] >> 4;
+                const key = (r << 8) | (g << 4) | b;
+                counts.set(key, (counts.get(key) || 0) + 1);
+                samples++;
+            }
+        }
+
+        if (!samples) return null;
+
+        const buckets = Array.from(counts.values()).sort((a, b) => b - a);
+        let cumulative = 0;
+        let colorCount = 0;
+        const targetCoverage = 0.985;
+
+        for (const count of buckets) {
+            cumulative += count;
+            colorCount++;
+            if (cumulative / samples >= targetCoverage) break;
+        }
+
+        return Math.max(1, Math.min(colorCount, buckets.length));
     }
 
     async function traceVectorPaths() {
