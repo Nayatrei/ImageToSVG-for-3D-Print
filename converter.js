@@ -682,23 +682,32 @@ document.addEventListener('DOMContentLoaded', () => {
         const map = (t, a, b) => (a + (b - a) * (t / 100));
         const mapInv = (t, a, b) => (a + (b - a) * (1 - (t / 100)));
 
-        const rel = Math.max(0.5, Math.sqrt(elements.sourceImage.naturalWidth * elements.sourceImage.naturalHeight) / 512);
-        const detailScale = Math.min(rel, state.highFidelity ? 1.0 : 1.4);
-
         let options = Object.assign({}, ImageTracer.optionpresets.default, {
             viewbox: true,
             strokewidth: 0
         });
-        
-        options.pathomit = Math.round(map(P, 0, state.highFidelity ? 6 : 10) * detailScale);
-        options.roundcoords = Math.round(map(P, 1, state.highFidelity ? 2 : 3));
-        options.blurradius = +map(P, 0, state.highFidelity ? 0.8 : 1.2).toFixed(1);
-        options.qtres = +mapInv(C, state.highFidelity ? 2.5 : 4.0, state.highFidelity ? 0.15 : 0.2).toFixed(2);
+
+        if (state.highFidelity) {
+            const rel = Math.max(0.5, Math.sqrt(elements.sourceImage.naturalWidth * elements.sourceImage.naturalHeight) / 512);
+            const detailScale = Math.min(rel, 1.0);
+            options.pathomit = Math.round(map(P, 0, 6) * detailScale);
+            options.roundcoords = Math.round(map(P, 1, 2));
+            options.blurradius = +map(P, 0, 0.8).toFixed(1);
+            options.qtres = +mapInv(C, 2.5, 0.15).toFixed(2);
+            options.ltres = +map(S, 0.15, 6.0).toFixed(2);
+            options.colorsampling = 2;
+            options.colorquantcycles = Math.max(1, Math.round(map(CP, 4, 12)));
+        } else {
+            options.pathomit = Math.round(map(P, 0, 5));
+            options.roundcoords = Math.round(map(P, 1, 2));
+            options.blurradius = +map(P, 0, 0.6).toFixed(1);
+            options.qtres = +mapInv(C, 0.8, 0.05).toFixed(2);
+            options.ltres = +map(S, 0.05, 1.0).toFixed(2);
+            options.colorsampling = 1;
+            options.colorquantcycles = Math.max(15, Math.round(map(CP, 10, 25)));
+        }
+
         options.rightangleenhance = (C >= 50);
-        options.ltres = +map(S, state.highFidelity ? 0.15 : 0.2, state.highFidelity ? 6.0 : 8.0).toFixed(2);
-        
-        options.colorsampling = 2; 
-        options.colorquantcycles = Math.max(1, Math.round(map(CP, state.highFidelity ? 4 : 3, state.highFidelity ? 12 : 10)));
         options.mincolorratio = +mapInv(CP, 0.03, 0.0).toFixed(3);
         options.numberofcolors = Math.max(4, Math.min(20, 4 + Math.round(CP * 0.16)));
         if (!Number.isNaN(MC)) {

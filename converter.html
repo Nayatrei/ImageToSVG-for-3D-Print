@@ -14,10 +14,18 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="imagetracer_v1.2.6.js"></script>
     <script src="converter.js"></script>
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
     <script type="module">
-        import * as THREE from 'https://unpkg.com/three@0.160.0/build/three.module.js';
-        import { SVGLoader } from 'https://unpkg.com/three@0.160.0/examples/jsm/loaders/SVGLoader.js';
-        import { OBJExporter } from 'https://unpkg.com/three@0.160.0/examples/jsm/exporters/OBJExporter.js';
+        import * as THREE from 'three';
+        import { SVGLoader } from 'three/addons/loaders/SVGLoader.js';
+        import { OBJExporter } from 'three/addons/exporters/OBJExporter.js';
         window.THREE = THREE;
         window.SVGLoader = SVGLoader;
         window.OBJExporter = OBJExporter;
