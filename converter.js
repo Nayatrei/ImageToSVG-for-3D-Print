@@ -265,7 +265,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function setHighFidelity(enabled) {
         state.highFidelity = !!enabled;
         if (elements.toggleFidelityBtn) {
-            elements.toggleFidelityBtn.textContent = state.highFidelity ? 'High Fidelity: On' : 'High Fidelity: Off';
+            elements.toggleFidelityBtn.textContent = state.highFidelity ? 'Mode: High Fidelity' : 'Mode: Logo';
             elements.toggleFidelityBtn.classList.toggle('btn-primary', state.highFidelity);
             elements.toggleFidelityBtn.classList.toggle('btn-secondary', !state.highFidelity);
         }
