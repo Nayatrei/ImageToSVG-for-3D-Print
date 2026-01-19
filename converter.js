@@ -66,6 +66,11 @@ document.addEventListener('DOMContentLoaded', () => {
         sizeEstPng: document.getElementById('size-est-png'),
         sizeEstJpg: document.getElementById('size-est-jpg'),
         sizeEstTga: document.getElementById('size-est-tga'),
+        objThicknessSlider: document.getElementById('obj-thickness'),
+        objThicknessValue: document.getElementById('obj-thickness-value'),
+        exportObjBtn: document.getElementById('export-obj-btn'),
+        objBedSelect: document.getElementById('obj-bed'),
+        objMarginInput: document.getElementById('obj-margin'),
         availableLayersContent: document.getElementById('available-layers-content'),
         finalPaletteContent: document.getElementById('final-palette-content'),
         toggleAvailableLayersBtn: document.getElementById('toggle-available-layers'),
@@ -167,6 +172,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (elements.maxColorsValue && elements.maxColorsSlider) {
             elements.maxColorsValue.textContent = elements.maxColorsSlider.value;
         }
+        if (elements.objThicknessValue && elements.objThicknessSlider) {
+            elements.objThicknessValue.textContent = elements.objThicknessSlider.value;
+        }
     }
     
     const debounce = (fn, ms = 250) => {
@@ -238,6 +246,14 @@ document.addEventListener('DOMContentLoaded', () => {
             elements.toggleFidelityBtn.textContent = state.highFidelity ? 'High Fidelity: On' : 'High Fidelity: Off';
             elements.toggleFidelityBtn.classList.toggle('btn-primary', state.highFidelity);
             elements.toggleFidelityBtn.classList.toggle('btn-secondary', !state.highFidelity);
+        }
+        if (elements.maxColorsSlider) {
+            elements.maxColorsSlider.value = state.highFidelity ? '8' : '4';
+            if (!state.isDirty) {
+                state.isDirty = true;
+                elements.resetBtn.style.display = 'inline';
+            }
+            updateAllSliderDisplays();
         }
     }
 
@@ -1028,6 +1044,15 @@ document.addEventListener('DOMContentLoaded', () => {
             switchExportTab(btn.dataset.tab);
         });
     });
+    if (elements.objThicknessSlider && elements.objThicknessValue) {
+        elements.objThicknessValue.textContent = elements.objThicknessSlider.value;
+        elements.objThicknessSlider.addEventListener('input', () => {
+            elements.objThicknessValue.textContent = elements.objThicknessSlider.value;
+        });
+    }
+    if (elements.exportObjBtn) {
+        elements.exportObjBtn.addEventListener('click', () => exportAsOBJ());
+    }
     elements.resizeChips.forEach(chip => {
         chip.addEventListener('click', () => {
             const scale = parseInt(chip.dataset.scale);
@@ -1262,7 +1287,8 @@ document.addEventListener('DOMContentLoaded', () => {
             elements.exportLayersBtn,
             elements.downloadSilhouetteBtn,
             elements.combineAndDownloadBtn,
-            elements.downloadCombinedLayersBtn
+            elements.downloadCombinedLayersBtn,
+            elements.exportObjBtn
         ].forEach(btn => {
             if(btn) btn.disabled = true;
         });
@@ -1272,7 +1298,8 @@ document.addEventListener('DOMContentLoaded', () => {
         // Enable SVG export buttons after vectorization completes
         [
             elements.exportLayersBtn,
-            elements.downloadSilhouetteBtn
+            elements.downloadSilhouetteBtn,
+            elements.exportObjBtn
         ].forEach(btn => {
             if(btn) btn.disabled = false;
         });
@@ -1411,6 +1438,125 @@ document.addEventListener('DOMContentLoaded', () => {
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
+    }
+
+    function buildMtl(materials, name) {
+        if (!materials || materials.size === 0) return '';
+        let output = `# ${name}.mtl\n`;
+        materials.forEach((material) => {
+            const color = material.color || { r: 0, g: 0, b: 0 };
+            output += `newmtl ${material.name}\n`;
+            output += `Ka 0 0 0\n`;
+            output += `Kd ${color.r.toFixed(4)} ${color.g.toFixed(4)} ${color.b.toFixed(4)}\n`;
+            output += `Ks 0 0 0\n`;
+            output += `d 1\n`;
+            output += `illum 1\n\n`;
+        });
+        return output;
+    }
+
+    const BED_PRESETS = {
+        x1: { width: 256, depth: 256, label: 'Bambu X1/X1C' },
+        a1mini: { width: 180, depth: 180, label: 'Bambu A1 mini' },
+        h2d: { width: 325, depth: 320, label: 'Bambu H2D (single nozzle)' }
+    };
+
+    async function exportAsOBJ() {
+        if (!state.tracedata) {
+            elements.statusText.textContent = 'Analyze colors before exporting OBJ.';
+            return;
+        }
+
+        const SVGLoader = window.SVGLoader || window.THREE?.SVGLoader;
+        const OBJExporter = window.OBJExporter || window.THREE?.OBJExporter;
+        const THREERef = window.THREE;
+
+        if (!SVGLoader || !OBJExporter || !THREERef) {
+            elements.statusText.textContent = 'OBJ export libraries are still loading.';
+            return;
+        }
+
+        const dataToExport = getDataToExport();
+        if (!dataToExport) {
+            elements.statusText.textContent = 'No layers available for OBJ export.';
+            return;
+        }
+
+        const thicknessValue = elements.objThicknessSlider ? parseFloat(elements.objThicknessSlider.value) : 4;
+        const thickness = Number.isFinite(thicknessValue) ? thicknessValue : 4;
+        const bedKey = elements.objBedSelect?.value || 'x1';
+        const bed = BED_PRESETS[bedKey] || BED_PRESETS.x1;
+        const marginValue = elements.objMarginInput ? parseFloat(elements.objMarginInput.value) : 5;
+        const margin = Number.isFinite(marginValue) ? Math.max(0, marginValue) : 5;
+
+        try {
+            showLoader(true);
+            elements.statusText.textContent = 'Exporting OBJ...';
+
+            const svgString = ImageTracer.getsvgstring(dataToExport, state.lastOptions);
+            const loader = new SVGLoader();
+            const svgData = loader.parse(svgString);
+            const group = new THREERef.Group();
+            const materials = new Map();
+
+            svgData.paths.forEach((path) => {
+                const shapes = SVGLoader.createShapes(path);
+                if (!shapes || !shapes.length) return;
+
+                const sourceColor = path.color instanceof THREERef.Color
+                    ? path.color
+                    : new THREERef.Color(path.color || '#000');
+                const hex = sourceColor.getHexString();
+
+                let material = materials.get(hex);
+                if (!material) {
+                    material = new THREERef.MeshStandardMaterial({ color: sourceColor });
+                    material.name = `mat_${hex}`;
+                    materials.set(hex, material);
+                }
+
+                shapes.forEach((shape) => {
+                    const geometry = new THREERef.ExtrudeGeometry(shape, {
+                        depth: thickness,
+                        bevelEnabled: false
+                    });
+                    geometry.rotateX(Math.PI);
+                    const mesh = new THREERef.Mesh(geometry, material);
+                    group.add(mesh);
+                });
+            });
+
+            const bbox = new THREERef.Box3().setFromObject(group);
+            const size = new THREERef.Vector3();
+            bbox.getSize(size);
+            if (size.x > 0 && size.y > 0) {
+                const maxWidth = Math.max(1, bed.width - margin * 2);
+                const maxDepth = Math.max(1, bed.depth - margin * 2);
+                const scale = Math.min(maxWidth / size.x, maxDepth / size.y, 1);
+                if (scale < 1) {
+                    group.scale.set(scale, scale, 1);
+                }
+            }
+
+            const exporter = new OBJExporter();
+            group.updateMatrixWorld(true);
+            let obj = exporter.parse(group);
+            const baseName = `${getImageBaseName()}_extruded_${Math.round(thickness)}mm`;
+            const mtl = buildMtl(materials, baseName);
+
+            if (mtl) {
+                obj = `mtllib ${baseName}.mtl\n` + obj;
+                downloadBlob(new Blob([mtl], { type: 'text/plain' }), `${baseName}.mtl`);
+            }
+
+            downloadBlob(new Blob([obj], { type: 'text/plain' }), `${baseName}.obj`);
+            elements.statusText.textContent = 'OBJ export complete.';
+        } catch (error) {
+            console.error('OBJ export failed:', error);
+            elements.statusText.textContent = 'Failed to export OBJ.';
+        } finally {
+            showLoader(false);
+        }
     }
 
     // Save Original Image as PNG/JPG with same pixel dimensions
