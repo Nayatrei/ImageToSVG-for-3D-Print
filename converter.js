@@ -41,6 +41,9 @@ document.addEventListener('DOMContentLoaded', () => {
         svgPreviewFiltered: document.getElementById('svg-preview-filtered'),
         objPreviewCanvas: document.getElementById('obj-preview-canvas'),
         objPreviewPlaceholder: document.getElementById('obj-preview-placeholder'),
+        objZoomIn: document.getElementById('obj-zoom-in'),
+        objZoomOut: document.getElementById('obj-zoom-out'),
+        objZoomReset: document.getElementById('obj-zoom-reset'),
         previewResolution: document.getElementById('preview-resolution'),
         qualityIndicator: document.getElementById('quality-indicator'),
         selectedLayerText: document.getElementById('selected-layer-text'),
@@ -131,12 +134,37 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const TRANSPARENT_ALPHA_CUTOFF = 10;
+    const OBJ_ZOOM_MIN = 0.5;
+    const OBJ_ZOOM_MAX = 3;
 
     const BED_PRESETS = {
         x1: { width: 256, depth: 256, label: 'Bambu X1/X1C' },
         a1mini: { width: 180, depth: 180, label: 'Bambu A1 mini' },
         h2d: { width: 325, depth: 320, label: 'Bambu H2D (single nozzle)' }
     };
+
+    function buildLayerIndexMap(palette) {
+        const map = new Map();
+        if (!Array.isArray(palette)) return map;
+        palette.forEach((color, index) => {
+            if (!color) return;
+            const r = Math.max(0, Math.min(255, color.r ?? 0));
+            const g = Math.max(0, Math.min(255, color.g ?? 0));
+            const b = Math.max(0, Math.min(255, color.b ?? 0));
+            const hex = ((r << 16) | (g << 8) | b).toString(16).padStart(6, '0');
+            map.set(hex, index);
+        });
+        return map;
+    }
+
+    function getLayerIndexForColor(layerIndexMap, hex) {
+        if (!layerIndexMap || !hex) return 0;
+        const key = hex.toLowerCase();
+        if (layerIndexMap.has(key)) return layerIndexMap.get(key);
+        const nextIndex = layerIndexMap.size;
+        layerIndexMap.set(key, nextIndex);
+        return nextIndex;
+    }
 
     // --- Core Functions ---
 
@@ -798,6 +826,47 @@ document.addEventListener('DOMContentLoaded', () => {
         updateZoomDisplay('all');
         updateZoomDisplay('selected');
     }
+
+    function setupObjZoomControls() {
+        if (elements.objZoomIn) {
+            elements.objZoomIn.addEventListener('click', () => {
+                setObjZoom(state.objPreview.zoom * 1.15);
+            });
+        }
+        if (elements.objZoomOut) {
+            elements.objZoomOut.addEventListener('click', () => {
+                setObjZoom(state.objPreview.zoom * 0.87);
+            });
+        }
+        if (elements.objZoomReset) {
+            elements.objZoomReset.addEventListener('click', () => resetObjZoom());
+        }
+        updateObjZoomDisplay();
+    }
+
+    function setObjZoom(value) {
+        const preview = state.objPreview;
+        const next = Math.min(OBJ_ZOOM_MAX, Math.max(OBJ_ZOOM_MIN, value));
+        preview.zoom = next;
+        updateObjZoomDisplay();
+        renderObjPreviewFrame();
+    }
+
+    function resetObjZoom() {
+        setObjZoom(1);
+    }
+
+    function updateObjZoomDisplay() {
+        if (elements.objZoomReset) {
+            elements.objZoomReset.textContent = `${Math.round(state.objPreview.zoom * 100)}%`;
+        }
+        if (elements.objZoomIn) {
+            elements.objZoomIn.disabled = state.objPreview.zoom >= OBJ_ZOOM_MAX;
+        }
+        if (elements.objZoomOut) {
+            elements.objZoomOut.disabled = state.objPreview.zoom <= OBJ_ZOOM_MIN;
+        }
+    }
     
     function zoomPreview(type, factor) {
         const zoomState = state.zoom[type];
@@ -1079,10 +1148,17 @@ document.addEventListener('DOMContentLoaded', () => {
             if (canvas.releasePointerCapture) canvas.releasePointerCapture(event.pointerId);
         };
 
+        const onWheel = (event) => {
+            event.preventDefault();
+            const delta = Math.sign(event.deltaY);
+            setObjZoom(preview.zoom * (delta > 0 ? 1.08 : 0.92));
+        };
+
         canvas.addEventListener('pointerdown', onPointerDown);
         window.addEventListener('pointermove', onPointerMove);
         window.addEventListener('pointerup', onPointerUp);
         canvas.addEventListener('pointerleave', onPointerUp);
+        canvas.addEventListener('wheel', onWheel, { passive: false });
     }
 
     function resizeObjPreview() {
@@ -1110,6 +1186,12 @@ document.addEventListener('DOMContentLoaded', () => {
     function renderObjPreviewFrame() {
         const preview = state.objPreview;
         if (!preview.renderer || !preview.scene || !preview.camera) return;
+        if (preview.target) {
+            const base = preview.target.clone();
+            const zoomed = base.divideScalar(Math.max(0.5, preview.zoom));
+            preview.camera.position.copy(zoomed);
+            preview.camera.lookAt(0, 0, 0);
+        }
         preview.renderer.render(preview.scene, preview.camera);
     }
 
@@ -1164,6 +1246,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const svgString = ImageTracer.getsvgstring(dataToExport, state.lastOptions);
             const loader = new SVGLoader();
             const svgData = loader.parse(svgString);
+            const layerIndexMap = buildLayerIndexMap(dataToExport.palette);
 
             svgData.paths.forEach((path) => {
                 const shapes = SVGLoader.createShapes(path);
@@ -1171,6 +1254,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 const sourceColor = path.color instanceof THREERef.Color
                     ? path.color
                     : new THREERef.Color(path.color || '#000');
+                const layerIndex = getLayerIndexForColor(layerIndexMap, sourceColor.getHexString());
+                const layerZ = layerIndex * thickness;
                 const material = new THREERef.MeshStandardMaterial({
                     color: sourceColor,
                     side: THREERef.DoubleSide
@@ -1184,6 +1269,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     geometry.rotateX(Math.PI);
                     geometry.computeVertexNormals();
                     const mesh = new THREERef.Mesh(geometry, material);
+                    mesh.position.z = layerZ;
                     preview.group.add(mesh);
                 });
             });
@@ -1202,17 +1288,17 @@ document.addEventListener('DOMContentLoaded', () => {
             const centeredBox = new THREERef.Box3().setFromObject(preview.group);
             const center = new THREERef.Vector3();
             centeredBox.getCenter(center);
-            preview.group.position.sub(center);
+            preview.group.position.set(-center.x, -center.y, -center.z);
             preview.group.rotation.set(preview.rotationX, preview.rotationY, 0);
 
             const finalSize = new THREERef.Vector3();
             centeredBox.getSize(finalSize);
             const maxDim = Math.max(finalSize.x, finalSize.y, finalSize.z, thickness);
             const distance = maxDim * 1.4 + thickness * 2;
-            preview.camera.position.set(0, -distance, distance);
-            preview.camera.lookAt(0, 0, 0);
+            preview.target = new THREERef.Vector3(0, -distance, distance);
 
             setObjPreviewPlaceholder('', false);
+            updateObjZoomDisplay();
             renderObjPreviewFrame();
         } catch (error) {
             console.error('3D preview failed:', error);
@@ -1385,6 +1471,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Zoom control event listeners
     setupZoomControls();
+    setupObjZoomControls();
 
     // Resolution change listener
     if (elements.previewResolution) {
@@ -1790,6 +1877,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const svgData = loader.parse(svgString);
             const group = new THREERef.Group();
             const materials = new Map();
+            const layerIndexMap = buildLayerIndexMap(dataToExport.palette);
 
             svgData.paths.forEach((path) => {
                 const shapes = SVGLoader.createShapes(path);
@@ -1799,6 +1887,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     ? path.color
                     : new THREERef.Color(path.color || '#000');
                 const hex = sourceColor.getHexString();
+                const layerIndex = getLayerIndexForColor(layerIndexMap, hex);
+                const layerZ = layerIndex * thickness;
 
                 let material = materials.get(hex);
                 if (!material) {
@@ -1814,6 +1904,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     });
                     geometry.rotateX(Math.PI);
                     const mesh = new THREERef.Mesh(geometry, material);
+                    mesh.position.z = layerZ;
                     group.add(mesh);
                 });
             });
@@ -2165,7 +2256,7 @@ document.addEventListener('DOMContentLoaded', () => {
         state.selectedFinalLayerIndices.clear();
         if (elements.mergeRulesContainer) elements.mergeRulesContainer.innerHTML = '';
         const visibleIndices = getVisibleLayerIndices();
-        // Now include all layers (including background) for merging
+        // Work with all visible layers for merging
         if (visibleIndices.length >= 2) {
             if (elements.layerMergingSection) elements.layerMergingSection.style.display = 'block';
             if (elements.addMergeRuleBtn) elements.addMergeRuleBtn.disabled = false;
@@ -2180,7 +2271,7 @@ document.addEventListener('DOMContentLoaded', () => {
         elements.addMergeRuleBtn.addEventListener('click', () => {
             const ruleIndex = state.mergeRules.length;
             const visibleIndices = getVisibleLayerIndices();
-            // Now include all layers (including background) for merging
+            // Work with all visible layers for merging
             if (visibleIndices.length < 2) return;
 
             const defaultRule = { source: 0, target: 1 }; // These are indices into visibleIndices array
@@ -2277,7 +2368,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function createMergedTracedata(sourceData, visibleIndices, rules) {
         if (!sourceData || !visibleIndices || !rules) return sourceData;
 
-        // Now work with all visible indices (including background)
+        // Work with all visible indices
         let finalTargets = {};
         visibleIndices.forEach((_, ruleIndex) => finalTargets[ruleIndex] = ruleIndex);
 

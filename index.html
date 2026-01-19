@@ -14,18 +14,10 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="imagetracer_v1.2.6.js"></script>
     <script src="converter.js"></script>
-    <script type="importmap">
-        {
-            "imports": {
-                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
-                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
-            }
-        }
-    </script>
     <script type="module">
-        import * as THREE from 'three';
-        import { SVGLoader } from 'three/addons/loaders/SVGLoader.js';
-        import { OBJExporter } from 'three/addons/exporters/OBJExporter.js';
+        import * as THREE from 'https://unpkg.com/three@0.160.0/build/three.module.js';
+        import { SVGLoader } from 'https://unpkg.com/three@0.160.0/examples/jsm/loaders/SVGLoader.js';
+        import { OBJExporter } from 'https://unpkg.com/three@0.160.0/examples/jsm/exporters/OBJExporter.js';
         window.THREE = THREE;
         window.SVGLoader = SVGLoader;
         window.OBJExporter = OBJExporter;
@@ -1414,8 +1406,23 @@
                                 <div class="output-card-header">
                                     <h3 class="output-card-title">
                                         3D Preview
-                                        <span class="text-xs text-gray-400 font-normal">Drag to rotate</span>
+                                        <span class="text-xs text-gray-400 font-normal">Drag to rotate · Scroll to zoom</span>
                                     </h3>
+                                    <div class="flex items-center gap-2">
+                                        <div class="zoom-controls flex bg-gray-800 rounded-md border border-gray-600">
+                                            <button id="obj-zoom-out" class="p-1 hover:bg-gray-700 rounded-l-md" title="Zoom Out">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"></path>
+                                                </svg>
+                                            </button>
+                                            <button id="obj-zoom-reset" class="p-1 hover:bg-gray-700 border-l border-r border-gray-600 text-xs font-mono" title="Reset Zoom">100%</button>
+                                            <button id="obj-zoom-in" class="p-1 hover:bg-gray-700 rounded-r-md" title="Zoom In">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                                                </svg>
+                                            </button>
+                                        </div>
+                                    </div>
                                 </div>
                                 <div class="preview-container preview-container-flexible bg-grid rounded-md overflow-hidden relative">
                                     <canvas id="obj-preview-canvas" class="obj-preview-canvas"></canvas>
@@ -1567,7 +1574,7 @@
                             Export Layers
                         </button>
                         <button id="download-silhouette-btn" class="btn-secondary font-semibold py-3 px-4 rounded-md text-sm disabled:bg-gray-600 disabled:cursor-not-allowed" disabled>
-                            Background
+                            Silhouette
                         </button>
                         <button id="download-combined-layers-btn" class="btn-secondary font-semibold py-3 px-4 rounded-md text-sm disabled:bg-gray-600 disabled:cursor-not-allowed" disabled>
                             Combined
