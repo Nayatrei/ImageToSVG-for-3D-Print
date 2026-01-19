@@ -444,12 +444,11 @@
         /* Export tabs overlay */
         #output-section {
             position: relative;
-            padding-top: 3.5rem;
         }
 
         .export-tabs-overlay {
             position: absolute;
-            top: 0.25rem;
+            top: 0.5rem;
             right: clamp(0.75rem, 2vw, 1.25rem);
             margin-bottom: 0;
             justify-content: flex-end;
@@ -464,16 +463,20 @@
         }
 
         @media (max-width: 720px) {
-            #output-section {
-                padding-top: 1.5rem;
-            }
-
             .export-tabs-overlay {
                 position: static;
                 margin-bottom: clamp(0.75rem, 1.5vw, 1rem);
                 width: 100%;
                 justify-content: center;
             }
+
+            .original-image-header {
+                padding-right: 0;
+            }
+        }
+
+        .original-image-header {
+            padding-right: clamp(10rem, 22vw, 16rem);
         }
 
         .export-panel.hidden {
@@ -1284,9 +1287,9 @@
                  <div id="status-text" class="mt-4 text-sm font-medium text-gray-400"></div>
             </div>
 
-            <div id="main-content" class="hidden h-full flex flex-col">
+            <div id="main-content" class="hidden h-full min-h-0 flex flex-col">
                 <!-- Tabs Section -->
-                <div id="output-section" class="card p-6 flex-shrink-0 flex flex-col gap-4" style="display:none;">
+                <div id="output-section" class="card p-6 flex-1 min-h-0 overflow-y-auto flex flex-col gap-4" style="display:none;">
                     <div class="segmented-control-container export-tabs-overlay">
                         <div class="segmented-control">
                             <div class="segmented-control-indicator"></div>
@@ -1296,7 +1299,7 @@
                     </div>
 
                     <div class="card-inner bg-gray-800 rounded-lg" style="padding: clamp(0.75rem, 2vw, 1rem); margin-bottom: clamp(0.75rem, 1.5vw, 1rem);">
-                        <div class="flex justify-between items-center mb-2">
+                        <div class="flex justify-between items-center mb-2 original-image-header">
                             <h3 class="font-semibold text-gray-200" style="font-size: clamp(0.875rem, 1.5vw, 1rem);">Original Image</h3>
                             <div id="original-resolution" class="text-xs text-gray-400"></div>
                         </div>
