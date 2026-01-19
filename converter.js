@@ -39,6 +39,8 @@ document.addEventListener('DOMContentLoaded', () => {
         toggleFidelityBtn: document.getElementById('toggle-fidelity-btn'),
         svgPreview: document.getElementById('svg-preview'),
         svgPreviewFiltered: document.getElementById('svg-preview-filtered'),
+        objPreviewCanvas: document.getElementById('obj-preview-canvas'),
+        objPreviewPlaceholder: document.getElementById('obj-preview-placeholder'),
         previewResolution: document.getElementById('preview-resolution'),
         qualityIndicator: document.getElementById('quality-indicator'),
         selectedLayerText: document.getElementById('selected-layer-text'),
@@ -99,6 +101,18 @@ document.addEventListener('DOMContentLoaded', () => {
         showAvailableLayers: true,
         showFinalPalette: true,
         highFidelity: false,
+        objPreview: {
+            renderer: null,
+            scene: null,
+            camera: null,
+            group: null,
+            isDragging: false,
+            lastX: 0,
+            lastY: 0,
+            rotationX: -0.5,
+            rotationY: 0.6,
+            interactionsBound: false
+        },
         zoom: {
             all: { scale: 1, x: 0, y: 0, isDragging: false },
             selected: { scale: 1, x: 0, y: 0, isDragging: false }
@@ -111,6 +125,12 @@ document.addEventListener('DOMContentLoaded', () => {
         'curve-straightness': 'Higher values make curved lines more straight.',
         'color-precision': 'Higher values find more distinct color layers.',
         'max-colors': 'Caps the maximum number of colors created.'
+    };
+
+    const BED_PRESETS = {
+        x1: { width: 256, depth: 256, label: 'Bambu X1/X1C' },
+        a1mini: { width: 180, depth: 180, label: 'Bambu A1 mini' },
+        h2d: { width: 325, depth: 320, label: 'Bambu H2D (single nozzle)' }
     };
 
     // --- Core Functions ---
@@ -237,6 +257,7 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             setAvailableLayersVisible(true);
             setFinalPaletteVisible(true);
+            renderObjPreview();
         }
     }
 
@@ -927,6 +948,189 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- UI Update Functions ---
 
+    function ensureObjPreview() {
+        if (state.objPreview.renderer) return true;
+        if (!elements.objPreviewCanvas) return false;
+
+        const THREERef = window.THREE;
+        const SVGLoader = window.SVGLoader;
+        if (!THREERef || !SVGLoader) return false;
+
+        const renderer = new THREERef.WebGLRenderer({
+            canvas: elements.objPreviewCanvas,
+            antialias: true,
+            alpha: true
+        });
+        renderer.setPixelRatio(window.devicePixelRatio || 1);
+
+        const scene = new THREERef.Scene();
+        const camera = new THREERef.PerspectiveCamera(45, 1, 0.1, 10000);
+        const group = new THREERef.Group();
+        scene.add(group);
+
+        const ambient = new THREERef.AmbientLight(0xffffff, 0.8);
+        const directional = new THREERef.DirectionalLight(0xffffff, 0.8);
+        directional.position.set(0, -1, 2);
+        scene.add(ambient, directional);
+
+        state.objPreview.renderer = renderer;
+        state.objPreview.scene = scene;
+        state.objPreview.camera = camera;
+        state.objPreview.group = group;
+
+        bindObjPreviewInteractions();
+        resizeObjPreview();
+        return true;
+    }
+
+    function bindObjPreviewInteractions() {
+        const preview = state.objPreview;
+        const canvas = elements.objPreviewCanvas;
+        if (!canvas || preview.interactionsBound) return;
+
+        preview.interactionsBound = true;
+
+        const onPointerDown = (event) => {
+            preview.isDragging = true;
+            preview.lastX = event.clientX;
+            preview.lastY = event.clientY;
+            if (canvas.setPointerCapture) canvas.setPointerCapture(event.pointerId);
+        };
+
+        const onPointerMove = (event) => {
+            if (!preview.isDragging || !preview.group) return;
+            const deltaX = event.clientX - preview.lastX;
+            const deltaY = event.clientY - preview.lastY;
+            preview.lastX = event.clientX;
+            preview.lastY = event.clientY;
+
+            preview.rotationY += deltaX * 0.01;
+            preview.rotationX += deltaY * 0.01;
+            preview.group.rotation.set(preview.rotationX, preview.rotationY, 0);
+            renderObjPreviewFrame();
+        };
+
+        const onPointerUp = (event) => {
+            preview.isDragging = false;
+            if (canvas.releasePointerCapture) canvas.releasePointerCapture(event.pointerId);
+        };
+
+        canvas.addEventListener('pointerdown', onPointerDown);
+        window.addEventListener('pointermove', onPointerMove);
+        window.addEventListener('pointerup', onPointerUp);
+        canvas.addEventListener('pointerleave', onPointerUp);
+    }
+
+    function resizeObjPreview() {
+        const preview = state.objPreview;
+        if (!preview.renderer || !preview.camera || !elements.objPreviewCanvas) return;
+        const container = elements.objPreviewCanvas.parentElement;
+        if (!container) return;
+        const width = container.clientWidth || 1;
+        const height = container.clientHeight || 1;
+        preview.renderer.setSize(width, height, false);
+        preview.camera.aspect = width / height;
+        preview.camera.updateProjectionMatrix();
+    }
+
+    function clearObjPreview() {
+        const preview = state.objPreview;
+        if (!preview.group) return;
+        preview.group.children.forEach(child => {
+            if (child.geometry) child.geometry.dispose();
+            if (child.material) child.material.dispose();
+        });
+        preview.group.clear();
+    }
+
+    function renderObjPreviewFrame() {
+        const preview = state.objPreview;
+        if (!preview.renderer || !preview.scene || !preview.camera) return;
+        preview.renderer.render(preview.scene, preview.camera);
+    }
+
+    function renderObjPreview() {
+        if (!elements.objPreviewCanvas) return;
+        if (!ensureObjPreview()) return;
+
+        const preview = state.objPreview;
+        const THREERef = window.THREE;
+        const SVGLoader = window.SVGLoader;
+        if (!preview.group || !THREERef || !SVGLoader) return;
+
+        resizeObjPreview();
+        const dataToExport = getDataToExport();
+        if (!state.tracedata || !dataToExport) {
+            clearObjPreview();
+            if (elements.objPreviewPlaceholder) elements.objPreviewPlaceholder.style.display = 'flex';
+            renderObjPreviewFrame();
+            return;
+        }
+
+        clearObjPreview();
+
+        const thicknessValue = elements.objThicknessSlider ? parseFloat(elements.objThicknessSlider.value) : 4;
+        const thickness = Number.isFinite(thicknessValue) ? thicknessValue : 4;
+        const bedKey = elements.objBedSelect?.value || 'x1';
+        const bed = BED_PRESETS[bedKey] || BED_PRESETS.x1;
+        const marginValue = elements.objMarginInput ? parseFloat(elements.objMarginInput.value) : 5;
+        const margin = Number.isFinite(marginValue) ? Math.max(0, marginValue) : 5;
+
+        const svgString = ImageTracer.getsvgstring(dataToExport, state.lastOptions);
+        const loader = new SVGLoader();
+        const svgData = loader.parse(svgString);
+
+        svgData.paths.forEach((path) => {
+            const shapes = SVGLoader.createShapes(path);
+            if (!shapes || !shapes.length) return;
+            const sourceColor = path.color instanceof THREERef.Color
+                ? path.color
+                : new THREERef.Color(path.color || '#000');
+            const material = new THREERef.MeshStandardMaterial({
+                color: sourceColor,
+                side: THREERef.DoubleSide
+            });
+
+            shapes.forEach((shape) => {
+                const geometry = new THREERef.ExtrudeGeometry(shape, {
+                    depth: thickness,
+                    bevelEnabled: false
+                });
+                geometry.rotateX(Math.PI);
+                geometry.computeVertexNormals();
+                const mesh = new THREERef.Mesh(geometry, material);
+                preview.group.add(mesh);
+            });
+        });
+
+        const bbox = new THREERef.Box3().setFromObject(preview.group);
+        const size = new THREERef.Vector3();
+        bbox.getSize(size);
+
+        if (size.x > 0 && size.y > 0) {
+            const maxWidth = Math.max(1, bed.width - margin * 2);
+            const maxDepth = Math.max(1, bed.depth - margin * 2);
+            const scale = Math.min(maxWidth / size.x, maxDepth / size.y, 1);
+            preview.group.scale.set(scale, scale, 1);
+        }
+
+        const centeredBox = new THREERef.Box3().setFromObject(preview.group);
+        const center = new THREERef.Vector3();
+        centeredBox.getCenter(center);
+        preview.group.position.sub(center);
+        preview.group.rotation.set(preview.rotationX, preview.rotationY, 0);
+
+        const finalSize = new THREERef.Vector3();
+        centeredBox.getSize(finalSize);
+        const maxDim = Math.max(finalSize.x, finalSize.y, finalSize.z, thickness);
+        const distance = maxDim * 1.4 + thickness * 2;
+        preview.camera.position.set(0, -distance, distance);
+        preview.camera.lookAt(0, 0, 0);
+
+        if (elements.objPreviewPlaceholder) elements.objPreviewPlaceholder.style.display = 'none';
+        renderObjPreviewFrame();
+    }
+
     async function renderPreviews() {
         if (!state.tracedata) return;
         if (!elements.svgPreview) return; // Preview not in new minimal design
@@ -947,6 +1151,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     async function updateFilteredPreview() {
+        renderObjPreview();
         if (!state.tracedata) return;
         if (!elements.svgPreviewFiltered) return; // Preview not in new minimal design
 
@@ -1048,7 +1253,14 @@ document.addEventListener('DOMContentLoaded', () => {
         elements.objThicknessValue.textContent = elements.objThicknessSlider.value;
         elements.objThicknessSlider.addEventListener('input', () => {
             elements.objThicknessValue.textContent = elements.objThicknessSlider.value;
+            updateFilteredPreview();
         });
+    }
+    if (elements.objBedSelect) {
+        elements.objBedSelect.addEventListener('change', () => updateFilteredPreview());
+    }
+    if (elements.objMarginInput) {
+        elements.objMarginInput.addEventListener('input', () => updateFilteredPreview());
     }
     if (elements.exportObjBtn) {
         elements.exportObjBtn.addEventListener('click', () => exportAsOBJ());
@@ -1098,6 +1310,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     document.querySelectorAll('.control-panel input[type="range"]').forEach(slider => {
         slider.addEventListener('input', (e) => {
+            if (e.target.id === 'obj-thickness') {
+                return;
+            }
             if (!state.isDirty) {
                 state.isDirty = true;
                 elements.resetBtn.style.display = 'inline';
@@ -1454,12 +1669,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         return output;
     }
-
-    const BED_PRESETS = {
-        x1: { width: 256, depth: 256, label: 'Bambu X1/X1C' },
-        a1mini: { width: 180, depth: 180, label: 'Bambu A1 mini' },
-        h2d: { width: 325, depth: 320, label: 'Bambu H2D (single nozzle)' }
-    };
 
     async function exportAsOBJ() {
         if (!state.tracedata) {
@@ -2168,7 +2377,11 @@ document.addEventListener('DOMContentLoaded', () => {
     updateExportScaleDisplay();
 
     // Update segmented control indicator on window resize
-    window.addEventListener('resize', () => updateSegmentedControlIndicator());
+    window.addEventListener('resize', () => {
+        updateSegmentedControlIndicator();
+        resizeObjPreview();
+        renderObjPreview();
+    });
 
     // Collapsible layers section toggle
     const layersToggle = document.getElementById('layers-toggle');
