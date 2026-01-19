@@ -36,6 +36,7 @@ document.addEventListener('DOMContentLoaded', () => {
         maxColorsSlider: document.getElementById('max-colors'),
         maxColorsValue: document.getElementById('max-colors-value'),
         maxColorsTooltip: document.getElementById('max-colors-tooltip'),
+        toggleFidelityBtn: document.getElementById('toggle-fidelity-btn'),
         svgPreview: document.getElementById('svg-preview'),
         svgPreviewFiltered: document.getElementById('svg-preview-filtered'),
         previewResolution: document.getElementById('preview-resolution'),
@@ -92,6 +93,7 @@ document.addEventListener('DOMContentLoaded', () => {
         preserveAlpha: true,
         showAvailableLayers: true,
         showFinalPalette: true,
+        highFidelity: false,
         zoom: {
             all: { scale: 1, x: 0, y: 0, isDragging: false },
             selected: { scale: 1, x: 0, y: 0, isDragging: false }
@@ -227,6 +229,15 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             setAvailableLayersVisible(true);
             setFinalPaletteVisible(true);
+        }
+    }
+
+    function setHighFidelity(enabled) {
+        state.highFidelity = !!enabled;
+        if (elements.toggleFidelityBtn) {
+            elements.toggleFidelityBtn.textContent = state.highFidelity ? 'High Fidelity: On' : 'High Fidelity: Off';
+            elements.toggleFidelityBtn.classList.toggle('btn-primary', state.highFidelity);
+            elements.toggleFidelityBtn.classList.toggle('btn-secondary', !state.highFidelity);
         }
     }
 
@@ -522,10 +533,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 const idx = (y * width + x) * 4;
                 const a = data[idx + 3];
                 if (a < 16) continue;
-                const r = data[idx] >> 4;
-                const g = data[idx + 1] >> 4;
-                const b = data[idx + 2] >> 4;
-                const key = (r << 8) | (g << 4) | b;
+                const r = data[idx] >> 3;
+                const g = data[idx + 1] >> 3;
+                const b = data[idx + 2] >> 3;
+                const key = (r << 10) | (g << 5) | b;
                 counts.set(key, (counts.get(key) || 0) + 1);
                 samples++;
             }
@@ -533,18 +544,23 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (!samples) return null;
 
-        const buckets = Array.from(counts.values()).sort((a, b) => b - a);
+        const bucketsAll = Array.from(counts.values()).sort((a, b) => b - a);
+        const minBucketRatio = state.highFidelity ? 0.003 : 0.006;
+        const minBucketCount = Math.max(2, Math.round(samples * minBucketRatio));
+        const buckets = bucketsAll.filter(count => count >= minBucketCount);
+        const selectedBuckets = buckets.length ? buckets : bucketsAll;
+        const total = selectedBuckets.reduce((sum, count) => sum + count, 0);
+        const targetCoverage = state.highFidelity ? 0.992 : 0.985;
         let cumulative = 0;
         let colorCount = 0;
-        const targetCoverage = 0.985;
 
-        for (const count of buckets) {
+        for (const count of selectedBuckets) {
             cumulative += count;
             colorCount++;
-            if (cumulative / samples >= targetCoverage) break;
+            if (cumulative / total >= targetCoverage) break;
         }
 
-        return Math.max(1, Math.min(colorCount, buckets.length));
+        return Math.max(1, Math.min(colorCount, selectedBuckets.length));
     }
 
     async function traceVectorPaths() {
@@ -629,21 +645,22 @@ document.addEventListener('DOMContentLoaded', () => {
         const mapInv = (t, a, b) => (a + (b - a) * (1 - (t / 100)));
 
         const rel = Math.max(0.5, Math.sqrt(elements.sourceImage.naturalWidth * elements.sourceImage.naturalHeight) / 512);
+        const detailScale = Math.min(rel, state.highFidelity ? 1.0 : 1.4);
 
         let options = Object.assign({}, ImageTracer.optionpresets.default, {
             viewbox: true,
             strokewidth: 0
         });
         
-        options.pathomit = Math.round(map(P, 0, 20) * rel);
-        options.roundcoords = Math.round(map(P, 1, 3));
-        options.blurradius = +map(P, 0, 1.2).toFixed(1);
-        options.qtres = +mapInv(C, 4.0, 0.2).toFixed(2);
+        options.pathomit = Math.round(map(P, 0, state.highFidelity ? 6 : 10) * detailScale);
+        options.roundcoords = Math.round(map(P, 1, state.highFidelity ? 2 : 3));
+        options.blurradius = +map(P, 0, state.highFidelity ? 0.8 : 1.2).toFixed(1);
+        options.qtres = +mapInv(C, state.highFidelity ? 2.5 : 4.0, state.highFidelity ? 0.15 : 0.2).toFixed(2);
         options.rightangleenhance = (C >= 50);
-        options.ltres = +map(S, 0.2, 8.0).toFixed(2);
+        options.ltres = +map(S, state.highFidelity ? 0.15 : 0.2, state.highFidelity ? 6.0 : 8.0).toFixed(2);
         
         options.colorsampling = 2; 
-        options.colorquantcycles = Math.max(1, Math.round(map(CP, 3, 10)));
+        options.colorquantcycles = Math.max(1, Math.round(map(CP, state.highFidelity ? 4 : 3, state.highFidelity ? 12 : 10)));
         options.mincolorratio = +mapInv(CP, 0.03, 0.0).toFixed(3);
         options.numberofcolors = Math.max(4, Math.min(20, 4 + Math.round(CP * 0.16)));
         if (!Number.isNaN(MC)) {
@@ -996,6 +1013,16 @@ document.addEventListener('DOMContentLoaded', () => {
     elements.analyzeColorsBtn.addEventListener('click', analyzeColorsClick);
     elements.optimizePathsBtn.addEventListener('click', optimizePathsClick);
     elements.resetBtn.addEventListener('click', resetSlidersToInitial);
+    if (elements.toggleFidelityBtn) {
+        elements.toggleFidelityBtn.addEventListener('click', () => {
+            setHighFidelity(!state.highFidelity);
+            if (state.colorsAnalyzed && elements.sourceImage.src) {
+                state.colorsAnalyzed = false;
+                elements.optimizePathsBtn.disabled = true;
+                elements.statusText.textContent = 'Fidelity changed. Re-analyze colors.';
+            }
+        });
+    }
     elements.exportTabs.forEach(btn => {
         btn.addEventListener('click', () => {
             switchExportTab(btn.dataset.tab);
@@ -1991,6 +2018,7 @@ document.addEventListener('DOMContentLoaded', () => {
     setExportScale(state.exportScale);
     setAvailableLayersVisible(true);
     setFinalPaletteVisible(true);
+    setHighFidelity(state.highFidelity);
     updateExportScaleDisplay();
 
     // Update segmented control indicator on window resize
