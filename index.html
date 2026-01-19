@@ -15,12 +15,14 @@
     <script src="imagetracer_v1.2.6.js"></script>
     <script src="converter.js"></script>
     <script type="module">
-        import * as THREE from 'https://unpkg.com/three@0.160.0/build/three.module.js';
-        import { SVGLoader } from 'https://unpkg.com/three@0.160.0/examples/jsm/loaders/SVGLoader.js';
-        import { OBJExporter } from 'https://unpkg.com/three@0.160.0/examples/jsm/exporters/OBJExporter.js';
+        import * as THREE from 'https://esm.sh/three@0.160.0';
+        import { SVGLoader } from 'https://esm.sh/three@0.160.0/examples/jsm/loaders/SVGLoader.js';
+        import { OBJExporter } from 'https://esm.sh/three@0.160.0/examples/jsm/exporters/OBJExporter.js';
+        import { GLTFExporter } from 'https://esm.sh/three@0.160.0/examples/jsm/exporters/GLTFExporter.js';
         window.THREE = THREE;
         window.SVGLoader = SVGLoader;
         window.OBJExporter = OBJExporter;
+        window.GLTFExporter = GLTFExporter;
     </script>
     <style>
         :root {
@@ -209,6 +211,7 @@
         .grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
         .grid-cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
         .grid-cols-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+        .grid-cols-5 { grid-template-columns: repeat(5, minmax(0, 1fr)); }
         .lg\:grid-cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
         .gap-8 { gap: 2rem; }
         .items-center { align-items: center; }
@@ -1298,6 +1301,14 @@
                                     <span id="obj-thickness-value" class="text-sm font-mono bg-gray-700 border border-gray-600 rounded-md px-2 py-0.5 w-12 text-center text-gray-200">4</span>
                                 </div>
                             </div>
+                            <div>
+                                <label for="obj-detail" class="text-sm font-medium text-gray-300">OBJ Detail</label>
+                                <div class="flex items-center space-x-2">
+                                    <input type="range" id="obj-detail" min="2" max="12" value="6" step="1">
+                                    <span id="obj-detail-value" class="text-sm font-mono bg-gray-700 border border-gray-600 rounded-md px-2 py-0.5 w-12 text-center text-gray-200">6</span>
+                                </div>
+                                <p id="obj-detail-tooltip" class="slider-tooltip text-xs text-gray-400 mt-1 h-4 opacity-0"></p>
+                            </div>
                             <div class="grid grid-cols-2 gap-2">
                                 <div>
                                     <label for="obj-bed" class="text-sm font-medium text-gray-300">Printer Bed</label>
@@ -1569,7 +1580,7 @@
 
                 <!-- SVG Export Footer (Fixed at bottom) -->
                 <footer id="svg-export-footer" class="p-4 border-t border-gray-700 bg-gray-800 flex-shrink-0">
-                    <div class="grid grid-cols-4 gap-3">
+                    <div class="grid grid-cols-5 gap-3">
                         <button id="export-layers-btn" class="btn-primary font-semibold py-3 px-4 rounded-md text-sm disabled:bg-gray-600 disabled:cursor-not-allowed" disabled>
                             Export Layers
                         </button>
@@ -1582,12 +1593,16 @@
                         <button id="export-obj-btn" class="btn-secondary font-semibold py-3 px-4 rounded-md text-sm disabled:bg-gray-600 disabled:cursor-not-allowed" disabled>
                             OBJ + MTL
                         </button>
+                        <button id="export-glb-btn" class="btn-secondary font-semibold py-3 px-4 rounded-md text-sm disabled:bg-gray-600 disabled:cursor-not-allowed" disabled>
+                            GLB
+                        </button>
                     </div>
-                    <div class="grid grid-cols-4 gap-3 text-xs text-center text-gray-500 mt-2">
+                    <div class="grid grid-cols-5 gap-3 text-xs text-center text-gray-500 mt-2">
                         <div>Separate files (original or merged)</div>
                         <div>Outline only</div>
                         <div>Single file (original or merged)</div>
                         <div>Extruded 3D model</div>
+                        <div>Single binary 3D file</div>
                     </div>
                 </footer>
 
