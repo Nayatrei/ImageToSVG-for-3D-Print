@@ -112,7 +112,9 @@ document.addEventListener('DOMContentLoaded', () => {
             rotationX: -0.5,
             rotationY: 0.6,
             interactionsBound: false,
-            retryScheduled: false
+            retryScheduled: false,
+            zoom: 1,
+            target: null
         },
         zoom: {
             all: { scale: 1, x: 0, y: 0, isDragging: false },
@@ -127,6 +129,8 @@ document.addEventListener('DOMContentLoaded', () => {
         'color-precision': 'Higher values find more distinct color layers.',
         'max-colors': 'Caps the maximum number of colors created.'
     };
+
+    const TRANSPARENT_ALPHA_CUTOFF = 10;
 
     const BED_PRESETS = {
         x1: { width: 256, depth: 256, label: 'Bambu X1/X1C' },
@@ -211,6 +215,48 @@ document.addEventListener('DOMContentLoaded', () => {
             optimizePathsClick();
         }
     });
+
+    function hasTransparentPixels(imageData) {
+        const data = imageData.data;
+        for (let i = 3; i < data.length; i += 4) {
+            if (data[i] <= TRANSPARENT_ALPHA_CUTOFF) return true;
+        }
+        return false;
+    }
+
+    function stripTransparentPalette(quantizedData) {
+        if (!quantizedData || !Array.isArray(quantizedData.palette) || !Array.isArray(quantizedData.array)) {
+            return false;
+        }
+
+        const mapping = new Array(quantizedData.palette.length).fill(-1);
+        const newPalette = [];
+
+        quantizedData.palette.forEach((color, index) => {
+            const alpha = Number.isFinite(color.a) ? color.a : 255;
+            if (alpha <= TRANSPARENT_ALPHA_CUTOFF) {
+                mapping[index] = -1;
+            } else {
+                mapping[index] = newPalette.length;
+                newPalette.push(color);
+            }
+        });
+
+        if (newPalette.length === quantizedData.palette.length) return false;
+
+        for (let y = 0; y < quantizedData.array.length; y++) {
+            const row = quantizedData.array[y];
+            for (let x = 0; x < row.length; x++) {
+                const idx = row[x];
+                if (idx >= 0) {
+                    row[x] = mapping[idx];
+                }
+            }
+        }
+
+        quantizedData.palette = newPalette;
+        return true;
+    }
 
     // --- Main Generation Logic ---
     async function analyzeColorsClick() {
@@ -541,6 +587,14 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (!state.quantizedData || !state.quantizedData.palette) {
                         throw new Error('Color analysis failed.');
                     }
+
+                    if (hasTransparentPixels(imageData)) {
+                        stripTransparentPalette(state.quantizedData);
+                    }
+
+                    if (!state.quantizedData.palette.length) {
+                        throw new Error('No opaque pixels found.');
+                    }
                     
                     resolve();
 
@@ -570,7 +624,7 @@ document.addEventListener('DOMContentLoaded', () => {
             for (let x = 0; x < width; x += step) {
                 const idx = (y * width + x) * 4;
                 const a = data[idx + 3];
-                if (a < 16) continue;
+                if (a <= TRANSPARENT_ALPHA_CUTOFF) continue;
                 const r = data[idx] >> 3;
                 const g = data[idx + 1] >> 3;
                 const b = data[idx + 2] >> 3;
@@ -1609,13 +1663,7 @@ document.addEventListener('DOMContentLoaded', () => {
             swatch.className = 'w-8 h-8 rounded border-2 border-gray-700 ring-1 ring-gray-500 cursor-pointer transition-all';
             swatch.style.backgroundColor = `rgb(${color.r},${color.g},${color.b})`;
             
-            // Special styling for layer 0 (background)
-            if (index === 0) {
-                swatch.className += ' background-layer';
-                swatch.title = `Layer ${index} (Background)`;
-            } else {
-                swatch.title = `Layer ${index}`;
-            }
+            swatch.title = `Layer ${index}`;
             
             // Layer number label (initially hidden)
             const label = document.createElement('div');
@@ -2068,14 +2116,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 layerIndices.forEach((idx) => {
                     const singleLayer = buildTracedataSubset(mergedData, [idx]);
-                    const layerName = idx === 0 ? 'background' : `layer_${idx}`;
+                    const layerName = `layer_${idx}`;
                     downloadSVG(ImageTracer.getsvgstring(singleLayer, state.lastOptions), `${imageName}_final_${layerName}`);
                 });
             } else {
                 // Export original visible layers
                 visibleIndices.forEach((idx) => {
                     const singleLayer = buildTracedataSubset(state.tracedata, [idx]);
-                    const layerName = idx === 0 ? 'background' : `layer_${idx}`;
+                    const layerName = `layer_${idx}`;
                     downloadSVG(ImageTracer.getsvgstring(singleLayer, state.lastOptions), `${imageName}_${layerName}`);
                 });
             }
@@ -2141,7 +2189,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const row = document.createElement('div');
         row.className = 'flex items-center gap-2 text-sm';
         const optionsHTML = visibleIndices.map((idx, ord) => {
-            const label = idx === 0 ? `Layer ${idx} (Background)` : `Layer ${idx}`;
+            const label = `Layer ${idx}`;
             return `<option value="${ord}">${label}</option>`;
         }).join('');
         
@@ -2212,15 +2260,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const imageName = (state.originalImageUrl || 'image').split(/[\\/]/).pop().replace(/\.[^/.]+$/, '');
 
-            // Download background layer
-            if (mergedData.layers[0] && layerHasPaths(mergedData.layers[0])) {
-                const backgroundLayer = buildTracedataSubset(mergedData, [0]);
-                downloadSVG(ImageTracer.getsvgstring(backgroundLayer, state.lastOptions), `${imageName}_final_background`);
-            }
-
-            // Download merged layers (excluding background)
             const finalIndices = [];
-            for (let i = 1; i < mergedData.layers.length; i++) {
+            for (let i = 0; i < mergedData.layers.length; i++) {
                 if (layerHasPaths(mergedData.layers[i])) {
                     finalIndices.push(i);
                 }
@@ -2357,30 +2398,19 @@ document.addEventListener('DOMContentLoaded', () => {
                         const representativeIndex = visibleIndices[targetRuleIndex];
                         
                         if (originalIndices.length > 1) {
-                            label.textContent = `Merged (${originalIndices.map(idx => idx === 0 ? 'BG' : idx).join('+')})`;
+                            label.textContent = `Merged (${originalIndices.join('+')})`;
                         } else {
-                            label.textContent = representativeIndex === 0 ? 'Background' : `Layer ${representativeIndex}`;
+                            label.textContent = `Layer ${representativeIndex}`;
                         }
-                        
-                        if (representativeIndex === 0) {
-                            swatch.className += ' background-layer';
-                            swatch.title = originalIndices.length > 1 ? 
-                                `Merged layer including background` : 'Background Layer';
-                        } else {
-                            swatch.title = originalIndices.length > 1 ? 
-                                `Merged layers: ${originalIndices.join(', ')}` : `Layer ${representativeIndex}`;
-                        }
+
+                        swatch.title = originalIndices.length > 1
+                            ? `Merged layers: ${originalIndices.join(', ')}`
+                            : `Layer ${representativeIndex}`;
                     }
                 } else {
                     const originalIndex = visibleIndices[i];
-                    label.textContent = originalIndex === 0 ? 'Background' : `Layer ${originalIndex}`;
-                    
-                    if (originalIndex === 0) {
-                        swatch.className += ' background-layer';
-                        swatch.title = 'Background Layer';
-                    } else {
-                        swatch.title = `Layer ${originalIndex}`;
-                    }
+                    label.textContent = `Layer ${originalIndex}`;
+                    swatch.title = `Layer ${originalIndex}`;
                 }
                 
                 swatch.dataset.index = i;
