@@ -17,16 +17,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="imagetracer_v1.2.6.js"></script>
-    <script type="module">
-        import * as THREE from 'https://esm.sh/three@0.160.0';
-        import { SVGLoader } from 'https://esm.sh/three@0.160.0/examples/jsm/loaders/SVGLoader.js';
-        import { OBJExporter } from 'https://esm.sh/three@0.160.0/examples/jsm/exporters/OBJExporter.js';
-        import * as BufferGeometryUtils from 'https://esm.sh/three@0.160.0/examples/jsm/utils/BufferGeometryUtils.js';
-        window.THREE = THREE;
-        THREE.BufferGeometryUtils = BufferGeometryUtils;
-        window.SVGLoader = SVGLoader;
-        window.OBJExporter = OBJExporter;
-    </script>
+    <script type="module" src="three-setup.js"></script>
     <script type="module" src="converter.js"></script>
     <style>
         :root {
