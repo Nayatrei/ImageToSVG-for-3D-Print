@@ -574,7 +574,7 @@ export function createObjExporter({
         const OBJExporter = window.OBJExporter || window.THREE?.OBJExporter;
         const THREERef = window.THREE;
 
-        if (!SVGLoader || !OBJExporter || !THREERef) {
+        if (!SVGLoader || !OBJExporter || !THREERef || !THREERef.BufferGeometryUtils) {
             elements.statusText.textContent = 'OBJ export libraries are still loading.';
             return;
         }
