@@ -85,7 +85,8 @@ document.addEventListener('DOMContentLoaded', () => {
         objDetailSlider: document.getElementById('obj-detail'),
         objDetailValue: document.getElementById('obj-detail-value'),
         exportObjBtn: document.getElementById('export-obj-btn'),
-        exportGlbBtn: document.getElementById('export-glb-btn'),
+        export3mfBtn: document.getElementById('export-3mf-btn'),
+        exportStlBtn: document.getElementById('export-stl-btn'),
         objBedSelect: document.getElementById('obj-bed'),
         objMarginInput: document.getElementById('obj-margin'),
         availableLayersContent: document.getElementById('available-layers-content'),
@@ -1270,8 +1271,11 @@ document.addEventListener('DOMContentLoaded', () => {
     if (elements.exportObjBtn) {
         elements.exportObjBtn.addEventListener('click', () => objExporter.exportAsOBJ());
     }
-    if (elements.exportGlbBtn) {
-        elements.exportGlbBtn.addEventListener('click', () => objExporter.exportAsGLB());
+    if (elements.export3mfBtn) {
+        elements.export3mfBtn.addEventListener('click', () => objExporter.exportAs3MF());
+    }
+    if (elements.exportStlBtn) {
+        elements.exportStlBtn.addEventListener('click', () => objExporter.exportAsSTL());
     }
     // obj preview button bindings handled by preview module
     elements.resizeChips.forEach(chip => {
@@ -1538,7 +1542,8 @@ document.addEventListener('DOMContentLoaded', () => {
             elements.combineAndDownloadBtn,
             elements.downloadCombinedLayersBtn,
             elements.exportObjBtn,
-            elements.exportGlbBtn
+            elements.export3mfBtn,
+            elements.exportStlBtn
         ].forEach(btn => {
             if(btn) btn.disabled = true;
         });
@@ -1550,7 +1555,8 @@ document.addEventListener('DOMContentLoaded', () => {
             elements.exportLayersBtn,
             elements.downloadSilhouetteBtn,
             elements.exportObjBtn,
-            elements.exportGlbBtn
+            elements.export3mfBtn,
+            elements.exportStlBtn
         ].forEach(btn => {
             if(btn) btn.disabled = false;
         });
