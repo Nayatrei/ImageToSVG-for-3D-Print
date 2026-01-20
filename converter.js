@@ -588,10 +588,15 @@ document.addEventListener('DOMContentLoaded', () => {
                     const imageData = ctx.getImageData(0, 0, width, height);
 
                     const options = buildOptimizedOptions();
+                    const MC = elements.maxColorsSlider ? parseInt(elements.maxColorsSlider.value) : 4;
                     const dominantColorCount = estimateDominantColors(imageData);
-                    if (dominantColorCount) {
-                        options.numberofcolors = Math.max(2, Math.min(options.numberofcolors, dominantColorCount));
+                    // Use estimator to suggest colors but never go below user's Max Colors setting
+                    // This ensures thin borders/edges (like white outlines) are preserved
+                    if (dominantColorCount && dominantColorCount > MC) {
+                        options.numberofcolors = Math.min(options.numberofcolors, dominantColorCount);
                     }
+                    // Ensure we use at least what the user requested
+                    options.numberofcolors = Math.max(MC, options.numberofcolors);
                     state.lastOptions = options;
                     
                     state.quantizedData = ImageTracer.colorquantization(imageData, options);
@@ -1035,7 +1040,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const previewData = buildTracedataSubset(state.tracedata, visibleIndices);
             const svgString = ImageTracer.getsvgstring(previewData, state.lastOptions);
 
-            const pngDataUrl = await svgToPng(svgString);
+            const pngDataUrl = await svgToPng(svgString, null, null, true);
             elements.svgPreview.src = pngDataUrl;
             elements.svgPreview.style.display = 'block';
 
