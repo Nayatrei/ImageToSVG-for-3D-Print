@@ -250,7 +250,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 mapping[index] = -1;
             } else {
                 mapping[index] = newPalette.length;
-                newPalette.push(color);
+                // Force full opacity for non-transparent colors to prevent
+                // semi-transparent rendering from anti-aliased edge averaging
+                newPalette.push({ r: color.r, g: color.g, b: color.b, a: 255 });
             }
         });
 
@@ -607,6 +609,12 @@ document.addEventListener('DOMContentLoaded', () => {
 
                     if (hasTransparentPixels(imageData)) {
                         stripTransparentPalette(state.quantizedData);
+                    } else {
+                        // Even without transparent pixels, normalize alpha to 255
+                        // to prevent semi-transparent colors from anti-aliased averaging
+                        state.quantizedData.palette.forEach(color => {
+                            color.a = 255;
+                        });
                     }
 
                     if (!state.quantizedData.palette.length) {
