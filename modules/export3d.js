@@ -49,7 +49,7 @@ export function createObjExporter({
         }
 
         const thicknessValue = elements.objThicknessSlider ? parseFloat(elements.objThicknessSlider.value) : 4;
-        const thickness = Number.isFinite(thicknessValue) ? thicknessValue : 4;
+        const defaultThickness = Number.isFinite(thicknessValue) ? thicknessValue : 4;
         const detailValue = elements.objDetailSlider ? parseInt(elements.objDetailSlider.value, 10) : 6;
         const curveSegments = Number.isFinite(detailValue) ? Math.max(1, detailValue) : 6;
         const bedKey = elements.objBedSelect?.value || 'x1';
@@ -68,6 +68,17 @@ export function createObjExporter({
             const materials = new Map();
             const layerIndexMap = buildLayerIndexMap(dataToExport.palette);
 
+            // Use individual layer thicknesses if available
+            const layerCount = dataToExport.palette.length;
+            const layerThicknesses = state.layerThicknesses && state.layerThicknesses.length === layerCount
+                ? state.layerThicknesses
+                : new Array(layerCount).fill(defaultThickness);
+
+            // Base layer positioning (match preview)
+            const useBaseLayer = state.useBaseLayer || false;
+            const baseLayerIndex = state.baseLayerIndex || 0;
+            const baseLayerThickness = useBaseLayer ? (layerThicknesses[baseLayerIndex] || defaultThickness) : 0;
+
             svgData.paths.forEach((path) => {
                 const shapes = SVGLoader.createShapes(path);
                 if (!shapes || !shapes.length) return;
@@ -77,7 +88,17 @@ export function createObjExporter({
                     : new THREERef.Color(path.color || '#000');
                 const hex = sourceColor.getHexString();
                 const layerIndex = getLayerIndexForColor(layerIndexMap, hex);
-                const layerZ = layerIndex * thickness;
+                const layerDepth = layerThicknesses[layerIndex] || defaultThickness;
+
+                // Calculate z position (match preview behavior)
+                let zPosition = 0;
+                if (useBaseLayer) {
+                    if (layerIndex === baseLayerIndex) {
+                        zPosition = 0;
+                    } else {
+                        zPosition = baseLayerThickness;
+                    }
+                }
 
                 let material = materials.get(hex);
                 if (!material) {
@@ -88,13 +109,13 @@ export function createObjExporter({
 
                 shapes.forEach((shape) => {
                     const geometry = new THREERef.ExtrudeGeometry(shape, {
-                        depth: thickness,
+                        depth: layerDepth,
                         curveSegments,
                         bevelEnabled: false
                     });
                     geometry.rotateX(Math.PI);
                     const mesh = new THREERef.Mesh(geometry, material);
-                    mesh.position.z = layerZ;
+                    mesh.position.z = zPosition;
                     group.add(mesh);
                 });
             });
@@ -154,7 +175,7 @@ export function createObjExporter({
         }
 
         const thicknessValue = elements.objThicknessSlider ? parseFloat(elements.objThicknessSlider.value) : 4;
-        const thickness = Number.isFinite(thicknessValue) ? thicknessValue : 4;
+        const defaultThickness = Number.isFinite(thicknessValue) ? thicknessValue : 4;
         const detailValue = elements.objDetailSlider ? parseInt(elements.objDetailSlider.value, 10) : 6;
         const curveSegments = Number.isFinite(detailValue) ? Math.max(1, detailValue) : 6;
         const bedKey = elements.objBedSelect?.value || 'x1';
@@ -173,6 +194,17 @@ export function createObjExporter({
             const materials = new Map();
             const layerIndexMap = buildLayerIndexMap(dataToExport.palette);
 
+            // Use individual layer thicknesses if available
+            const layerCount = dataToExport.palette.length;
+            const layerThicknesses = state.layerThicknesses && state.layerThicknesses.length === layerCount
+                ? state.layerThicknesses
+                : new Array(layerCount).fill(defaultThickness);
+
+            // Base layer positioning (match preview)
+            const useBaseLayer = state.useBaseLayer || false;
+            const baseLayerIndex = state.baseLayerIndex || 0;
+            const baseLayerThickness = useBaseLayer ? (layerThicknesses[baseLayerIndex] || defaultThickness) : 0;
+
             svgData.paths.forEach((path) => {
                 const shapes = SVGLoader.createShapes(path);
                 if (!shapes || !shapes.length) return;
@@ -182,7 +214,17 @@ export function createObjExporter({
                     : new THREERef.Color(path.color || '#000');
                 const hex = sourceColor.getHexString();
                 const layerIndex = getLayerIndexForColor(layerIndexMap, hex);
-                const layerZ = layerIndex * thickness;
+                const layerDepth = layerThicknesses[layerIndex] || defaultThickness;
+
+                // Calculate z position (match preview behavior)
+                let zPosition = 0;
+                if (useBaseLayer) {
+                    if (layerIndex === baseLayerIndex) {
+                        zPosition = 0;
+                    } else {
+                        zPosition = baseLayerThickness;
+                    }
+                }
 
                 let material = materials.get(hex);
                 if (!material) {
@@ -193,13 +235,13 @@ export function createObjExporter({
 
                 shapes.forEach((shape) => {
                     const geometry = new THREERef.ExtrudeGeometry(shape, {
-                        depth: thickness,
+                        depth: layerDepth,
                         curveSegments,
                         bevelEnabled: false
                     });
                     geometry.rotateX(Math.PI);
                     const mesh = new THREERef.Mesh(geometry, material);
-                    mesh.position.z = layerZ;
+                    mesh.position.z = zPosition;
                     group.add(mesh);
                 });
             });
