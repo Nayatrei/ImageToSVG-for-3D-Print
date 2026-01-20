@@ -1,4 +1,4 @@
-import { OBJ_ZOOM_MIN, OBJ_ZOOM_MAX, OBJ_DEFAULT_ROTATION, BED_PRESETS } from './config.js';
+import { OBJ_ZOOM_MIN, OBJ_ZOOM_MAX, BED_PRESETS } from './config.js';
 import { buildLayerIndexMap, getLayerIndexForColor } from './obj-layers.js';
 
 export function createObjPreview({
@@ -152,23 +152,10 @@ export function createObjPreview({
         }, 300);
     }
 
-    function updateZoomDisplay() {
-        if (elements.objZoomReset) {
-            elements.objZoomReset.textContent = `${Math.round(state.objPreview.zoom * 100)}%`;
-        }
-        if (elements.objZoomIn) {
-            elements.objZoomIn.disabled = state.objPreview.zoom >= OBJ_ZOOM_MAX;
-        }
-        if (elements.objZoomOut) {
-            elements.objZoomOut.disabled = state.objPreview.zoom <= OBJ_ZOOM_MIN;
-        }
-    }
-
     function setZoom(value) {
         const preview = state.objPreview;
         const next = Math.min(OBJ_ZOOM_MAX, Math.max(OBJ_ZOOM_MIN, value));
         preview.zoom = next;
-        updateZoomDisplay();
         renderFrame();
     }
 
@@ -221,16 +208,15 @@ export function createObjPreview({
         renderFrame();
     }
 
-    function resetView() {
+    function recenterView() {
         const preview = state.objPreview;
-        preview.rotationX = OBJ_DEFAULT_ROTATION.x;
-        preview.rotationY = OBJ_DEFAULT_ROTATION.y;
-        if (preview.group) {
-            preview.group.rotation.set(preview.rotationX, preview.rotationY, 0);
-        }
-        setTargetLocked(true);
-        fitView();
+        if (!preview.group || !preview.basePosition) return;
+        preview.panX = 0;
+        preview.panY = 0;
+        preview.group.position.copy(preview.basePosition);
+        renderFrame();
     }
+
 
     function getSelectionIndices() {
         if (!state.tracedata) return new Set();
@@ -480,7 +466,6 @@ export function createObjPreview({
 
             setPlaceholder('', false);
             updateLayerStackPreview(dataToExport, thickness, selectionSet);
-            updateZoomDisplay();
             renderFrame();
         } catch (error) {
             console.error('3D preview failed:', error);
@@ -489,24 +474,11 @@ export function createObjPreview({
     }
 
     function bindControls() {
-        if (elements.objZoomIn) {
-            elements.objZoomIn.addEventListener('click', () => {
-                setZoom(state.objPreview.zoom * 1.15);
-            });
-        }
-        if (elements.objZoomOut) {
-            elements.objZoomOut.addEventListener('click', () => {
-                setZoom(state.objPreview.zoom * 0.87);
-            });
-        }
-        if (elements.objZoomReset) {
-            elements.objZoomReset.addEventListener('click', () => setZoom(1));
-        }
         if (elements.objFitView) {
             elements.objFitView.addEventListener('click', () => fitView());
         }
-        if (elements.objResetView) {
-            elements.objResetView.addEventListener('click', () => resetView());
+        if (elements.objRecenter) {
+            elements.objRecenter.addEventListener('click', () => recenterView());
         }
         if (elements.objTargetLock) {
             elements.objTargetLock.addEventListener('click', () => {
@@ -521,7 +493,6 @@ export function createObjPreview({
         }
         updateLayerModeButtons();
         updateTargetLockButton();
-        updateZoomDisplay();
     }
 
     return {
@@ -529,7 +500,7 @@ export function createObjPreview({
         resize,
         bindControls,
         fitView,
-        resetView,
+        recenterView,
         setLayerDisplayMode,
         setTargetLocked
     };
