@@ -10,7 +10,7 @@ export const SLIDER_TOOLTIPS = {
 export const TRANSPARENT_ALPHA_CUTOFF = 10;
 export const OBJ_ZOOM_MIN = 0.5;
 export const OBJ_ZOOM_MAX = 3;
-export const OBJ_DEFAULT_ROTATION = { x: -0.5, y: 0.6 };
+export const OBJ_DEFAULT_ROTATION = { x: -0.65, y: 0.45 };
 
 export const BED_PRESETS = {
     x1: { width: 256, depth: 256, label: 'Bambu X1/X1C' },

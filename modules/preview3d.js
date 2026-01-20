@@ -30,10 +30,29 @@ export function createObjPreview({
         const group = new THREERef.Group();
         scene.add(group);
 
-        const ambient = new THREERef.AmbientLight(0xffffff, 0.8);
-        const directional = new THREERef.DirectionalLight(0xffffff, 0.8);
-        directional.position.set(0, -1, 2);
-        scene.add(ambient, directional);
+        // Improved lighting for better depth perception
+        const ambient = new THREERef.AmbientLight(0xffffff, 0.4);
+
+        // Main key light from upper front-right
+        const keyLight = new THREERef.DirectionalLight(0xffffff, 0.8);
+        keyLight.position.set(1, -1, 2);
+
+        // Fill light from opposite side (softer)
+        const fillLight = new THREERef.DirectionalLight(0xffffff, 0.3);
+        fillLight.position.set(-1, 0.5, 1);
+
+        // Rim/back light for edge definition
+        const rimLight = new THREERef.DirectionalLight(0xffffff, 0.25);
+        rimLight.position.set(0, 1, -1);
+
+        scene.add(ambient, keyLight, fillLight, rimLight);
+
+        // Add ground grid for spatial reference
+        const gridHelper = new THREERef.GridHelper(300, 30, 0x444444, 0x333333);
+        gridHelper.rotation.x = Math.PI / 2;
+        gridHelper.position.z = -0.5;
+        scene.add(gridHelper);
+        state.objPreview.gridHelper = gridHelper;
 
         state.objPreview.renderer = renderer;
         state.objPreview.scene = scene;

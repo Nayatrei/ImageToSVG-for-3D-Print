@@ -20,6 +20,7 @@ document.addEventListener('DOMContentLoaded', () => {
         saveSvgBtn: document.getElementById('save-svg-btn'),
         originalResolution: document.getElementById('original-resolution'),
         resolutionNotice: document.getElementById('resolution-notice'),
+        colorCountNotice: document.getElementById('color-count-notice'),
         analyzeColorsBtn: document.getElementById('analyze-colors-btn'),
         optimizePathsBtn: document.getElementById('optimize-paths-btn'),
         resetBtn: document.getElementById('reset-btn'),
@@ -110,6 +111,7 @@ document.addEventListener('DOMContentLoaded', () => {
         selectedFinalLayerIndices: new Set(),
         tooltipTimeout: null,
         colorsAnalyzed: false,
+        estimatedColorCount: null,
         exportScale: 100,
         preserveAlpha: true,
         showAvailableLayers: true,
@@ -123,8 +125,8 @@ document.addEventListener('DOMContentLoaded', () => {
             isDragging: false,
             lastX: 0,
             lastY: 0,
-            rotationX: -0.5,
-            rotationY: 0.6,
+            rotationX: -0.65,
+            rotationY: 0.45,
             interactionsBound: false,
             retryScheduled: false,
             zoom: 1,
@@ -347,7 +349,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const tabRect = activeTab.getBoundingClientRect();
         const containerRect = activeTab.parentElement.getBoundingClientRect();
-        const offsetLeft = tabRect.left - containerRect.left;
+        // Subtract 6px for the initial CSS left offset of the indicator
+        const offsetLeft = tabRect.left - containerRect.left - 6;
 
         indicator.style.width = `${tabRect.width}px`;
         indicator.style.transform = `translateX(${offsetLeft}px)`;
@@ -678,6 +681,41 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         return Math.max(1, Math.min(colorCount, selectedBuckets.length));
+    }
+
+    function updateColorCountNotice() {
+        if (!elements.colorCountNotice || !elements.sourceImage.src) {
+            return;
+        }
+
+        const maxColors = elements.maxColorsSlider ? parseInt(elements.maxColorsSlider.value) : 4;
+
+        // Create temporary canvas to get image data
+        const canvas = document.createElement('canvas');
+        const w = elements.sourceImage.naturalWidth;
+        const h = elements.sourceImage.naturalHeight;
+        if (!w || !h) {
+            elements.colorCountNotice.style.display = 'none';
+            return;
+        }
+
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(elements.sourceImage, 0, 0, w, h);
+        const imageData = ctx.getImageData(0, 0, w, h);
+
+        const estimatedColors = estimateDominantColors(imageData);
+        state.estimatedColorCount = estimatedColors;
+
+        if (estimatedColors && estimatedColors > maxColors) {
+            elements.colorCountNotice.innerHTML =
+                `Image has ~${estimatedColors} distinct colors. Consider increasing Max Colors to ${Math.min(estimatedColors, 8)} for better accuracy. ` +
+                `<em style="opacity: 0.8">(3D printers may have filament limits)</em>`;
+            elements.colorCountNotice.style.display = 'block';
+        } else {
+            elements.colorCountNotice.style.display = 'none';
+        }
     }
 
     async function traceVectorPaths() {
@@ -1275,6 +1313,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     elements.optimizePathsBtn.disabled = true;
                     // Don't auto-trigger, let user click the button
                 }
+                // Update color count notice when max colors changes
+                if (e.target.id === 'max-colors') {
+                    updateColorCountNotice();
+                }
             } else {
                 // For path-related settings, auto-optimize paths if colors are already analyzed
                 if (state.colorsAnalyzed) {
@@ -1413,7 +1455,10 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             elements.resolutionNotice.style.display = 'none';
         }
-        
+
+        // Quick color count estimation to suggest Max Colors adjustment
+        updateColorCountNotice();
+
         state.colorsAnalyzed = false;
         elements.optimizePathsBtn.disabled = true;
         saveInitialSliderValues();
