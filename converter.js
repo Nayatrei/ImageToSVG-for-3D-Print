@@ -112,6 +112,7 @@ document.addEventListener('DOMContentLoaded', () => {
         tooltipTimeout: null,
         colorsAnalyzed: false,
         estimatedColorCount: null,
+        layerThicknesses: null,
         exportScale: 100,
         preserveAlpha: true,
         showAvailableLayers: true,
@@ -192,7 +193,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         if (elements.sourceImage.src) {
             state.colorsAnalyzed = false;
-            elements.optimizePathsBtn.disabled = true;
+            elements.optimizePathsBtn?.disabled = true;
             elements.analyzeColorsBtn.click();
         }
         
@@ -225,7 +226,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const debounceOptimizePaths = debounce(() => {
-        if (state.colorsAnalyzed && !elements.optimizePathsBtn.disabled) {
+        if (state.colorsAnalyzed) {
             optimizePathsClick();
         }
     });
@@ -236,6 +237,26 @@ document.addEventListener('DOMContentLoaded', () => {
             if (data[i] <= TRANSPARENT_ALPHA_CUTOFF) return true;
         }
         return false;
+    }
+
+    function markTransparentPixels(quantizedData, imageData) {
+        // Mark pixels that were originally transparent as -1 in the quantized array
+        // This prevents them from being included in any color layer's paths
+        // Note: quantizedData.array has 1-pixel padding on all sides
+        const width = imageData.width;
+        const height = imageData.height;
+        const data = imageData.data;
+
+        for (let y = 0; y < height; y++) {
+            for (let x = 0; x < width; x++) {
+                const idx = (y * width + x) * 4;
+                const alpha = data[idx + 3];
+                if (alpha <= TRANSPARENT_ALPHA_CUTOFF) {
+                    // +1 offset because ImageTracer adds padding to the array
+                    quantizedData.array[y + 1][x + 1] = -1;
+                }
+            }
+        }
     }
 
     function stripTransparentPalette(quantizedData) {
@@ -276,9 +297,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // --- Main Generation Logic ---
     async function analyzeColorsClick() {
+        // Reset layer thicknesses when regenerating
+        state.layerThicknesses = null;
         await analyzeColors();
         state.colorsAnalyzed = true;
-        elements.optimizePathsBtn.disabled = false;
         // Auto-trigger path optimization after color analysis
         await optimizePathsClick();
     }
@@ -611,6 +633,9 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
 
                     if (hasTransparentPixels(imageData)) {
+                        // Mark originally-transparent pixels as "no color" (-1)
+                        // This prevents them from being drawn even if assigned to an opaque color
+                        markTransparentPixels(state.quantizedData, imageData);
                         stripTransparentPalette(state.quantizedData);
                     } else {
                         // Even without transparent pixels, normalize alpha to 255
@@ -722,7 +747,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!state.quantizedData) return;
         showLoader(true);
         elements.statusText.textContent = 'Tracing vector paths...';
-        elements.optimizePathsBtn.disabled = true;
+        elements.optimizePathsBtn?.disabled = true;
         
         return new Promise((resolve, reject) => {
             setTimeout(async () => {
@@ -783,7 +808,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     reject(error);
                 } finally {
                     showLoader(false);
-                    elements.optimizePathsBtn.disabled = false;
+                    elements.optimizePathsBtn?.disabled = false;
                 }
             }, 50);
         });
@@ -1048,10 +1073,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     canvas.width = width;
                     canvas.height = height;
                     
-                    const ctx = canvas.getContext('2d');
+                    const ctx = canvas.getContext('2d', { alpha: true });
                     if (!preserveAlpha) {
                         ctx.fillStyle = 'white';
                         ctx.fillRect(0, 0, width, height);
+                    } else {
+                        // Ensure canvas is fully transparent before drawing SVG
+                        ctx.clearRect(0, 0, width, height);
                     }
                     ctx.drawImage(img, 0, 0, width, height);
                     
@@ -1196,14 +1224,16 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     elements.analyzeColorsBtn.addEventListener('click', analyzeColorsClick);
-    elements.optimizePathsBtn.addEventListener('click', optimizePathsClick);
+    if (elements.optimizePathsBtn) {
+        elements.optimizePathsBtn.addEventListener('click', optimizePathsClick);
+    }
     elements.resetBtn.addEventListener('click', resetSlidersToInitial);
     if (elements.toggleFidelityBtn) {
         elements.toggleFidelityBtn.addEventListener('click', () => {
             setHighFidelity(!state.highFidelity);
             if (state.colorsAnalyzed && elements.sourceImage.src) {
                 state.colorsAnalyzed = false;
-                elements.optimizePathsBtn.disabled = true;
+                elements.optimizePathsBtn?.disabled = true;
                 elements.statusText.textContent = 'Fidelity changed. Re-analyze colors.';
             }
         });
@@ -1310,7 +1340,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (e.target.id === 'color-precision' || e.target.id === 'max-colors') {
                 if (state.colorsAnalyzed && elements.sourceImage.src) {
                     state.colorsAnalyzed = false;
-                    elements.optimizePathsBtn.disabled = true;
+                    elements.optimizePathsBtn?.disabled = true;
                     // Don't auto-trigger, let user click the button
                 }
                 // Update color count notice when max colors changes
@@ -1460,7 +1490,7 @@ document.addEventListener('DOMContentLoaded', () => {
         updateColorCountNotice();
 
         state.colorsAnalyzed = false;
-        elements.optimizePathsBtn.disabled = true;
+        elements.optimizePathsBtn?.disabled = true;
         saveInitialSliderValues();
         elements.analyzeColorsBtn.click();
         

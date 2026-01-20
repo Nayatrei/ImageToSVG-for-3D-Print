@@ -1272,15 +1272,41 @@
             height: 14px;
             border-radius: 4px;
             border: 1px solid #4b5563;
+            flex-shrink: 0;
         }
 
         .layer-stack-label {
             flex: 1;
+            min-width: 0;
+        }
+
+        .layer-stack-z {
+            font-size: 0.65rem;
+            color: #6b7280;
+            min-width: 28px;
+        }
+
+        .layer-stack-thickness {
+            width: 38px;
+            padding: 2px 4px;
+            font-size: 0.65rem;
+            background: #374151;
+            border: 1px solid #4b5563;
+            border-radius: 4px;
+            color: #e5e7eb;
+            text-align: center;
+        }
+
+        .layer-stack-thickness:focus {
+            outline: none;
+            border-color: #60a5fa;
         }
 
         .layer-stack-range {
-            font-size: 0.7rem;
+            font-size: 0.65rem;
             color: #9ca3af;
+            text-align: right;
+            min-width: 65px;
         }
     </style>
 </head>
@@ -1411,10 +1437,7 @@
 
             <footer class="p-6 border-t border-gray-700 space-y-3">
                 <button id="analyze-colors-btn" class="w-full btn-primary font-bold py-3 px-4 rounded-lg text-lg disabled:bg-gray-600 disabled:cursor-not-allowed" disabled>
-                    1. Analyze Colors
-                </button>
-                <button id="optimize-paths-btn" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-lg text-lg disabled:bg-gray-600 disabled:cursor-not-allowed" disabled>
-                    2. Optimize Paths
+                    Generate Preview
                 </button>
             </footer>
         </aside>
@@ -1447,7 +1470,7 @@
                 <div id="output-section" class="card p-6 flex-1 min-h-0 overflow-y-auto flex flex-col gap-4" style="display:none;">
                     <div class="card-inner bg-gray-800 rounded-lg flex-shrink-0" style="padding: clamp(0.75rem, 2vw, 1rem); margin-bottom: clamp(0.75rem, 1.5vw, 1rem);">
                         <div class="flex justify-between items-center mb-2 original-image-header">
-                            <h3 class="font-semibold text-gray-200" style="font-size: clamp(0.875rem, 1.5vw, 1rem);">Original Image</h3>
+                            <h3 class="font-semibold text-gray-200" style="font-size: clamp(0.875rem, 1.5vw, 1rem);">Image Preview</h3>
                             <div id="original-resolution" class="text-xs text-gray-400"></div>
                         </div>
                         <div class="bg-grid rounded-md flex items-center justify-center overflow-hidden" style="height: min(20vh, 200px); min-height: 120px;">
@@ -1462,7 +1485,7 @@
                             <div class="output-card">
                                 <div class="output-card-header">
                                     <h3 class="output-card-title">
-                                        3D Print Preview
+                                        SVG Preview
                                         <span id="quality-indicator" class="text-xs text-gray-400 font-normal"></span>
                                     </h3>
                                     <div class="flex items-center gap-2">
@@ -1510,7 +1533,7 @@
                                         <button id="obj-target-lock" class="btn-secondary text-xs px-2 py-1 rounded-md" title="Toggle target lock (pan when unlocked)">Lock</button>
                                     </div>
                                 </div>
-                                <div class="preview-container preview-container-flexible bg-grid rounded-md overflow-hidden relative">
+                                <div class="preview-container preview-container-flexible rounded-md overflow-hidden relative" style="background: #1a1a2e;">
                                     <canvas id="obj-preview-canvas" class="obj-preview-canvas"></canvas>
                                     <div id="obj-preview-placeholder" class="preview-placeholder">3D preview will appear after analysis.</div>
                                 </div>
@@ -1589,9 +1612,9 @@
                                     <h4 class="output-card-title">Export Settings</h4>
                                 </div>
                                 <div class="output-card-content">
-                                    <!-- Original Image Info -->
+                                    <!-- Source Image Info -->
                                     <div class="mb-4 p-3 bg-gray-800 rounded-lg">
-                                        <div class="text-xs font-semibold text-gray-400 mb-2">Original Image</div>
+                                        <div class="text-xs font-semibold text-gray-400 mb-2">Source Image</div>
                                         <div class="grid grid-cols-2 gap-2 text-xs">
                                             <div class="flex justify-between">
                                                 <span class="text-gray-500">Dimensions:</span>

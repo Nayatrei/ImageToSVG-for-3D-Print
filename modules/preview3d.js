@@ -47,13 +47,6 @@ export function createObjPreview({
 
         scene.add(ambient, keyLight, fillLight, rimLight);
 
-        // Add ground grid for spatial reference
-        const gridHelper = new THREERef.GridHelper(300, 30, 0x444444, 0x333333);
-        gridHelper.rotation.x = Math.PI / 2;
-        gridHelper.position.z = -0.5;
-        scene.add(gridHelper);
-        state.objPreview.gridHelper = gridHelper;
-
         state.objPreview.renderer = renderer;
         state.objPreview.scene = scene;
         state.objPreview.camera = camera;
@@ -309,7 +302,7 @@ export function createObjPreview({
         return { groups: groupsByMerged, originalToMerged };
     }
 
-    function updateLayerStackPreview(dataToExport, thickness, selectionSet) {
+    function updateLayerStackPreview(dataToExport, defaultThickness, selectionSet) {
         if (!elements.layerStackList || !elements.layerStackMeta) return;
         elements.layerStackList.innerHTML = '';
 
@@ -319,7 +312,13 @@ export function createObjPreview({
         }
 
         const layerCount = dataToExport.palette.length;
-        const totalHeight = (layerCount * thickness).toFixed(1);
+
+        // Initialize layer thicknesses if not set
+        if (!state.layerThicknesses || state.layerThicknesses.length !== layerCount) {
+            state.layerThicknesses = new Array(layerCount).fill(defaultThickness);
+        }
+
+        const totalHeight = state.layerThicknesses.reduce((sum, t) => sum + t, 0).toFixed(1);
         elements.layerStackMeta.textContent = `${layerCount} layer${layerCount === 1 ? '' : 's'} · ${totalHeight}mm`;
 
         let mergedGroups = null;
@@ -328,6 +327,7 @@ export function createObjPreview({
             mergedGroups = buildMergedLayerMapping(visibleIndices, state.mergeRules).groups;
         }
 
+        let cumulativeZ = 0;
         dataToExport.palette.forEach((color, index) => {
             const row = document.createElement('div');
             row.className = 'layer-stack-item';
@@ -338,13 +338,11 @@ export function createObjPreview({
 
             const label = document.createElement('span');
             label.className = 'layer-stack-label';
-            const orderText = `Layer ${index + 1}`;
+            const orderText = `L${index}`;
             if (mergedGroups) {
                 const sourceIndices = mergedGroups[index] || [];
                 if (sourceIndices.length > 1) {
-                    label.textContent = `${orderText} (from ${sourceIndices.join('+')})`;
-                } else if (sourceIndices.length === 1) {
-                    label.textContent = `${orderText} (from ${sourceIndices[0]})`;
+                    label.textContent = `${orderText} (${sourceIndices.join('+')})`;
                 } else {
                     label.textContent = orderText;
                 }
@@ -352,14 +350,37 @@ export function createObjPreview({
                 label.textContent = orderText;
             }
 
+            // Z position indicator
+            const zPos = document.createElement('span');
+            zPos.className = 'layer-stack-z';
+            zPos.textContent = `z${cumulativeZ.toFixed(1)}`;
+
+            // Thickness input
+            const thicknessInput = document.createElement('input');
+            thicknessInput.type = 'number';
+            thicknessInput.className = 'layer-stack-thickness';
+            thicknessInput.value = state.layerThicknesses[index];
+            thicknessInput.min = '0.1';
+            thicknessInput.max = '20';
+            thicknessInput.step = '0.5';
+            thicknessInput.title = 'Layer thickness (mm)';
+            thicknessInput.addEventListener('change', (e) => {
+                const newValue = parseFloat(e.target.value) || defaultThickness;
+                state.layerThicknesses[index] = Math.max(0.1, Math.min(20, newValue));
+                render(); // Re-render with new thickness
+            });
+
+            const layerThickness = state.layerThicknesses[index];
             const range = document.createElement('span');
             range.className = 'layer-stack-range';
-            const start = (index * thickness).toFixed(1);
-            const end = ((index + 1) * thickness).toFixed(1);
-            range.textContent = `${start}-${end}mm`;
+            range.textContent = `${cumulativeZ.toFixed(1)}-${(cumulativeZ + layerThickness).toFixed(1)}mm`;
+
+            cumulativeZ += layerThickness;
 
             row.appendChild(swatch);
             row.appendChild(label);
+            row.appendChild(zPos);
+            row.appendChild(thicknessInput);
             row.appendChild(range);
 
             const hasSelection = selectionSet && selectionSet.size > 0;
@@ -402,8 +423,8 @@ export function createObjPreview({
         try {
             clearGroup();
 
-            const thicknessValue = elements.objThicknessSlider ? parseFloat(elements.objThicknessSlider.value) : 4;
-            const thickness = Number.isFinite(thicknessValue) ? thicknessValue : 4;
+            const defaultThickness = elements.objThicknessSlider ? parseFloat(elements.objThicknessSlider.value) : 4;
+            const thickness = Number.isFinite(defaultThickness) ? defaultThickness : 4;
             const detailValue = elements.objDetailSlider ? parseInt(elements.objDetailSlider.value, 10) : 6;
             const curveSegments = Number.isFinite(detailValue) ? Math.max(1, detailValue) : 6;
             const bedKey = elements.objBedSelect?.value || 'x1';
@@ -413,6 +434,22 @@ export function createObjPreview({
             const selectionSet = getSelectionIndices();
             const hasSelection = selectionSet.size > 0;
             const displayMode = state.objPreview.layerDisplayMode;
+
+            // Initialize layer thicknesses if needed
+            const layerCount = dataToExport.palette.length;
+            if (!state.layerThicknesses || state.layerThicknesses.length !== layerCount) {
+                state.layerThicknesses = new Array(layerCount).fill(thickness);
+            }
+
+            // Precompute cumulative Z positions for each layer
+            const layerZPositions = [];
+            const layerThicknessValues = [];
+            let cumulativeZ = 0;
+            for (let i = 0; i < layerCount; i++) {
+                layerZPositions.push(cumulativeZ);
+                layerThicknessValues.push(state.layerThicknesses[i]);
+                cumulativeZ += state.layerThicknesses[i];
+            }
 
             const svgString = tracer.getsvgstring(dataToExport, state.lastOptions);
             const loader = new SVGLoader();
@@ -426,7 +463,8 @@ export function createObjPreview({
                     ? path.color
                     : new THREERef.Color(path.color || '#000');
                 const layerIndex = getLayerIndexForColor(layerIndexMap, sourceColor.getHexString());
-                const layerZ = layerIndex * thickness;
+                const layerZ = layerZPositions[layerIndex] || 0;
+                const layerDepth = layerThicknessValues[layerIndex] || thickness;
                 const isSelected = !hasSelection || selectionSet.has(layerIndex);
                 if (hasSelection && displayMode === 'solo' && !isSelected) {
                     return;
@@ -443,7 +481,7 @@ export function createObjPreview({
 
                 shapes.forEach((shape) => {
                     const geometry = new THREERef.ExtrudeGeometry(shape, {
-                        depth: thickness,
+                        depth: layerDepth,
                         curveSegments,
                         bevelEnabled: false
                     });
