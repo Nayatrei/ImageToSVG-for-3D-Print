@@ -92,7 +92,9 @@ document.addEventListener('DOMContentLoaded', () => {
         finalPaletteContent: document.getElementById('final-palette-content'),
         toggleAvailableLayersBtn: document.getElementById('toggle-available-layers'),
         toggleFinalPaletteBtn: document.getElementById('toggle-final-palette'),
-        exportLayersBtn: document.getElementById('export-layers-btn')
+        exportLayersBtn: document.getElementById('export-layers-btn'),
+        useBaseLayerCheckbox: document.getElementById('use-base-layer'),
+        baseLayerSelect: document.getElementById('base-layer-select')
     };
 
     // --- State Management ---
@@ -113,6 +115,8 @@ document.addEventListener('DOMContentLoaded', () => {
         colorsAnalyzed: false,
         estimatedColorCount: null,
         layerThicknesses: null,
+        useBaseLayer: false,
+        baseLayerIndex: 0,
         exportScale: 100,
         preserveAlpha: true,
         showAvailableLayers: true,
@@ -1297,6 +1301,23 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     if (elements.toggleFinalPaletteBtn) {
         elements.toggleFinalPaletteBtn.addEventListener('click', () => setFinalPaletteVisible(!state.showFinalPalette));
+    }
+
+    // Base layer option
+    if (elements.useBaseLayerCheckbox) {
+        elements.useBaseLayerCheckbox.addEventListener('change', () => {
+            state.useBaseLayer = elements.useBaseLayerCheckbox.checked;
+            if (elements.baseLayerSelect) {
+                elements.baseLayerSelect.disabled = !state.useBaseLayer;
+            }
+            objPreview.render();
+        });
+    }
+    if (elements.baseLayerSelect) {
+        elements.baseLayerSelect.addEventListener('change', () => {
+            state.baseLayerIndex = parseInt(elements.baseLayerSelect.value, 10) || 0;
+            objPreview.render();
+        });
     }
 
     // Zoom control event listeners

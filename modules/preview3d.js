@@ -308,6 +308,10 @@ export function createObjPreview({
 
         if (!dataToExport || !Array.isArray(dataToExport.palette) || dataToExport.palette.length === 0) {
             elements.layerStackMeta.textContent = 'No layers yet';
+            // Clear base layer select
+            if (elements.baseLayerSelect) {
+                elements.baseLayerSelect.innerHTML = '<option value="0">L0</option>';
+            }
             return;
         }
 
@@ -318,8 +322,36 @@ export function createObjPreview({
             state.layerThicknesses = new Array(layerCount).fill(defaultThickness);
         }
 
-        // All layers share base at z=0, show max height (tallest layer)
-        const maxHeight = Math.max(...state.layerThicknesses).toFixed(1);
+        // Populate base layer select options
+        if (elements.baseLayerSelect) {
+            const currentValue = elements.baseLayerSelect.value;
+            elements.baseLayerSelect.innerHTML = '';
+            for (let i = 0; i < layerCount; i++) {
+                const option = document.createElement('option');
+                option.value = i;
+                option.textContent = `L${i}`;
+                elements.baseLayerSelect.appendChild(option);
+            }
+            // Restore previous selection if still valid
+            if (parseInt(currentValue, 10) < layerCount) {
+                elements.baseLayerSelect.value = currentValue;
+                state.baseLayerIndex = parseInt(currentValue, 10);
+            } else {
+                state.baseLayerIndex = 0;
+            }
+        }
+
+        // Calculate max height based on base layer mode
+        const baseThickness = state.useBaseLayer ? (state.layerThicknesses[state.baseLayerIndex] || defaultThickness) : 0;
+        let maxHeight;
+        if (state.useBaseLayer) {
+            // Total height = base thickness + max of other layers
+            const otherThicknesses = state.layerThicknesses.filter((_, i) => i !== state.baseLayerIndex);
+            const maxOther = otherThicknesses.length > 0 ? Math.max(...otherThicknesses) : 0;
+            maxHeight = (baseThickness + maxOther).toFixed(1);
+        } else {
+            maxHeight = Math.max(...state.layerThicknesses).toFixed(1);
+        }
         elements.layerStackMeta.textContent = `${layerCount} layer${layerCount === 1 ? '' : 's'} · max ${maxHeight}mm`;
 
         let mergedGroups = null;
@@ -338,7 +370,11 @@ export function createObjPreview({
 
             const label = document.createElement('span');
             label.className = 'layer-stack-label';
-            const orderText = `L${index}`;
+            let orderText = `L${index}`;
+            // Add base badge if this is the base layer
+            if (state.useBaseLayer && index === state.baseLayerIndex) {
+                orderText += ' (Base)';
+            }
             if (mergedGroups) {
                 const sourceIndices = mergedGroups[index] || [];
                 if (sourceIndices.length > 1) {
@@ -368,7 +404,17 @@ export function createObjPreview({
             const layerThickness = state.layerThicknesses[index];
             const heightLabel = document.createElement('span');
             heightLabel.className = 'layer-stack-range';
-            heightLabel.textContent = `0-${layerThickness.toFixed(1)}mm`;
+            // Show z-position range based on base layer mode
+            if (state.useBaseLayer) {
+                if (index === state.baseLayerIndex) {
+                    heightLabel.textContent = `0-${layerThickness.toFixed(1)}mm`;
+                } else {
+                    const zStart = baseThickness;
+                    heightLabel.textContent = `${zStart.toFixed(1)}-${(zStart + layerThickness).toFixed(1)}mm`;
+                }
+            } else {
+                heightLabel.textContent = `0-${layerThickness.toFixed(1)}mm`;
+            }
 
             row.appendChild(swatch);
             row.appendChild(label);
@@ -433,6 +479,11 @@ export function createObjPreview({
                 state.layerThicknesses = new Array(layerCount).fill(thickness);
             }
 
+            // Base layer positioning
+            const useBaseLayer = state.useBaseLayer || false;
+            const baseLayerIndex = state.baseLayerIndex || 0;
+            const baseLayerThickness = useBaseLayer ? (state.layerThicknesses[baseLayerIndex] || thickness) : 0;
+
             const svgString = tracer.getsvgstring(dataToExport, state.lastOptions);
             const loader = new SVGLoader();
             const svgData = loader.parse(svgString);
@@ -445,7 +496,6 @@ export function createObjPreview({
                     ? path.color
                     : new THREERef.Color(path.color || '#000');
                 const layerIndex = getLayerIndexForColor(layerIndexMap, sourceColor.getHexString());
-                // All layers start at z=0 (shared base) and extend upward by their thickness
                 const layerDepth = state.layerThicknesses[layerIndex] || thickness;
                 const isSelected = !hasSelection || selectionSet.has(layerIndex);
                 if (hasSelection && displayMode === 'solo' && !isSelected) {
@@ -461,6 +511,18 @@ export function createObjPreview({
                     material.depthWrite = false;
                 }
 
+                // Calculate z position based on base layer mode
+                let zPosition = 0;
+                if (useBaseLayer) {
+                    if (layerIndex === baseLayerIndex) {
+                        // Base layer starts at z=0
+                        zPosition = 0;
+                    } else {
+                        // Other layers sit on top of the base layer
+                        zPosition = baseLayerThickness;
+                    }
+                }
+
                 shapes.forEach((shape) => {
                     const geometry = new THREERef.ExtrudeGeometry(shape, {
                         depth: layerDepth,
@@ -470,7 +532,7 @@ export function createObjPreview({
                     geometry.rotateX(Math.PI);
                     geometry.computeVertexNormals();
                     const mesh = new THREERef.Mesh(geometry, material);
-                    mesh.position.z = 0; // All layers share the same base at z=0
+                    mesh.position.z = zPosition;
                     preview.group.add(mesh);
                 });
             });

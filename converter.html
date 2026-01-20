@@ -1312,6 +1312,58 @@
             text-align: right;
             min-width: 65px;
         }
+
+        .layer-stack-options {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 0.5rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 1px solid #374151;
+        }
+
+        .layer-stack-option {
+            display: flex;
+            align-items: center;
+            gap: 0.35rem;
+            font-size: 0.7rem;
+            color: #9ca3af;
+            cursor: pointer;
+        }
+
+        .layer-stack-checkbox {
+            width: 14px;
+            height: 14px;
+            cursor: pointer;
+        }
+
+        .layer-stack-select {
+            padding: 2px 6px;
+            font-size: 0.7rem;
+            background: #374151;
+            border: 1px solid #4b5563;
+            border-radius: 4px;
+            color: #e5e7eb;
+        }
+
+        .layer-stack-select:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .layer-stack-item.is-base {
+            background: rgba(59, 130, 246, 0.15);
+            border-color: #3b82f6;
+        }
+
+        .layer-stack-item .base-badge {
+            font-size: 0.55rem;
+            background: #3b82f6;
+            color: white;
+            padding: 1px 4px;
+            border-radius: 3px;
+            margin-left: 4px;
+        }
     </style>
 </head>
 <body class="h-screen w-screen overflow-hidden antialiased">
@@ -1543,8 +1595,17 @@
                                 </div>
                                 <div class="layer-stack-card">
                                     <div class="layer-stack-header">
-                                        <span>Layer Heights (shared base)</span>
+                                        <span>Layer Heights</span>
                                         <span id="layer-stack-meta">—</span>
+                                    </div>
+                                    <div class="layer-stack-options">
+                                        <label class="layer-stack-option">
+                                            <input type="checkbox" id="use-base-layer" class="layer-stack-checkbox">
+                                            <span>Use base layer</span>
+                                        </label>
+                                        <select id="base-layer-select" class="layer-stack-select" disabled>
+                                            <option value="0">L0</option>
+                                        </select>
                                     </div>
                                     <div id="layer-stack-list" class="layer-stack-list"></div>
                                 </div>
