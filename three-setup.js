@@ -4,6 +4,6 @@ import { OBJExporter } from './vendor/three/examples/jsm/exporters/OBJExporter.j
 import * as BufferGeometryUtils from './vendor/three/examples/jsm/utils/BufferGeometryUtils.js';
 
 window.THREE = THREE;
-THREE.BufferGeometryUtils = BufferGeometryUtils;
 window.SVGLoader = SVGLoader;
 window.OBJExporter = OBJExporter;
+window.BufferGeometryUtils = BufferGeometryUtils;

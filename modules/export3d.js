@@ -26,8 +26,9 @@ function buildLayerGeometries({
 }) {
     const SVGLoader = window.SVGLoader || window.THREE?.SVGLoader;
     const THREERef = window.THREE;
+    const bufferUtils = window.BufferGeometryUtils || THREERef?.BufferGeometryUtils;
 
-    if (!SVGLoader || !THREERef) return null;
+    if (!SVGLoader || !THREERef || !bufferUtils) return null;
 
     const detailValue = elements.objDetailSlider ? parseInt(elements.objDetailSlider.value, 10) : 6;
     const curveSegments = Number.isFinite(detailValue) ? Math.max(1, detailValue) : 6;
@@ -112,7 +113,7 @@ function buildLayerGeometries({
     layerGeometries.forEach((layerData, layerIndex) => {
         if (layerData.geometries.length === 0) return;
 
-        const mergedGeometry = THREERef.BufferGeometryUtils.mergeGeometries(layerData.geometries, false);
+        const mergedGeometry = bufferUtils.mergeGeometries(layerData.geometries, false);
         if (mergedGeometry) {
             // Recompute normals after merging for clean surfaces
             mergedGeometry.computeVertexNormals();
@@ -574,7 +575,8 @@ export function createObjExporter({
         const OBJExporter = window.OBJExporter || window.THREE?.OBJExporter;
         const THREERef = window.THREE;
 
-        if (!SVGLoader || !OBJExporter || !THREERef || !THREERef.BufferGeometryUtils) {
+        const bufferUtils = window.BufferGeometryUtils || THREERef?.BufferGeometryUtils;
+        if (!SVGLoader || !OBJExporter || !THREERef || !bufferUtils) {
             elements.statusText.textContent = 'OBJ export libraries are still loading.';
             return;
         }
@@ -657,7 +659,8 @@ export function createObjExporter({
         const SVGLoader = window.SVGLoader || window.THREE?.SVGLoader;
         const THREERef = window.THREE;
 
-        if (!SVGLoader || !THREERef || !THREERef.BufferGeometryUtils) {
+        const bufferUtils = window.BufferGeometryUtils || THREERef?.BufferGeometryUtils;
+        if (!SVGLoader || !THREERef || !bufferUtils) {
             elements.statusText.textContent = '3MF export libraries are still loading.';
             return;
         }
@@ -713,7 +716,8 @@ export function createObjExporter({
         const SVGLoader = window.SVGLoader || window.THREE?.SVGLoader;
         const THREERef = window.THREE;
 
-        if (!SVGLoader || !THREERef || !THREERef.BufferGeometryUtils) {
+        const bufferUtils = window.BufferGeometryUtils || THREERef?.BufferGeometryUtils;
+        if (!SVGLoader || !THREERef || !bufferUtils) {
             elements.statusText.textContent = 'STL export libraries are still loading.';
             return;
         }
