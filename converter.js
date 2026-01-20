@@ -193,7 +193,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         if (elements.sourceImage.src) {
             state.colorsAnalyzed = false;
-            elements.optimizePathsBtn?.disabled = true;
+            if (elements.optimizePathsBtn) elements.optimizePathsBtn.disabled = true;
             elements.analyzeColorsBtn.click();
         }
         
@@ -747,7 +747,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!state.quantizedData) return;
         showLoader(true);
         elements.statusText.textContent = 'Tracing vector paths...';
-        elements.optimizePathsBtn?.disabled = true;
+        if (elements.optimizePathsBtn) elements.optimizePathsBtn.disabled = true;
         
         return new Promise((resolve, reject) => {
             setTimeout(async () => {
@@ -808,7 +808,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     reject(error);
                 } finally {
                     showLoader(false);
-                    elements.optimizePathsBtn?.disabled = false;
+                    if (elements.optimizePathsBtn) elements.optimizePathsBtn.disabled = false;
                 }
             }, 50);
         });
@@ -1233,7 +1233,7 @@ document.addEventListener('DOMContentLoaded', () => {
             setHighFidelity(!state.highFidelity);
             if (state.colorsAnalyzed && elements.sourceImage.src) {
                 state.colorsAnalyzed = false;
-                elements.optimizePathsBtn?.disabled = true;
+                if (elements.optimizePathsBtn) elements.optimizePathsBtn.disabled = true;
                 elements.statusText.textContent = 'Fidelity changed. Re-analyze colors.';
             }
         });
@@ -1340,7 +1340,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (e.target.id === 'color-precision' || e.target.id === 'max-colors') {
                 if (state.colorsAnalyzed && elements.sourceImage.src) {
                     state.colorsAnalyzed = false;
-                    elements.optimizePathsBtn?.disabled = true;
+                    if (elements.optimizePathsBtn) elements.optimizePathsBtn.disabled = true;
                     // Don't auto-trigger, let user click the button
                 }
                 // Update color count notice when max colors changes
@@ -1490,7 +1490,7 @@ document.addEventListener('DOMContentLoaded', () => {
         updateColorCountNotice();
 
         state.colorsAnalyzed = false;
-        elements.optimizePathsBtn?.disabled = true;
+        if (elements.optimizePathsBtn) elements.optimizePathsBtn.disabled = true;
         saveInitialSliderValues();
         elements.analyzeColorsBtn.click();
         
