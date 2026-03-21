@@ -116,7 +116,7 @@ document.addEventListener('DOMContentLoaded', () => {
         colorsAnalyzed: false,
         estimatedColorCount: null,
         layerThicknesses: null,
-        useBaseLayer: false,
+        useBaseLayer: true,
         baseLayerIndex: 0,
         exportScale: 100,
         preserveAlpha: true,
@@ -1309,6 +1309,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Base layer option
     if (elements.useBaseLayerCheckbox) {
+        elements.useBaseLayerCheckbox.checked = state.useBaseLayer;
         elements.useBaseLayerCheckbox.addEventListener('change', () => {
             state.useBaseLayer = elements.useBaseLayerCheckbox.checked;
             if (elements.baseLayerSelect) {
@@ -1318,6 +1319,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
     if (elements.baseLayerSelect) {
+        elements.baseLayerSelect.disabled = !state.useBaseLayer;
         elements.baseLayerSelect.addEventListener('change', () => {
             state.baseLayerIndex = parseInt(elements.baseLayerSelect.value, 10) || 0;
             objPreview.render();

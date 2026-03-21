@@ -1,5 +1,6 @@
 import { BED_PRESETS } from './config.js';
 import { buildLayerIndexMap, getLayerIndexForColor } from './obj-layers.js';
+import { ensureLayerThicknesses, computeLayerLayout } from './layer-layout.js';
 
 function buildMtl(materials, name) {
     if (!materials || materials.size === 0) return '';
@@ -42,16 +43,14 @@ function buildLayerGeometries({
     const svgData = loader.parse(svgString);
     const layerIndexMap = buildLayerIndexMap(dataToExport.palette);
 
-    // Layer thicknesses
     const layerCount = dataToExport.palette.length;
-    const layerThicknesses = state.layerThicknesses && state.layerThicknesses.length === layerCount
-        ? state.layerThicknesses
-        : new Array(layerCount).fill(defaultThickness);
-
-    // Base layer positioning
-    const useBaseLayer = state.useBaseLayer || false;
-    const baseLayerIndex = state.baseLayerIndex || 0;
-    const baseLayerThickness = useBaseLayer ? (layerThicknesses[baseLayerIndex] || defaultThickness) : 0;
+    const layerThicknesses = ensureLayerThicknesses(state, layerCount, defaultThickness);
+    const layout = computeLayerLayout({
+        layerThicknesses,
+        useBaseLayer: state.useBaseLayer,
+        baseLayerIndex: state.baseLayerIndex
+    });
+    state.baseLayerIndex = layout.baseLayerIndex;
 
     // Group geometries by layer index
     const layerGeometries = new Map(); // layerIndex -> { geometries: [], color: {r,g,b}, zPosition, depth }
@@ -65,17 +64,8 @@ function buildLayerGeometries({
             : new THREERef.Color(path.color || '#000');
         const hex = sourceColor.getHexString();
         const layerIndex = getLayerIndexForColor(layerIndexMap, hex);
-        const layerDepth = layerThicknesses[layerIndex] || defaultThickness;
-
-        // Calculate z position
-        let zPosition = 0;
-        if (useBaseLayer) {
-            if (layerIndex === baseLayerIndex) {
-                zPosition = 0;
-            } else {
-                zPosition = baseLayerThickness;
-            }
-        }
+        const layerDepth = layout.depths[layerIndex] || defaultThickness;
+        const zPosition = layout.positions[layerIndex] || 0;
 
         if (!layerGeometries.has(layerIndex)) {
             const paletteColor = dataToExport.palette[layerIndex];
@@ -160,6 +150,7 @@ function buildLayerGeometries({
     return {
         layers: mergedLayers,
         layerThicknesses,
+        layout,
         scale
     };
 }
@@ -628,8 +619,7 @@ export function createObjExporter({
             group.updateMatrixWorld(true);
             let obj = exporter.parse(group);
 
-            const maxThickness = Math.max(...(state.layerThicknesses || [defaultThickness]));
-            const baseName = `${getImageBaseName()}_${Math.round(maxThickness)}mm`;
+            const baseName = `${getImageBaseName()}_${Math.round(result.layout.maxHeight || defaultThickness)}mm`;
             const mtl = buildMtl(materials, baseName);
 
             if (mtl) {
@@ -690,8 +680,7 @@ export function createObjExporter({
                 throw new Error('No geometry generated');
             }
 
-            const maxThickness = Math.max(...(state.layerThicknesses || [defaultThickness]));
-            const baseName = `${getImageBaseName()}_${Math.round(maxThickness)}mm`;
+            const baseName = `${getImageBaseName()}_${Math.round(result.layout.maxHeight || defaultThickness)}mm`;
 
             const blob = await generate3MF(result.layers, baseName);
             downloadBlob(blob, `${baseName}.3mf`);
@@ -747,8 +736,7 @@ export function createObjExporter({
                 throw new Error('No geometry generated');
             }
 
-            const maxThickness = Math.max(...(state.layerThicknesses || [defaultThickness]));
-            const baseName = `${getImageBaseName()}_${Math.round(maxThickness)}mm`;
+            const baseName = `${getImageBaseName()}_${Math.round(result.layout.maxHeight || defaultThickness)}mm`;
 
             // Export each layer as separate STL
             let exportedCount = 0;

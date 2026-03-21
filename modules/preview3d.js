@@ -1,5 +1,6 @@
 import { OBJ_ZOOM_MIN, OBJ_ZOOM_MAX, BED_PRESETS } from './config.js';
 import { buildLayerIndexMap, getLayerIndexForColor } from './obj-layers.js';
+import { ensureLayerThicknesses, computeLayerLayout } from './layer-layout.js';
 
 export function createObjPreview({
     state,
@@ -317,10 +318,13 @@ export function createObjPreview({
 
         const layerCount = dataToExport.palette.length;
 
-        // Initialize layer thicknesses if not set
-        if (!state.layerThicknesses || state.layerThicknesses.length !== layerCount) {
-            state.layerThicknesses = new Array(layerCount).fill(defaultThickness);
-        }
+        const layerThicknesses = ensureLayerThicknesses(state, layerCount, defaultThickness);
+        const layout = computeLayerLayout({
+            layerThicknesses,
+            useBaseLayer: state.useBaseLayer,
+            baseLayerIndex: state.baseLayerIndex
+        });
+        state.baseLayerIndex = layout.baseLayerIndex;
 
         // Populate base layer select options
         if (elements.baseLayerSelect) {
@@ -337,22 +341,12 @@ export function createObjPreview({
                 elements.baseLayerSelect.value = currentValue;
                 state.baseLayerIndex = parseInt(currentValue, 10);
             } else {
-                state.baseLayerIndex = 0;
+                state.baseLayerIndex = layout.baseLayerIndex;
             }
+            elements.baseLayerSelect.value = String(state.baseLayerIndex);
         }
 
-        // Calculate max height based on base layer mode
-        const baseThickness = state.useBaseLayer ? (state.layerThicknesses[state.baseLayerIndex] || defaultThickness) : 0;
-        let maxHeight;
-        if (state.useBaseLayer) {
-            // Total height = base thickness + max of other layers
-            const otherThicknesses = state.layerThicknesses.filter((_, i) => i !== state.baseLayerIndex);
-            const maxOther = otherThicknesses.length > 0 ? Math.max(...otherThicknesses) : 0;
-            maxHeight = (baseThickness + maxOther).toFixed(1);
-        } else {
-            maxHeight = Math.max(...state.layerThicknesses).toFixed(1);
-        }
-        elements.layerStackMeta.textContent = `${layerCount} layer${layerCount === 1 ? '' : 's'} · max ${maxHeight}mm`;
+        elements.layerStackMeta.textContent = `${layerCount} layer${layerCount === 1 ? '' : 's'} · max ${layout.maxHeight.toFixed(1)}mm`;
 
         let mergedGroups = null;
         if (state.mergeRules.length > 0) {
@@ -390,7 +384,7 @@ export function createObjPreview({
             const thicknessInput = document.createElement('input');
             thicknessInput.type = 'number';
             thicknessInput.className = 'layer-stack-thickness';
-            thicknessInput.value = state.layerThicknesses[index];
+            thicknessInput.value = layerThicknesses[index];
             thicknessInput.min = '0.1';
             thicknessInput.max = '20';
             thicknessInput.step = '0.5';
@@ -401,25 +395,20 @@ export function createObjPreview({
                 render(); // Re-render with new thickness
             });
 
-            const layerThickness = state.layerThicknesses[index];
+            const layerThickness = layerThicknesses[index];
             const heightLabel = document.createElement('span');
             heightLabel.className = 'layer-stack-range';
-            // Show z-position range based on base layer mode
-            if (state.useBaseLayer) {
-                if (index === state.baseLayerIndex) {
-                    heightLabel.textContent = `0-${layerThickness.toFixed(1)}mm`;
-                } else {
-                    const zStart = baseThickness;
-                    heightLabel.textContent = `${zStart.toFixed(1)}-${(zStart + layerThickness).toFixed(1)}mm`;
-                }
-            } else {
-                heightLabel.textContent = `0-${layerThickness.toFixed(1)}mm`;
-            }
+            const zStart = layout.positions[index];
+            heightLabel.textContent = `${zStart.toFixed(1)}-${(zStart + layerThickness).toFixed(1)}mm`;
 
             row.appendChild(swatch);
             row.appendChild(label);
             row.appendChild(thicknessInput);
             row.appendChild(heightLabel);
+
+            if (state.useBaseLayer && index === state.baseLayerIndex) {
+                row.classList.add('is-base');
+            }
 
             const hasSelection = selectionSet && selectionSet.size > 0;
             const isSelected = selectionSet && selectionSet.has(index);
@@ -473,16 +462,14 @@ export function createObjPreview({
             const hasSelection = selectionSet.size > 0;
             const displayMode = state.objPreview.layerDisplayMode;
 
-            // Initialize layer thicknesses if needed
             const layerCount = dataToExport.palette.length;
-            if (!state.layerThicknesses || state.layerThicknesses.length !== layerCount) {
-                state.layerThicknesses = new Array(layerCount).fill(thickness);
-            }
-
-            // Base layer positioning
-            const useBaseLayer = state.useBaseLayer || false;
-            const baseLayerIndex = state.baseLayerIndex || 0;
-            const baseLayerThickness = useBaseLayer ? (state.layerThicknesses[baseLayerIndex] || thickness) : 0;
+            const layerThicknesses = ensureLayerThicknesses(state, layerCount, thickness);
+            const layout = computeLayerLayout({
+                layerThicknesses,
+                useBaseLayer: state.useBaseLayer,
+                baseLayerIndex: state.baseLayerIndex
+            });
+            state.baseLayerIndex = layout.baseLayerIndex;
 
             const svgString = tracer.getsvgstring(dataToExport, state.lastOptions);
             const loader = new SVGLoader();
@@ -496,7 +483,7 @@ export function createObjPreview({
                     ? path.color
                     : new THREERef.Color(path.color || '#000');
                 const layerIndex = getLayerIndexForColor(layerIndexMap, sourceColor.getHexString());
-                const layerDepth = state.layerThicknesses[layerIndex] || thickness;
+                const layerDepth = layout.depths[layerIndex] || thickness;
                 const isSelected = !hasSelection || selectionSet.has(layerIndex);
                 if (hasSelection && displayMode === 'solo' && !isSelected) {
                     return;
@@ -511,17 +498,7 @@ export function createObjPreview({
                     material.depthWrite = false;
                 }
 
-                // Calculate z position based on base layer mode
-                let zPosition = 0;
-                if (useBaseLayer) {
-                    if (layerIndex === baseLayerIndex) {
-                        // Base layer starts at z=0
-                        zPosition = 0;
-                    } else {
-                        // Other layers sit on top of the base layer
-                        zPosition = baseLayerThickness;
-                    }
-                }
+                const zPosition = layout.positions[layerIndex] || 0;
 
                 shapes.forEach((shape) => {
                     const geometry = new THREERef.ExtrudeGeometry(shape, {
