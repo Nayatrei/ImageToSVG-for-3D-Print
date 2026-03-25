@@ -1372,11 +1372,11 @@ body,
 }
 
 .app-brand-mark {
-    width: 42px;
-    height: 42px;
+    width: 63px;
+    height: 63px;
     flex-shrink: 0;
     object-fit: cover;
-    border-radius: 12px;
+    border-radius: 16px;
     border: 1px solid rgba(96, 165, 250, 0.35);
     box-shadow:
         0 10px 24px rgba(0, 0, 0, 0.22),
@@ -1684,7 +1684,9 @@ body,
 
 @media (max-width: 1023px) {
     .app-shell {
-        grid-template-columns: 1fr;
+        display: flex;
+        flex-direction: column;
+        gap: 0;
     }
 
     .app-sidebar,
@@ -1692,17 +1694,36 @@ body,
         min-height: 0;
     }
 
-    .control-panel {
-        border-right: none;
-        border-bottom: 1px solid var(--border-color);
+    .app-workspace {
+        order: 1;
+        min-height: 68dvh;
+        padding-top: 0;
+        overflow: visible;
     }
 
     .app-sidebar {
+        order: 2;
         box-shadow: none;
+        border-top: 1px solid rgba(75, 85, 99, 0.85);
+        background:
+            linear-gradient(180deg, rgba(31, 41, 55, 0.98), rgba(17, 24, 39, 0.98));
+    }
+
+    .control-panel {
+        border-right: none;
+        border-bottom: none;
     }
 
     .app-sidebar > .flex-grow {
         overflow: visible;
+    }
+
+    .app-sidebar > header {
+        position: sticky;
+        top: 0;
+        z-index: 12;
+        background: rgba(31, 41, 55, 0.96);
+        backdrop-filter: blur(14px);
     }
 
     .app-sidebar > footer,
@@ -1716,13 +1737,18 @@ body,
         box-shadow: 0 -12px 24px rgba(0, 0, 0, 0.28);
     }
 
-    .app-workspace {
-        padding-top: 0;
-        overflow: visible;
+    .workspace-topbar {
+        position: sticky;
+        top: 0;
+        z-index: 18;
+        padding: 0.75rem 0 0.5rem;
+        background:
+            linear-gradient(180deg, rgba(15, 23, 42, 0.98), rgba(15, 23, 42, 0.86) 74%, rgba(15, 23, 42, 0));
+        backdrop-filter: blur(14px);
     }
 
     .workspace-toolbar-group {
-        justify-content: space-between;
+        justify-content: flex-end;
     }
 
     #output-section {
@@ -1750,24 +1776,31 @@ body,
         --source-height: clamp(180px, 30vh, 240px);
     }
 
+    .app-workspace {
+        min-height: 62dvh;
+    }
+
     .app-brand {
         align-items: flex-start;
     }
 
     .app-brand-mark {
-        width: 36px;
-        height: 36px;
-        border-radius: 10px;
+        width: 54px;
+        height: 54px;
+        border-radius: 14px;
     }
 
     .workspace-toolbar-group {
         gap: 0.625rem;
+        justify-content: stretch;
+        width: 100%;
     }
 
     .segmented-control {
         overflow-x: auto;
         padding: 4px;
         gap: 4px;
+        width: 100%;
     }
 
     .segmented-control-tab {
@@ -1789,6 +1822,15 @@ body,
 
     .buy-me-coffee-label {
         font-size: 0.85rem;
+    }
+
+    .export-tabs-overlay {
+        flex: 1 1 auto;
+        min-width: 0;
+    }
+
+    .buy-me-coffee {
+        margin-left: auto;
     }
 
     .app-sidebar #obj-controls .grid.grid-cols-2,
