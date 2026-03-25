@@ -9,17 +9,17 @@
     <meta property="og:title" content="Genesis Image Converter">
     <meta property="og:description" content="Professional image to SVG conversion tool for 3D printing and design">
     <meta property="og:type" content="website">
-    <meta property="og:image" content="favicon.jpg">
-    <link rel="icon" type="image/jpeg" href="favicon.jpg">
-    <link rel="shortcut icon" type="image/jpeg" href="favicon.jpg">
-    <link rel="apple-touch-icon" href="favicon.jpg">
+    <meta property="og:image" content="favIcon.png">
+    <link rel="icon" type="image/png" href="favIcon.png">
+    <link rel="shortcut icon" type="image/png" href="favIcon.png">
+    <link rel="apple-touch-icon" href="favIcon.png">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <script src="imagetracer_v1.2.6.js?v=20260323b"></script>
-    <script type="module" src="three-setup.js?v=20260323b"></script>
-    <script type="module" src="converter.js?v=20260323b"></script>
-    <link rel="stylesheet" href="style.css?v=20260323b">
+    <script src="imagetracer_v1.2.6.js?v=20260324a"></script>
+    <script type="module" src="three-setup.js?v=20260324a"></script>
+    <script type="module" src="converter.js?v=20260324a"></script>
+    <link rel="stylesheet" href="style.css?v=20260324a">
 </head>
 <body class="app-body antialiased">
 
@@ -32,8 +32,13 @@
         <!-- Control Panel -->
         <aside class="control-panel app-sidebar w-[26rem] flex flex-col flex-shrink-0">
             <header class="p-6 border-b border-gray-700">
-                <h1 class="text-2xl font-bold text-gray-100">Genesis Image Converter</h1>
-                <p class="text-sm text-gray-400">Vector & Raster Image Tools</p>
+                <div class="app-brand">
+                    <img src="favIcon.png?v=20260324a" alt="" class="app-brand-mark">
+                    <div class="app-brand-copy">
+                        <h1 class="text-2xl font-bold text-gray-100">Genesis Image Converter</h1>
+                        <p class="text-sm text-gray-400">Vector & Raster Image Tools</p>
+                    </div>
+                </div>
             </header>
 
             <div class="flex-grow p-6 overflow-y-auto">
@@ -412,66 +417,78 @@
 
                 <!-- SVG Export Footer (Fixed at bottom) -->
                 <footer id="svg-export-footer" class="p-4 border-t border-gray-700 bg-gray-800 flex-shrink-0">
-                    <div class="footer-actions-grid footer-actions-grid-six">
-                        <button id="export-layers-btn" class="btn-primary font-semibold py-3 px-4 rounded-md text-sm disabled:bg-gray-600 disabled:cursor-not-allowed" disabled>
-                            Export Layers
-                        </button>
-                        <button id="download-silhouette-btn" class="btn-secondary font-semibold py-3 px-4 rounded-md text-sm disabled:bg-gray-600 disabled:cursor-not-allowed" disabled>
-                            Silhouette
-                        </button>
-                        <button id="download-combined-layers-btn" class="btn-secondary font-semibold py-3 px-4 rounded-md text-sm disabled:bg-gray-600 disabled:cursor-not-allowed" disabled>
-                            Combined
-                        </button>
-                        <button id="export-obj-btn" class="btn-secondary font-semibold py-3 px-4 rounded-md text-sm disabled:bg-gray-600 disabled:cursor-not-allowed" disabled>
-                            OBJ + MTL
-                        </button>
-                        <button id="export-3mf-btn" class="btn-secondary font-semibold py-3 px-4 rounded-md text-sm disabled:bg-gray-600 disabled:cursor-not-allowed" disabled>
-                            3MF
-                        </button>
-                        <button id="export-stl-btn" class="btn-secondary font-semibold py-3 px-4 rounded-md text-sm disabled:bg-gray-600 disabled:cursor-not-allowed" disabled>
-                            STL
-                        </button>
-                    </div>
-                    <div class="footer-meta-grid footer-meta-grid-six text-xs text-center text-gray-500 mt-2">
-                        <div>Separate files (original or merged)</div>
-                        <div>Outline only</div>
-                        <div>Single file (original or merged)</div>
-                        <div>3D with materials</div>
-                        <div>Bambu Studio</div>
-                        <div>Per-layer files</div>
+                    <div class="footer-action-stack footer-action-stack-six">
+                        <div class="footer-action-card">
+                            <button id="export-layers-btn" class="btn-primary font-semibold py-3 px-4 rounded-md text-sm disabled:bg-gray-600 disabled:cursor-not-allowed" disabled>
+                                Export Layers
+                            </button>
+                            <div class="footer-action-meta">Separate files (original or merged)</div>
+                        </div>
+                        <div class="footer-action-card">
+                            <button id="download-silhouette-btn" class="btn-secondary font-semibold py-3 px-4 rounded-md text-sm disabled:bg-gray-600 disabled:cursor-not-allowed" disabled>
+                                Silhouette
+                            </button>
+                            <div class="footer-action-meta">Outline only</div>
+                        </div>
+                        <div class="footer-action-card">
+                            <button id="download-combined-layers-btn" class="btn-secondary font-semibold py-3 px-4 rounded-md text-sm disabled:bg-gray-600 disabled:cursor-not-allowed" disabled>
+                                Combined
+                            </button>
+                            <div class="footer-action-meta">Single file (original or merged)</div>
+                        </div>
+                        <div class="footer-action-card">
+                            <button id="export-obj-btn" class="btn-secondary font-semibold py-3 px-4 rounded-md text-sm disabled:bg-gray-600 disabled:cursor-not-allowed" disabled>
+                                OBJ + MTL
+                            </button>
+                            <div class="footer-action-meta">3D with materials</div>
+                        </div>
+                        <div class="footer-action-card">
+                            <button id="export-3mf-btn" class="btn-secondary font-semibold py-3 px-4 rounded-md text-sm disabled:bg-gray-600 disabled:cursor-not-allowed" disabled>
+                                3MF
+                            </button>
+                            <div class="footer-action-meta">Bambu Studio</div>
+                        </div>
+                        <div class="footer-action-card">
+                            <button id="export-stl-btn" class="btn-secondary font-semibold py-3 px-4 rounded-md text-sm disabled:bg-gray-600 disabled:cursor-not-allowed" disabled>
+                                STL
+                            </button>
+                            <div class="footer-action-meta">Per-layer files</div>
+                        </div>
                     </div>
                 </footer>
 
                 <!-- Raster Download Footer (Fixed at bottom) -->
                 <footer id="download-footer" class="hidden p-4 border-t border-gray-700 bg-gray-800 flex-shrink-0">
-                    <div class="footer-actions-grid footer-actions-grid-three mb-2">
-                        <button id="save-resized-jpg-btn" class="btn-secondary font-semibold py-3 px-4 rounded-md text-sm disabled:bg-gray-600 disabled:cursor-not-allowed" disabled>
-                            Download as JPG
-                        </button>
-                        <button id="save-resized-png-btn" class="btn-primary font-semibold py-3 px-4 rounded-md text-sm disabled:bg-gray-600 disabled:cursor-not-allowed" disabled>
-                            Download as PNG
-                        </button>
-                        <button id="save-resized-tga-btn" class="btn-secondary font-semibold py-3 px-4 rounded-md text-sm disabled:bg-gray-600 disabled:cursor-not-allowed" disabled>
-                            Download as TGA
-                        </button>
-                    </div>
-
-                    <!-- Format Descriptions - Row 2 -->
-                    <div class="footer-meta-grid footer-meta-grid-three text-xs text-center text-gray-500">
-                        <div>Smallest File Size</div>
-                        <div>
-                            <div class="mb-1">Lossless Compression</div>
-                            <label class="flex items-center gap-2 text-gray-400 cursor-pointer justify-center">
-                                <input id="preserve-alpha-png" type="checkbox" class="accent-blue-500 cursor-pointer" checked>
-                                <span>PNG Alpha</span>
-                            </label>
+                    <div class="footer-action-stack footer-action-stack-three">
+                        <div class="footer-action-card">
+                            <button id="save-resized-jpg-btn" class="btn-secondary font-semibold py-3 px-4 rounded-md text-sm disabled:bg-gray-600 disabled:cursor-not-allowed" disabled>
+                                Download as JPG
+                            </button>
+                            <div class="footer-action-meta">Smallest File Size</div>
                         </div>
-                        <div>
-                            <div class="mb-1">Uncompressed</div>
-                            <label class="flex items-center gap-2 text-gray-400 cursor-pointer justify-center">
-                                <input id="preserve-alpha-tga" type="checkbox" class="accent-blue-500 cursor-pointer" checked>
-                                <span>TGA Alpha</span>
-                            </label>
+                        <div class="footer-action-card">
+                            <button id="save-resized-png-btn" class="btn-primary font-semibold py-3 px-4 rounded-md text-sm disabled:bg-gray-600 disabled:cursor-not-allowed" disabled>
+                                Download as PNG
+                            </button>
+                            <div class="footer-action-meta">
+                                <div>Lossless Compression</div>
+                                <label class="footer-toggle text-gray-400 cursor-pointer">
+                                    <input id="preserve-alpha-png" type="checkbox" class="accent-blue-500 cursor-pointer" checked>
+                                    <span>PNG Alpha</span>
+                                </label>
+                            </div>
+                        </div>
+                        <div class="footer-action-card">
+                            <button id="save-resized-tga-btn" class="btn-secondary font-semibold py-3 px-4 rounded-md text-sm disabled:bg-gray-600 disabled:cursor-not-allowed" disabled>
+                                Download as TGA
+                            </button>
+                            <div class="footer-action-meta">
+                                <div>Uncompressed</div>
+                                <label class="footer-toggle text-gray-400 cursor-pointer">
+                                    <input id="preserve-alpha-tga" type="checkbox" class="accent-blue-500 cursor-pointer" checked>
+                                    <span>TGA Alpha</span>
+                                </label>
+                            </div>
                         </div>
                     </div>
                 </footer>
