@@ -365,9 +365,18 @@
             outline: 2px dashed var(--brand-primary);
             outline-offset: -6px;
         }
-        .workspace.drag-over #welcome-screen {
-            opacity: 0.85;
-        }
+.workspace.drag-over #welcome-screen {
+    opacity: 0.85;
+}
+
+#welcome-screen {
+    cursor: pointer;
+}
+
+#welcome-screen:focus-visible {
+    outline: 2px solid rgba(96, 165, 250, 0.9);
+    outline-offset: -4px;
+}
 
         /* Segmented Control - Enhanced Apple Style */
         .segmented-control-container {

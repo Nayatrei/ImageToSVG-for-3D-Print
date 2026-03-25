@@ -1210,18 +1210,29 @@ document.addEventListener('DOMContentLoaded', () => {
     elements.fileInput.addEventListener('change', (event) => {
         const file = event.target.files[0];
         if (file) {
-            // Reset previous image info
-            resetImageInfo();
-
-            // Store file info
-            state.originalImageFormat = getImageFormat(file.name, null);
-            state.originalImageSize = file.size;
-
-            const reader = new FileReader();
-            reader.onload = (e) => loadImage(e.target.result, file.name);
-            reader.readAsDataURL(file);
+            handleImportedFile(file);
         }
+        event.target.value = '';
     });
+
+    if (elements.welcomeScreen && elements.fileInput) {
+        const openImportPicker = () => elements.fileInput.click();
+        const isInteractiveTarget = (target) => target instanceof Element && Boolean(target.closest('button, a, input, select, textarea, label'));
+
+        elements.welcomeScreen.addEventListener('click', (event) => {
+            if (isInteractiveTarget(event.target)) return;
+            openImportPicker();
+        });
+        elements.welcomeScreen.setAttribute('tabindex', '0');
+        elements.welcomeScreen.setAttribute('role', 'button');
+        elements.welcomeScreen.setAttribute('aria-label', 'Open image import dialog');
+        elements.welcomeScreen.addEventListener('keydown', (event) => {
+            if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                openImportPicker();
+            }
+        });
+    }
 
     elements.loadUrlBtn.addEventListener('click', () => {
         const url = elements.urlInput.value.trim();
@@ -1403,16 +1414,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (dt?.files?.length) {
                 const file = Array.from(dt.files).find(f => f.type.startsWith('image/'));
                 if (file) {
-                    // Reset previous image info
-                    resetImageInfo();
-
-                    // Store file info
-                    state.originalImageFormat = getImageFormat(file.name, null);
-                    state.originalImageSize = file.size;
-
-                    const reader = new FileReader();
-                    reader.onload = (ev) => loadImage(ev.target.result, file.name);
-                    reader.readAsDataURL(file);
+                    handleImportedFile(file);
                     return;
                 }
             }
@@ -1441,6 +1443,19 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         elements.sourceImage.src = src;
+    }
+
+    function handleImportedFile(file) {
+        // Reset previous image info
+        resetImageInfo();
+
+        // Store file info
+        state.originalImageFormat = getImageFormat(file.name, null);
+        state.originalImageSize = file.size;
+
+        const reader = new FileReader();
+        reader.onload = (e) => loadImage(e.target.result, file.name);
+        reader.readAsDataURL(file);
     }
 
     function resetImageInfo() {
