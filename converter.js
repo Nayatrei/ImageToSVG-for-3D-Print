@@ -28,6 +28,7 @@ document.addEventListener('DOMContentLoaded', () => {
         sidebarAdjustSection: document.getElementById('sidebar-adjust-section'),
         sidebarPrimaryFooter: document.getElementById('sidebar-primary-footer'),
         sourceImage: document.getElementById('source-image'),
+        svgSourceMirror: document.getElementById('svg-source-mirror'),
         originalImagePanel: document.getElementById('original-image-panel'),
         singleOriginalView: document.getElementById('single-original-view'),
         bulkOriginalView: document.getElementById('bulk-original-view'),
@@ -298,8 +299,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function setOriginalPanelMode(mode) {
         const showBulk = mode === 'bulk';
+        const showPanel = mode === 'single'; // hide for both 'bulk' and 'svg'
         if (elements.originalImagePanel) {
-            elements.originalImagePanel.classList.toggle('hidden', showBulk);
+            elements.originalImagePanel.classList.toggle('hidden', !showPanel);
         }
         if (elements.singleOriginalView) {
             elements.singleOriginalView.classList.toggle('hidden', showBulk);
@@ -320,11 +322,8 @@ document.addEventListener('DOMContentLoaded', () => {
             elements.mainContent.classList.toggle('hidden', !showMainContent);
         }
         if (elements.outputSection) {
-            if (state.activeTab === 'bulk') {
-                elements.outputSection.style.display = 'flex';
-            } else if (!imageLoaded) {
-                elements.outputSection.style.display = 'none';
-            }
+            const showOutput = state.activeTab === 'bulk' || imageLoaded;
+            elements.outputSection.style.display = showOutput ? 'flex' : 'none';
         }
     }
 
@@ -453,7 +452,7 @@ document.addEventListener('DOMContentLoaded', () => {
             elements.bulkDownloadFooter.classList.add('hidden');
         }
 
-        setOriginalPanelMode(target === 'bulk' ? 'bulk' : 'single');
+        setOriginalPanelMode(target === 'bulk' ? 'bulk' : target === 'svg' ? 'svg' : 'single');
         syncImportPanel();
         syncWorkspaceView();
 
@@ -483,6 +482,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         elements.sourceImage.src = src;
+        if (elements.svgSourceMirror) elements.svgSourceMirror.src = src;
     }
 
     function resetImageInfo() {

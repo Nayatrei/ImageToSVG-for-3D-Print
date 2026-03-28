@@ -66,7 +66,9 @@ export function createObjPreview({
         preview.interactionsBound = true;
 
         const onPointerDown = (event) => {
+            // Left (0) = rotate, Right (2) or Middle (1) = pan
             preview.isDragging = true;
+            preview.dragButton = event.button;
             preview.lastX = event.clientX;
             preview.lastY = event.clientY;
             if (canvas.setPointerCapture) canvas.setPointerCapture(event.pointerId);
@@ -79,11 +81,14 @@ export function createObjPreview({
             preview.lastX = event.clientX;
             preview.lastY = event.clientY;
 
-            if (preview.targetLocked) {
+            const isPan = preview.dragButton === 1 || preview.dragButton === 2;
+            if (!isPan) {
+                // Left drag → orbit/rotate
                 preview.rotationY += deltaX * 0.01;
                 preview.rotationX += deltaY * 0.01;
                 preview.group.rotation.set(preview.rotationX, preview.rotationY, 0);
             } else {
+                // Right/middle drag → pan
                 const scale = preview.panScale || 1;
                 preview.panX += deltaX * scale;
                 preview.panY += -deltaY * scale;
@@ -114,6 +119,7 @@ export function createObjPreview({
         window.addEventListener('pointerup', onPointerUp);
         canvas.addEventListener('pointerleave', onPointerUp);
         canvas.addEventListener('wheel', onWheel, { passive: false });
+        canvas.addEventListener('contextmenu', (e) => e.preventDefault());
     }
 
     function resize() {
@@ -476,6 +482,10 @@ export function createObjPreview({
             const svgData = loader.parse(svgString);
             const layerIndexMap = buildLayerIndexMap(dataToExport.palette);
 
+            // — Pass 1: group shapes by layer index and find SVG bounding box —
+            const shapesByLayer = new Map();
+            let svgMinX = Infinity, svgMinY = Infinity, svgMaxX = -Infinity, svgMaxY = -Infinity;
+
             svgData.paths.forEach((path) => {
                 const shapes = SVGLoader.createShapes(path);
                 if (!shapes || !shapes.length) return;
@@ -483,24 +493,53 @@ export function createObjPreview({
                     ? path.color
                     : new THREERef.Color(path.color || '#000');
                 const layerIndex = getLayerIndexForColor(layerIndexMap, sourceColor.getHexString());
+                if (!shapesByLayer.has(layerIndex)) {
+                    shapesByLayer.set(layerIndex, { color: sourceColor, shapes: [] });
+                }
+                shapes.forEach((shape) => {
+                    shapesByLayer.get(layerIndex).shapes.push(shape);
+                    shape.getPoints(16).forEach((pt) => {
+                        if (pt.x < svgMinX) svgMinX = pt.x;
+                        if (pt.y < svgMinY) svgMinY = pt.y;
+                        if (pt.x > svgMaxX) svgMaxX = pt.x;
+                        if (pt.y > svgMaxY) svgMaxY = pt.y;
+                    });
+                });
+            });
+
+            const svgBoundsValid = svgMaxX > svgMinX && svgMaxY > svgMinY;
+
+            // — Pass 2: build geometry — base layer → solid plate, others → path extrusions —
+            shapesByLayer.forEach(({ color: sourceColor, shapes }, layerIndex) => {
                 const layerDepth = layout.depths[layerIndex] || thickness;
                 const isSelected = !hasSelection || selectionSet.has(layerIndex);
-                if (hasSelection && displayMode === 'solo' && !isSelected) {
-                    return;
-                }
+                if (hasSelection && displayMode === 'solo' && !isSelected) return;
+
                 const material = new THREERef.MeshStandardMaterial({
                     color: sourceColor,
                     side: THREERef.DoubleSide,
                     transparent: hasSelection && !isSelected,
                     opacity: hasSelection && !isSelected ? 0.18 : 1
                 });
-                if (hasSelection && !isSelected) {
-                    material.depthWrite = false;
-                }
+                if (hasSelection && !isSelected) material.depthWrite = false;
 
                 const zPosition = layout.positions[layerIndex] || 0;
 
-                shapes.forEach((shape) => {
+                // Base layer → solid rectangular plate covering the full design footprint
+                const isBase = state.useBaseLayer && layerIndex === state.baseLayerIndex;
+                const shapesToExtrude = (isBase && svgBoundsValid)
+                    ? [(() => {
+                        const plate = new THREERef.Shape();
+                        plate.moveTo(svgMinX, svgMinY);
+                        plate.lineTo(svgMaxX, svgMinY);
+                        plate.lineTo(svgMaxX, svgMaxY);
+                        plate.lineTo(svgMinX, svgMaxY);
+                        plate.closePath();
+                        return plate;
+                    })()]
+                    : shapes;
+
+                shapesToExtrude.forEach((shape) => {
                     const geometry = new THREERef.ExtrudeGeometry(shape, {
                         depth: layerDepth,
                         curveSegments,

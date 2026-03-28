@@ -207,7 +207,6 @@
                         <div id="single-original-view">
                             <div class="flex justify-between items-center mb-2 original-image-header">
                                 <h3 class="font-semibold text-gray-200" style="font-size: clamp(0.875rem, 1.5vw, 1rem);">Original Image</h3>
-                                <div id="original-resolution" class="text-xs text-gray-400"></div>
                             </div>
                             <div class="bg-grid rounded-md flex items-center justify-center overflow-hidden source-image-frame">
                                 <img id="source-image" alt="Original" class="max-w-full max-h-full object-contain">
@@ -219,15 +218,24 @@
 
                     <!-- SVG Tab Content -->
                     <div id="tab-svg" class="export-panel">
-                        <!-- Preview Grid -->
-                        <div class="output-grid two-col">
-                            <div class="output-card">
-                                <div class="output-card-header">
-                                    <h3 class="output-card-title">
-                                        3D Print Preview
-                                        <span id="quality-indicator" class="text-xs text-gray-400 font-normal"></span>
-                                    </h3>
-                                    <div class="preview-card-actions flex items-center gap-2">
+
+                        <!-- Row 1: Original | SVG Preview -->
+                        <div class="svg-compare-grid">
+                            <div class="svg-compare-col">
+                                <div class="svg-col-header">
+                                    <span class="svg-col-title">Original</span>
+                                    <span id="original-resolution" class="svg-col-meta"></span>
+                                </div>
+                                <div class="bg-grid rounded-md flex items-center justify-center overflow-hidden svg-source-frame">
+                                    <img id="svg-source-mirror" alt="Original" class="max-w-full max-h-full object-contain">
+                                </div>
+                            </div>
+                            <div class="svg-compare-col">
+                                <div class="svg-col-header">
+                                    <span class="svg-col-title">
+                                        SVG Preview
+                                    </span>
+                                    <div class="flex items-center gap-2">
                                         <div class="zoom-controls flex bg-gray-800 rounded-md border border-gray-600">
                                             <button id="zoom-out-all" class="p-1 hover:bg-gray-700 rounded-l-md" title="Zoom Out">
                                                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -255,12 +263,15 @@
                                     </div>
                                 </div>
                             </div>
+                        </div>
 
+                        <!-- Row 2: 3D Preview (wide) | Layer Heights -->
+                        <div class="svg-3d-grid">
                             <div class="output-card">
                                 <div class="output-card-header">
                                     <h3 class="output-card-title">
                                         3D Preview
-                                        <span class="text-xs text-gray-400 font-normal">Drag to rotate · Scroll to zoom</span>
+                                        <span class="text-xs text-gray-500 font-normal">L-drag rotate · R-drag pan · Scroll zoom</span>
                                     </h3>
                                     <div class="preview-card-actions flex items-center gap-2">
                                         <div class="toggle-controls flex bg-gray-800 rounded-md border border-gray-600">
@@ -268,23 +279,29 @@
                                             <button id="obj-mode-solo" class="px-2 py-1 text-xs">Solo</button>
                                         </div>
                                         <button id="obj-fit-view" class="btn-secondary text-xs px-2 py-1 rounded-md" title="Fit model to view">Fit</button>
-                                        <button id="obj-recenter" class="btn-secondary text-xs px-2 py-1 rounded-md" title="Recenter model without changing zoom">Recenter</button>
-                                        <button id="obj-target-lock" class="btn-secondary text-xs px-2 py-1 rounded-md" title="Toggle target lock (pan when unlocked)">Lock</button>
+                                        <button id="obj-recenter" class="hidden" aria-hidden="true"></button>
+                                        <button id="obj-target-lock" class="hidden" aria-hidden="true"></button>
                                     </div>
                                 </div>
                                 <div class="preview-container preview-container-flexible bg-grid rounded-md overflow-hidden relative">
                                     <canvas id="obj-preview-canvas" class="obj-preview-canvas"></canvas>
                                     <div id="obj-preview-placeholder" class="preview-placeholder">3D preview will appear after analysis.</div>
                                 </div>
-                                <div class="layer-stack-card">
-                                    <div class="layer-stack-header">
-                                        <span>Layer Heights</span>
-                                        <span id="layer-stack-meta">—</span>
+                            </div>
+
+                            <div class="output-card svg-layer-heights-card">
+                                <div class="output-card-header">
+                                    <h3 class="output-card-title">Layer Heights</h3>
+                                    <div class="flex items-center gap-2">
+                                        <span id="quality-indicator" class="text-xs text-gray-500"></span>
+                                        <span id="layer-stack-meta" class="text-xs text-gray-500">—</span>
                                     </div>
+                                </div>
+                                <div class="output-card-content" style="overflow-y: auto; flex: 1;">
                                     <div class="layer-stack-options">
                                         <label class="layer-stack-option">
                                             <input type="checkbox" id="use-base-layer" class="layer-stack-checkbox">
-                                            <span>Use base layer</span>
+                                            <span>Base layer</span>
                                         </label>
                                         <select id="base-layer-select" class="layer-stack-select" disabled>
                                             <option value="0">L0</option>
@@ -295,7 +312,7 @@
                             </div>
                         </div>
 
-                        <!-- Layer Selection - Collapsible -->
+                        <!-- Row 3: Layers & Merging (collapsible) -->
                         <div class="output-card">
                             <div class="output-card-header collapsible-trigger" id="layers-toggle">
                                 <h4 class="output-card-title">
@@ -309,19 +326,17 @@
                             <div id="layers-section" class="collapsible-section collapsed">
                                 <div class="output-grid two-col" style="margin-bottom: 0;">
                                     <div class="output-card-content">
-                                        <h5 class="text-xs font-semibold text-gray-400 mb-2">Available Layers</h5>
                                         <div id="palette-row" style="display:none;">
-                                            <div id="palette-container" class="flex flex-wrap gap-2"></div>
+                                            <div id="palette-container" class="hidden"></div>
                                         </div>
                                         <div id="layer-merging-section" style="display:none;">
-                                            <h5 class="text-xs font-semibold text-gray-400 mb-2">Layer Merging</h5>
+                                            <h5 class="text-xs font-semibold text-gray-400 mb-2">Merge Rules</h5>
                                             <div id="merge-rules-container" class="space-y-2 mb-3"></div>
-                                            <button id="add-merge-rule-btn" class="btn-secondary text-xs font-semibold py-1 px-3 rounded-md" disabled>+ Add Merge Rule</button>
+                                            <button id="add-merge-rule-btn" class="btn-secondary text-xs font-semibold py-1 px-3 rounded-md" disabled>+ Add Rule</button>
                                         </div>
                                     </div>
-
                                     <div class="output-card-content">
-                                        <h5 class="text-xs font-semibold text-gray-400 mb-2">Final Layer Colors</h5>
+                                        <h5 class="text-xs font-semibold text-gray-400 mb-2">Output Colors</h5>
                                         <div id="final-palette-container" class="flex flex-wrap gap-2 min-h-[36px]"></div>
                                     </div>
                                 </div>

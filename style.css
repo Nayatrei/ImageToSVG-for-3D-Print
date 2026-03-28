@@ -1884,6 +1884,81 @@
             border-color: rgba(96, 165, 250, 0.4);
         }
 
+        /* ── SVG Tab Layout ─────────────────────────────── */
+        .svg-compare-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.75rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .svg-compare-col {
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
+        }
+
+        .svg-col-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0.5rem;
+            min-height: 1.75rem;
+            gap: 0.5rem;
+        }
+
+        .svg-col-title {
+            font-size: 0.68rem;
+            font-weight: 700;
+            color: #9ca3af;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            flex-shrink: 0;
+        }
+
+        .svg-col-meta {
+            font-size: 0.68rem;
+            color: #6b7280;
+            font-variant-numeric: tabular-nums;
+            white-space: nowrap;
+        }
+
+        .svg-quality-badge {
+            font-size: 0.65rem;
+            color: #9ca3af;
+            font-weight: 400;
+            text-transform: none;
+            letter-spacing: 0;
+        }
+
+        .svg-source-frame {
+            height: var(--source-height, 220px);
+            min-height: 160px;
+            flex: 1;
+        }
+
+        .svg-3d-grid {
+            display: grid;
+            grid-template-columns: 1fr 210px;
+            gap: 0.75rem;
+            margin-bottom: 0.75rem;
+        }
+
+        .svg-layer-heights-card {
+            display: flex;
+            flex-direction: column;
+            min-height: 0;
+        }
+
+        @media (max-width: 900px) {
+            .svg-compare-grid { grid-template-columns: 1fr; }
+            .svg-3d-grid { grid-template-columns: 1fr; }
+        }
+        /* ── end SVG Tab Layout ─────────────────────────── */
+
 /* Responsive shell system */
 :root {
     --shell-gap: clamp(0.875rem, 1.4vw, 1.5rem);
