@@ -375,8 +375,8 @@ export function createBulkTabController({
 
         if (elements.bulkFolderSummary) {
             elements.bulkFolderSummary.textContent = state.bulk.folderName
-                ? `${state.bulk.folderName} · ${state.bulk.files.length} supported image(s)${state.bulk.skippedCount ? ` · ${state.bulk.skippedCount} skipped` : ''}`
-                : `Choose a folder from the left sidebar to scan ${IMPORTABLE_IMAGE_PROMPT}.`;
+                ? `${state.bulk.files.length} file(s)${state.bulk.skippedCount ? ` · ${state.bulk.skippedCount} skipped` : ''}`
+                : '';
         }
 
         updateBulkAlphaVisibility();

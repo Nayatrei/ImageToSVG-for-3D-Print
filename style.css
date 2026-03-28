@@ -1473,6 +1473,147 @@
             align-items: center;
         }
 
+        /* ── Bulk Redesign ─────────────────────────────────── */
+
+        #tab-bulk {
+            display: flex;
+            flex-direction: column;
+            gap: 0.65rem;
+        }
+
+        .bulk-top-bar {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+            padding: 0.9rem 1rem;
+            background: rgba(17, 24, 39, 0.75);
+            border: 1px solid rgba(55, 65, 81, 0.8);
+            border-radius: 12px;
+        }
+
+        .bulk-top-bar-left,
+        .bulk-top-bar-right {
+            display: flex;
+            flex-direction: column;
+            gap: 0.6rem;
+        }
+
+        .bulk-top-bar-left {
+            border-right: 1px solid rgba(55, 65, 81, 0.5);
+            padding-right: 1rem;
+        }
+
+        .bulk-stats-bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 0.4rem 1rem;
+            padding: 0.45rem 0.85rem;
+            background: rgba(17, 24, 39, 0.45);
+            border: 1px solid rgba(55, 65, 81, 0.55);
+            border-radius: 8px;
+            font-size: 0.8rem;
+        }
+
+        .bulk-stats-group,
+        .bulk-stats-sizes {
+            display: flex;
+            align-items: center;
+            gap: 0.35rem;
+            flex-wrap: wrap;
+        }
+
+        .bulk-stats-folder {
+            font-weight: 700;
+            color: #e5e7eb;
+            max-width: 24ch;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+
+        .bulk-stats-sep,
+        .bulk-stats-arrow {
+            color: #6b7280;
+        }
+
+        .bulk-stats-count {
+            font-weight: 600;
+            color: #f3f4f6;
+        }
+
+        .bulk-stats-muted {
+            color: #9ca3af;
+            font-size: 0.75rem;
+        }
+
+        .bulk-stats-skip {
+            color: #9ca3af;
+        }
+
+        .bulk-stats-val {
+            font-weight: 700;
+            color: #f3f4f6;
+        }
+
+        .bulk-stats-saved {
+            font-weight: 700;
+            color: #34d399;
+            margin-left: 0.2rem;
+        }
+
+        .bulk-stats-pct {
+            color: #6b7280;
+            font-size: 0.75rem;
+        }
+
+        .bulk-compare-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.75rem;
+        }
+
+        .bulk-compare-col {
+            display: flex;
+            flex-direction: column;
+            gap: 0.4rem;
+            min-width: 0;
+        }
+
+        .bulk-compare-col-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.5rem;
+            padding: 0 0.15rem;
+            min-height: 1.85rem;
+        }
+
+        .bulk-compare-col-title {
+            font-size: 0.7rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.07em;
+            color: #9ca3af;
+        }
+
+        .bulk-compare-col-meta {
+            font-size: 0.72rem;
+            color: #6b7280;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            max-width: 22ch;
+        }
+
+        #tab-bulk .bulk-list-body {
+            max-height: 58vh;
+            min-height: 200px;
+        }
+
+        /* ── End Bulk Redesign ─────────────────────────────── */
+
         /* Flexible Preview Container */
         .preview-container-flexible {
             height: min(25vh, 240px);
@@ -2272,8 +2413,17 @@ body,
     .bulk-summary-grid,
     .bulk-dashboard-grid,
     .bulk-detail-grid,
-    .bulk-inline-actions {
+    .bulk-inline-actions,
+    .bulk-top-bar,
+    .bulk-compare-grid {
         grid-template-columns: 1fr;
+    }
+
+    .bulk-top-bar-left {
+        border-right: none;
+        padding-right: 0;
+        border-bottom: 1px solid rgba(55, 65, 81, 0.5);
+        padding-bottom: 0.6rem;
     }
 
     .footer-action-stack-six,

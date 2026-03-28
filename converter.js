@@ -28,6 +28,7 @@ document.addEventListener('DOMContentLoaded', () => {
         sidebarAdjustSection: document.getElementById('sidebar-adjust-section'),
         sidebarPrimaryFooter: document.getElementById('sidebar-primary-footer'),
         sourceImage: document.getElementById('source-image'),
+        originalImagePanel: document.getElementById('original-image-panel'),
         singleOriginalView: document.getElementById('single-original-view'),
         bulkOriginalView: document.getElementById('bulk-original-view'),
         statusText: document.getElementById('status-text'),
@@ -297,6 +298,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function setOriginalPanelMode(mode) {
         const showBulk = mode === 'bulk';
+        if (elements.originalImagePanel) {
+            elements.originalImagePanel.classList.toggle('hidden', showBulk);
+        }
         if (elements.singleOriginalView) {
             elements.singleOriginalView.classList.toggle('hidden', showBulk);
         }
