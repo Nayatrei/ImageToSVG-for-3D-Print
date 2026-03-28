@@ -1,12 +1,12 @@
 import { createZipFile } from '../export3d.js';
 import {
-    BULK_SUPPORTED_EXTENSIONS,
     estimateSizeBytes,
     formatBytes,
     getBulkFolderName,
     getBulkRelativePath,
     getFormatLabel,
     getImageFormat,
+    IMPORTABLE_IMAGE_PROMPT,
     getPreserveAlphaForFormat,
     getRasterExtension,
     getScaledDimensions,
@@ -131,8 +131,8 @@ export function createBulkTabController({
             const empty = document.createElement('div');
             empty.className = 'bulk-empty-state';
             empty.textContent = state.bulk.folderName
-                ? `No supported ${Array.from(BULK_SUPPORTED_EXTENSIONS).join(', ').toUpperCase()} images were found.`
-                : 'Choose a folder from the left sidebar to see supported images.';
+                ? `No compatible images were found. Supported imports include ${IMPORTABLE_IMAGE_PROMPT}.`
+                : `Choose a folder from the left sidebar to see compatible images. Supported imports include ${IMPORTABLE_IMAGE_PROMPT}.`;
             elements.bulkSourceList.appendChild(empty);
             return;
         }
@@ -263,7 +263,7 @@ export function createBulkTabController({
         if (elements.bulkFolderSummary) {
             elements.bulkFolderSummary.textContent = state.bulk.folderName
                 ? `${state.bulk.folderName} · ${state.bulk.files.length} supported image(s)${state.bulk.skippedCount ? ` · ${state.bulk.skippedCount} skipped` : ''}`
-                : 'Choose a folder from the left sidebar to scan PNG, JPG, JPEG, and WEBP images.';
+                : `Choose a folder from the left sidebar to scan ${IMPORTABLE_IMAGE_PROMPT}.`;
         }
 
         updateBulkAlphaVisibility();
@@ -292,8 +292,8 @@ export function createBulkTabController({
             progress: supportedTotal ? 0 : 1
         });
         elements.statusText.textContent = supportedTotal
-            ? `Scanning ${supportedTotal} supported image(s)...`
-            : 'Checking selected folder...';
+            ? `Scanning ${supportedTotal} compatible image(s)...`
+            : `Checking selected folder for ${IMPORTABLE_IMAGE_PROMPT}...`;
 
         try {
             let processedCount = 0;
@@ -335,7 +335,7 @@ export function createBulkTabController({
             if (validFiles.length) {
                 elements.statusText.textContent = `Loaded ${validFiles.length} image(s) from ${state.bulk.folderName}.${state.bulk.skippedCount ? ` Skipped ${state.bulk.skippedCount}.` : ''}`;
             } else {
-                elements.statusText.textContent = 'No supported images found in selected folder.';
+                elements.statusText.textContent = `No compatible images found in selected folder. Supported imports include ${IMPORTABLE_IMAGE_PROMPT}.`;
             }
         } catch (error) {
             console.error('Bulk folder scan failed:', error);

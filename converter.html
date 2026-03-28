@@ -56,8 +56,8 @@
                             <span id="import-btn-label">Import From Device</span>
                         </button>
                         <input type="file" id="file-input" accept="image/*" class="hidden">
-                        <input type="file" id="bulk-folder-input" class="hidden" webkitdirectory directory multiple accept=".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp">
-                        <p id="import-mode-copy" class="text-xs text-gray-400 mt-2">Choose a single image from your device or paste a direct image URL.</p>
+                        <input type="file" id="bulk-folder-input" class="hidden" webkitdirectory directory multiple accept="image/*,.png,.jpg,.jpeg,.jfif,.webp,.gif,.bmp,.avif,.svg,.ico,.tif,.tiff">
+                        <p id="import-mode-copy" class="text-xs text-gray-400 mt-2">Choose a single image from your device or paste a direct image URL. Supported imports: PNG, JPG, JPEG, WEBP, GIF, BMP, AVIF, SVG, ICO, TIFF, and other browser-compatible image files.</p>
                         <div id="import-url-shell">
                             <p id="import-url-divider" class="text-xs text-gray-500 my-2">OR</p>
                             <div class="flex">
@@ -219,7 +219,7 @@
                             <div class="flex justify-between items-center mb-3 original-image-header">
                                 <div>
                                     <h3 class="font-semibold text-gray-200" style="font-size: clamp(0.875rem, 1.5vw, 1rem);">Original Images</h3>
-                                    <div id="bulk-folder-summary" class="text-xs text-gray-400 mt-1">Choose a folder from the left sidebar to scan PNG, JPG, JPEG, and WEBP images.</div>
+                                    <div id="bulk-folder-summary" class="text-xs text-gray-400 mt-1">Choose a folder from the left sidebar to scan PNG, JPG, JPEG, WEBP, GIF, BMP, AVIF, SVG, ICO, TIFF, and other browser-compatible image files.</div>
                                 </div>
                             </div>
                             <div class="bulk-list-shell">

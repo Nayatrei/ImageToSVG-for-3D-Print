@@ -1,7 +1,13 @@
 import { createBulkTabController } from './modules/tabs/bulk-tab.js';
 import { createRasterTabController } from './modules/tabs/raster-tab.js';
 import { createSvgTabController } from './modules/tabs/svg-tab.js';
-import { getDataUrlSize, getImageFormat } from './modules/raster-utils.js';
+import {
+    getDataUrlSize,
+    getImageFormat,
+    IMPORTABLE_IMAGE_PROMPT,
+    isImportableImageFile,
+    normalizeImageBlob
+} from './modules/raster-utils.js';
 
 document.addEventListener('DOMContentLoaded', () => {
     const elements = {
@@ -265,6 +271,24 @@ document.addEventListener('DOMContentLoaded', () => {
         elements.loaderOverlay.style.display = show ? 'flex' : 'none';
     }
 
+    function readBlobAsDataUrl(blob) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = (event) => resolve(event.target?.result);
+            reader.onerror = () => reject(new Error('Failed to read image data.'));
+            reader.readAsDataURL(blob);
+        });
+    }
+
+    function validateImageSource(src) {
+        return new Promise((resolve, reject) => {
+            const probe = new Image();
+            probe.onload = () => resolve();
+            probe.onerror = () => reject(new Error(`This image format could not be opened here. Supported imports include ${IMPORTABLE_IMAGE_PROMPT}.`));
+            probe.src = src;
+        });
+    }
+
     function hasSingleImageLoaded() {
         return Boolean(elements.sourceImage?.getAttribute('src'));
     }
@@ -309,8 +333,8 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         if (elements.importModeCopy) {
             elements.importModeCopy.textContent = isBulk
-                ? 'Scan a folder of PNG, JPG, JPEG, or WEBP images for batch resize and ZIP export.'
-                : 'Choose a single image from your device or paste a direct image URL.';
+                ? `Scan a folder of ${IMPORTABLE_IMAGE_PROMPT} for batch resize and ZIP export.`
+                : `Choose a single image from your device or paste a direct image URL. Supported imports: ${IMPORTABLE_IMAGE_PROMPT}.`;
         }
         if (elements.importUrlShell) {
             elements.importUrlShell.classList.toggle('hidden', isBulk);
@@ -460,14 +484,32 @@ document.addEventListener('DOMContentLoaded', () => {
         state.originalImageSize = null;
     }
 
-    function handleImportedFile(file) {
+    async function handleImportedFile(file) {
+        if (!isImportableImageFile(file)) {
+            elements.statusText.textContent = `Unsupported file. Import supports ${IMPORTABLE_IMAGE_PROMPT}.`;
+            return;
+        }
+
         resetImageInfo();
         state.originalImageFormat = getImageFormat(file.name, null);
         state.originalImageSize = file.size;
 
-        const reader = new FileReader();
-        reader.onload = (event) => loadImage(event.target.result, file.name);
-        reader.readAsDataURL(file);
+        try {
+            showLoader(true, {
+                title: 'Loading Image...',
+                subtitle: `Opening ${file.name}`
+            });
+
+            const normalizedFile = normalizeImageBlob(file, file.name);
+            const dataUrl = await readBlobAsDataUrl(normalizedFile);
+            await validateImageSource(dataUrl);
+            loadImage(dataUrl, file.name);
+            elements.statusText.textContent = `${file.name} loaded.`;
+        } catch (error) {
+            console.error('Local image load error:', error);
+            elements.statusText.textContent = error.message || `Failed to load image. Supported imports include ${IMPORTABLE_IMAGE_PROMPT}.`;
+            showLoader(false);
+        }
     }
 
     async function loadImageFromUrl(url) {
@@ -490,18 +532,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
             } else {
                 const response = await fetch(url);
-                const blob = await response.blob();
-                dataUrl = await new Promise((resolve, reject) => {
-                    const reader = new FileReader();
-                    reader.onloadend = () => resolve(reader.result);
-                    reader.onerror = reject;
-                    reader.readAsDataURL(blob);
-                });
+                const blob = normalizeImageBlob(await response.blob(), url.split('/').pop());
+                dataUrl = await readBlobAsDataUrl(blob);
             }
+            await validateImageSource(dataUrl);
             loadImage(dataUrl, url.split('/').pop());
         } catch (error) {
             console.error('URL load error:', error);
-            elements.statusText.textContent = 'Failed to load image from URL.';
+            elements.statusText.textContent = error.message || `Failed to load image from URL. Supported imports include ${IMPORTABLE_IMAGE_PROMPT}.`;
             showLoader(false);
         }
     }
@@ -524,11 +562,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
             const dt = event.dataTransfer;
             if (dt?.files?.length) {
-                const file = Array.from(dt.files).find(f => f.type.startsWith('image/'));
+                const file = Array.from(dt.files).find(isImportableImageFile);
                 if (file) {
                     handleImportedFile(file);
                     return;
                 }
+
+                elements.statusText.textContent = `Dragged file is not a compatible image. Supported imports include ${IMPORTABLE_IMAGE_PROMPT}.`;
+                return;
             }
 
             const url = dt?.getData('text/uri-list') || dt?.getData('text/plain');

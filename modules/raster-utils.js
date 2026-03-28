@@ -1,4 +1,34 @@
-export const BULK_SUPPORTED_EXTENSIONS = new Set(['png', 'jpg', 'jpeg', 'webp']);
+export const IMPORTABLE_IMAGE_EXTENSIONS = new Set([
+    'png', 'jpg', 'jpeg', 'jfif', 'jpe', 'pjpeg', 'pjp',
+    'webp', 'gif', 'bmp', 'dib', 'avif', 'svg', 'svgz',
+    'ico', 'cur', 'tif', 'tiff', 'apng'
+]);
+
+export const BULK_SUPPORTED_EXTENSIONS = IMPORTABLE_IMAGE_EXTENSIONS;
+
+export const IMPORTABLE_IMAGE_PROMPT = 'PNG, JPG, JPEG, WEBP, GIF, BMP, AVIF, SVG, ICO, TIFF, and other browser-compatible image files';
+
+const IMAGE_EXTENSION_MIME_TYPES = {
+    png: 'image/png',
+    jpg: 'image/jpeg',
+    jpeg: 'image/jpeg',
+    jfif: 'image/jpeg',
+    jpe: 'image/jpeg',
+    pjpeg: 'image/jpeg',
+    pjp: 'image/jpeg',
+    webp: 'image/webp',
+    gif: 'image/gif',
+    bmp: 'image/bmp',
+    dib: 'image/bmp',
+    avif: 'image/avif',
+    svg: 'image/svg+xml',
+    svgz: 'image/svg+xml',
+    ico: 'image/x-icon',
+    cur: 'image/x-icon',
+    tif: 'image/tiff',
+    tiff: 'image/tiff',
+    apng: 'image/png'
+};
 
 export const RASTER_FORMAT_LABELS = {
     png: 'PNG',
@@ -49,17 +79,30 @@ export function getFileStem(name) {
     return String(name || 'image').replace(/\.[^/.]+$/, '') || 'image';
 }
 
+export function getFileExtension(name) {
+    return String(name || '').match(/\.([^.]+)$/)?.[1]?.toLowerCase() || '';
+}
+
+export function getMimeTypeFromFilename(name) {
+    return IMAGE_EXTENSION_MIME_TYPES[getFileExtension(name)] || '';
+}
+
 export function getImageFormat(filename, dataUrl) {
     if (filename) {
-        const match = filename.match(/\.([^.]+)$/);
-        if (match) {
-            return match[1].toUpperCase();
-        }
+        const extension = getFileExtension(filename);
+        if (extension === 'jpg' || extension === 'jpeg' || extension === 'jfif' || extension === 'jpe' || extension === 'pjpeg' || extension === 'pjp') return 'JPG';
+        if (extension === 'svg' || extension === 'svgz') return 'SVG';
+        if (extension === 'tif' || extension === 'tiff') return 'TIFF';
+        if (extension === 'ico' || extension === 'cur') return 'ICO';
+        if (extension) return extension.toUpperCase();
     }
 
     if (dataUrl && dataUrl.startsWith('data:')) {
         const match = dataUrl.match(/^data:image\/([^;]+)/);
         if (match) {
+            if (match[1] === 'jpeg') return 'JPG';
+            if (match[1] === 'svg+xml') return 'SVG';
+            if (match[1] === 'tiff') return 'TIFF';
             return match[1].toUpperCase();
         }
     }
@@ -252,14 +295,33 @@ export function getSortedBulkFiles(files) {
     return [...files].sort((a, b) => getBulkRelativePath(a).localeCompare(getBulkRelativePath(b)));
 }
 
+export function isImportableImageFile(file, supportedExtensions = IMPORTABLE_IMAGE_EXTENSIONS) {
+    const mimeType = String(file?.type || '').toLowerCase();
+    if (mimeType.startsWith('image/')) return true;
+    return supportedExtensions.has(getFileExtension(file?.name));
+}
+
 export function isSupportedBulkFile(file, supportedExtensions = BULK_SUPPORTED_EXTENSIONS) {
-    const extension = file.name.match(/\.([^.]+)$/)?.[1]?.toLowerCase() || '';
-    return supportedExtensions.has(extension);
+    return isImportableImageFile(file, supportedExtensions);
+}
+
+export function normalizeImageBlob(blob, filename = '') {
+    const existingType = String(blob?.type || '').toLowerCase();
+    if (existingType.startsWith('image/')) {
+        return blob;
+    }
+
+    const fallbackType = getMimeTypeFromFilename(filename);
+    if (!fallbackType) {
+        return blob;
+    }
+
+    return new Blob([blob], { type: fallbackType });
 }
 
 export function loadImageMetricsFromFile(file) {
     return new Promise((resolve, reject) => {
-        const url = URL.createObjectURL(file);
+        const url = URL.createObjectURL(normalizeImageBlob(file, file.name));
         const img = new Image();
         img.onload = () => {
             const width = img.naturalWidth || img.width;
@@ -277,7 +339,7 @@ export function loadImageMetricsFromFile(file) {
 
 export function loadImageElementFromFile(file) {
     return new Promise((resolve, reject) => {
-        const url = URL.createObjectURL(file);
+        const url = URL.createObjectURL(normalizeImageBlob(file, file.name));
         const img = new Image();
         img.onload = () => resolve({
             img,
