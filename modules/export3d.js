@@ -382,8 +382,32 @@ function rgbToHex(r, g, b) {
     }).join('').toUpperCase();
 }
 
+async function normalizeZipContent(content, encoder) {
+    if (content instanceof Blob) {
+        return new Uint8Array(await content.arrayBuffer());
+    }
+
+    if (content instanceof Uint8Array) {
+        return content;
+    }
+
+    if (content instanceof ArrayBuffer) {
+        return new Uint8Array(content);
+    }
+
+    if (ArrayBuffer.isView(content)) {
+        return new Uint8Array(content.buffer, content.byteOffset, content.byteLength);
+    }
+
+    if (typeof content === 'string') {
+        return encoder.encode(content);
+    }
+
+    return encoder.encode(String(content ?? ''));
+}
+
 // Simple ZIP file creator using JSZip if available, otherwise manual implementation
-async function createZipFile(files) {
+export async function createZipFile(files) {
     // Try to use JSZip if available
     if (window.JSZip) {
         const zip = new window.JSZip();
@@ -400,7 +424,7 @@ async function createZipFile(files) {
 
     // Prepare file entries
     for (const [path, content] of Object.entries(files)) {
-        const data = encoder.encode(content);
+        const data = await normalizeZipContent(content, encoder);
         const pathBytes = encoder.encode(path);
 
         fileEntries.push({

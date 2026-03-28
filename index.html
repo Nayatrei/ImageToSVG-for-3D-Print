@@ -169,6 +169,7 @@
                             <div class="segmented-control-indicator"></div>
                             <button class="segmented-control-tab export-tab active" data-tab="svg">SVG</button>
                             <button class="segmented-control-tab export-tab" data-tab="raster">JPG / PNG / TGA</button>
+                            <button class="segmented-control-tab export-tab" data-tab="bulk">Bulk</button>
                         </div>
                     </div>
                     <a href="https://buymeacoffee.com/genesisframeworks" target="_blank" class="buy-me-coffee font-semibold z-50" title="Support this project">
@@ -193,12 +194,40 @@
                 <!-- Tabs Section -->
                 <div id="output-section" class="card p-6 flex-1 min-h-0 overflow-y-auto flex flex-col gap-4" style="display:none;">
                     <div class="card-inner bg-gray-800 rounded-lg original-image-panel" style="padding: clamp(0.75rem, 2vw, 1rem); margin-bottom: clamp(0.75rem, 1.5vw, 1rem);">
-                        <div class="flex justify-between items-center mb-2 original-image-header">
-                            <h3 class="font-semibold text-gray-200" style="font-size: clamp(0.875rem, 1.5vw, 1rem);">Original Image</h3>
-                            <div id="original-resolution" class="text-xs text-gray-400"></div>
+                        <div id="single-original-view">
+                            <div class="flex justify-between items-center mb-2 original-image-header">
+                                <h3 class="font-semibold text-gray-200" style="font-size: clamp(0.875rem, 1.5vw, 1rem);">Original Image</h3>
+                                <div id="original-resolution" class="text-xs text-gray-400"></div>
+                            </div>
+                            <div class="bg-grid rounded-md flex items-center justify-center overflow-hidden source-image-frame">
+                                <img id="source-image" alt="Original" class="max-w-full max-h-full object-contain">
+                            </div>
                         </div>
-                        <div class="bg-grid rounded-md flex items-center justify-center overflow-hidden source-image-frame">
-                            <img id="source-image" alt="Original" class="max-w-full max-h-full object-contain">
+
+                        <div id="bulk-original-view" class="hidden">
+                            <div class="flex justify-between items-center mb-3 original-image-header">
+                                <div>
+                                    <h3 class="font-semibold text-gray-200" style="font-size: clamp(0.875rem, 1.5vw, 1rem);">Original Images</h3>
+                                    <div id="bulk-folder-summary" class="text-xs text-gray-400 mt-1">Select a folder to scan PNG, JPG, JPEG, and WEBP images.</div>
+                                </div>
+                                <div class="flex items-center gap-2">
+                                    <button id="bulk-folder-btn" class="btn-primary font-semibold py-2 px-4 rounded-md text-sm">
+                                        Choose Folder
+                                    </button>
+                                    <input type="file" id="bulk-folder-input" class="hidden" webkitdirectory directory multiple accept=".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp">
+                                </div>
+                            </div>
+                            <div class="bulk-list-shell">
+                                <div class="bulk-list-head">
+                                    <span>Name</span>
+                                    <span>Resolution</span>
+                                    <span>File Size</span>
+                                    <span>Format</span>
+                                </div>
+                                <div id="bulk-source-list" class="bulk-list-body">
+                                    <div class="bulk-empty-state">No folder selected.</div>
+                                </div>
+                            </div>
                         </div>
                     </div>
 
@@ -413,6 +442,121 @@
                         </div>
 
                     </div>
+
+                    <div id="tab-bulk" class="export-panel hidden">
+                        <div class="output-grid two-col">
+                            <div class="output-card">
+                                <div class="output-card-header">
+                                    <h4 class="output-card-title">Bulk Preview</h4>
+                                </div>
+                                <div class="output-card-content">
+                                    <div class="bulk-summary-grid">
+                                        <div class="bulk-summary-card">
+                                            <div class="bulk-summary-label">Files</div>
+                                            <div id="bulk-preview-count" class="bulk-summary-value">—</div>
+                                        </div>
+                                        <div class="bulk-summary-card">
+                                            <div class="bulk-summary-label">Format</div>
+                                            <div id="bulk-preview-format" class="bulk-summary-value">PNG</div>
+                                        </div>
+                                        <div class="bulk-summary-card">
+                                            <div class="bulk-summary-label">Scale</div>
+                                            <div id="bulk-preview-scale" class="bulk-summary-value">100%</div>
+                                        </div>
+                                    </div>
+                                    <div class="bulk-list-shell bulk-result-shell">
+                                        <div class="bulk-list-head bulk-result-head">
+                                            <span>Image</span>
+                                            <span>Result</span>
+                                            <span>Estimated</span>
+                                        </div>
+                                        <div id="bulk-preview-list" class="bulk-list-body">
+                                            <div class="bulk-empty-state">Select a folder to preview bulk output.</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="output-card">
+                                <div class="output-card-header">
+                                    <h4 class="output-card-title">Export Settings</h4>
+                                </div>
+                                <div class="output-card-content">
+                                    <div class="mb-4 p-3 bg-gray-800 rounded-lg">
+                                        <div class="text-xs font-semibold text-gray-400 mb-2">Bulk Input</div>
+                                        <div class="grid grid-cols-2 gap-2 text-xs">
+                                            <div class="flex justify-between gap-3">
+                                                <span class="text-gray-500">Folder:</span>
+                                                <span id="bulk-folder-name" class="font-mono text-gray-300 truncate text-right">—</span>
+                                            </div>
+                                            <div class="flex justify-between gap-3">
+                                                <span class="text-gray-500">Supported:</span>
+                                                <span id="bulk-file-count" class="font-mono text-gray-300">—</span>
+                                            </div>
+                                            <div class="flex justify-between gap-3">
+                                                <span class="text-gray-500">Skipped:</span>
+                                                <span id="bulk-skip-count" class="font-mono text-gray-300">—</span>
+                                            </div>
+                                            <div class="flex justify-between gap-3">
+                                                <span class="text-gray-500">Source Total:</span>
+                                                <span id="bulk-original-total" class="font-mono text-gray-300">—</span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <div class="mb-3">
+                                        <div class="text-xs font-semibold text-gray-400 mb-2">Resize</div>
+                                        <div class="flex flex-wrap gap-2 justify-center mb-3">
+                                            <button class="resize-chip bulk-resize-chip" data-scale="25">25%</button>
+                                            <button class="resize-chip bulk-resize-chip" data-scale="50">50%</button>
+                                            <button class="resize-chip bulk-resize-chip active" data-scale="100">100%</button>
+                                            <button class="resize-chip bulk-resize-chip" data-scale="200">200%</button>
+                                            <button class="resize-chip bulk-resize-chip" data-scale="300">300%</button>
+                                        </div>
+                                        <div class="flex items-center justify-center gap-2">
+                                            <span class="text-xs text-gray-400">Custom:</span>
+                                            <input id="bulk-resize-custom" type="number" min="1" max="500" class="w-20 text-sm p-2 rounded border border-gray-600 bg-gray-900 text-white" placeholder="100">
+                                            <span class="text-xs text-gray-400">%</span>
+                                            <button id="apply-bulk-custom-resize" class="btn-secondary text-xs font-semibold py-1 px-3 rounded-md">Apply</button>
+                                        </div>
+                                    </div>
+
+                                    <div class="p-3 bg-gray-800 rounded-lg border border-gray-700">
+                                        <div class="text-xs font-semibold text-gray-400 mb-2">Format</div>
+                                        <div class="flex flex-col gap-3">
+                                            <select id="bulk-format-select" class="text-sm p-2 rounded border border-gray-600 bg-gray-900 text-white">
+                                                <option value="png" selected>PNG</option>
+                                                <option value="jpg">JPG</option>
+                                                <option value="tga">TGA</option>
+                                            </select>
+                                            <label id="bulk-alpha-toggle" class="footer-toggle text-gray-300 cursor-pointer justify-start">
+                                                <input id="bulk-preserve-alpha" type="checkbox" class="accent-blue-500 cursor-pointer" checked>
+                                                <span>Preserve Alpha</span>
+                                            </label>
+                                        </div>
+                                    </div>
+
+                                    <div class="p-3 bg-gray-800 rounded-lg border border-gray-700">
+                                        <div class="text-xs font-semibold text-gray-400 mb-2">Export Size</div>
+                                        <div class="bulk-size-hero">
+                                            <div id="bulk-total-saved" class="bulk-size-hero-value">—</div>
+                                            <div id="bulk-total-saved-percent" class="bulk-size-hero-meta">—</div>
+                                        </div>
+                                        <div class="grid grid-cols-2 gap-3 text-xs">
+                                            <div class="text-center p-2 bg-gray-900 rounded">
+                                                <div class="text-gray-400 font-semibold mb-1">Original Total</div>
+                                                <div id="bulk-est-original" class="font-mono text-gray-300">—</div>
+                                            </div>
+                                            <div class="text-center p-2 bg-gray-900 rounded">
+                                                <div class="text-gray-400 font-semibold mb-1">Estimated Output</div>
+                                                <div id="bulk-est-output" class="font-mono text-gray-300">—</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div><!-- Close output-section -->
 
                 <!-- SVG Export Footer (Fixed at bottom) -->
@@ -489,6 +633,17 @@
                                     <span>TGA Alpha</span>
                                 </label>
                             </div>
+                        </div>
+                    </div>
+                </footer>
+
+                <footer id="bulk-download-footer" class="hidden p-4 border-t border-gray-700 bg-gray-800 flex-shrink-0">
+                    <div class="footer-action-stack footer-action-stack-single">
+                        <div class="footer-action-card">
+                            <button id="bulk-download-btn" class="btn-primary font-semibold py-3 px-4 rounded-md text-sm disabled:bg-gray-600 disabled:cursor-not-allowed" disabled>
+                                Bulk Download
+                            </button>
+                            <div class="footer-action-meta">ZIP archive with resized images</div>
                         </div>
                     </div>
                 </footer>
