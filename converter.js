@@ -50,6 +50,7 @@ document.addEventListener('DOMContentLoaded', () => {
         bulkResizeChips: document.querySelectorAll('#tab-bulk .bulk-resize-chip'),
         bulkResizeCustomInput: document.getElementById('bulk-resize-custom'),
         applyBulkCustomResizeBtn: document.getElementById('apply-bulk-custom-resize'),
+        bulkOutputNameInput: document.getElementById('bulk-output-name'),
         bulkAlphaToggle: document.getElementById('bulk-alpha-toggle'),
         bulkPreserveAlphaCheckbox: document.getElementById('bulk-preserve-alpha'),
         bulkTotalSaved: document.getElementById('bulk-total-saved'),
@@ -184,6 +185,7 @@ document.addEventListener('DOMContentLoaded', () => {
             exportScale: 100,
             exportFormat: 'png',
             preserveAlpha: true,
+            outputName: '',
             selectedPreviewIndex: -1,
             previewItems: [],
             totals: {

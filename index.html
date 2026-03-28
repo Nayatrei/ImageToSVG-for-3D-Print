@@ -3,10 +3,10 @@
 <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Genesis Image Tools - Convert Images to SVG for 3D Printing</title>
+    <title>Genesis Image Converter - Convert Images to SVG for 3D Printing</title>
     <meta name="description" content="Convert your images to SVG vectors for 3D printing. Resize, trace, and export images as PNG, JPG, TGA, or layered SVG files.">
     <meta name="keywords" content="image converter, svg converter, 3d printing, vector conversion, image resize">
-    <meta property="og:title" content="Genesis Image Tools">
+    <meta property="og:title" content="Genesis Image Converter">
     <meta property="og:description" content="Professional image to SVG conversion tool for 3D printing and design">
     <meta property="og:type" content="website">
     <meta property="og:image" content="favIcon.png">
@@ -42,8 +42,7 @@
                 <div class="app-brand">
                     <img src="favIcon.png?v=20260324d" alt="" class="app-brand-mark">
                     <div class="app-brand-copy">
-                        <h1 class="text-2xl font-bold text-gray-100">Genesis Image Tools</h1>
-                        <p class="text-sm text-gray-400">Vector & Raster Image Tools</p>
+                        <h1 class="text-2xl font-bold text-gray-100">Genesis<br>Image Converter</h1>
                     </div>
                 </div>
             </header>
@@ -455,57 +454,41 @@
                                     <h4 class="output-card-title">Bulk Preview</h4>
                                 </div>
                                 <div class="output-card-content">
-                                    <div class="bulk-format-tabs" role="tablist" aria-label="Bulk Export Format">
-                                        <button type="button" class="bulk-format-tab active" data-format="jpg">JPG</button>
-                                        <button type="button" class="bulk-format-tab" data-format="png">PNG</button>
-                                        <button type="button" class="bulk-format-tab" data-format="tga">TGA</button>
-                                    </div>
-
                                     <div class="bulk-controls-card bulk-controls-card-inline">
-                                        <div class="text-xs font-semibold text-gray-400 mb-2">Export Controls</div>
-                                        <div class="mb-3">
-                                            <div class="text-xs font-semibold text-gray-400 mb-2">Resize</div>
-                                            <div class="flex flex-wrap gap-2 justify-center mb-3">
-                                                <button class="resize-chip bulk-resize-chip" data-scale="25">25%</button>
-                                                <button class="resize-chip bulk-resize-chip" data-scale="50">50%</button>
-                                                <button class="resize-chip bulk-resize-chip active" data-scale="100">100%</button>
-                                                <button class="resize-chip bulk-resize-chip" data-scale="200">200%</button>
-                                                <button class="resize-chip bulk-resize-chip" data-scale="300">300%</button>
-                                            </div>
-                                            <div class="flex items-center justify-center gap-2">
-                                                <span class="text-xs text-gray-400">Custom:</span>
-                                                <input id="bulk-resize-custom" type="number" min="1" max="500" class="w-20 text-sm p-2 rounded border border-gray-600 bg-gray-900 text-white" placeholder="100">
-                                                <span class="text-xs text-gray-400">%</span>
-                                                <button id="apply-bulk-custom-resize" class="btn-secondary text-xs font-semibold py-1 px-3 rounded-md">Apply</button>
-                                            </div>
+                                        <div class="bulk-format-tabs" role="tablist" aria-label="Bulk Export Format">
+                                            <button type="button" class="bulk-format-tab active" data-format="jpg">JPG</button>
+                                            <button type="button" class="bulk-format-tab" data-format="png">PNG</button>
+                                            <button type="button" class="bulk-format-tab" data-format="tga">TGA</button>
                                         </div>
 
-                                        <div class="bulk-inline-actions">
+                                        <div class="bulk-resize-row">
+                                            <button class="resize-chip bulk-resize-chip" data-scale="25">25%</button>
+                                            <button class="resize-chip bulk-resize-chip" data-scale="50">50%</button>
+                                            <button class="resize-chip bulk-resize-chip active" data-scale="100">100%</button>
+                                            <button class="resize-chip bulk-resize-chip" data-scale="200">200%</button>
+                                            <button class="resize-chip bulk-resize-chip" data-scale="300">300%</button>
+                                            <input id="bulk-resize-custom" type="number" min="1" max="500" class="bulk-custom-input" placeholder="Custom %">
+                                            <button id="apply-bulk-custom-resize" class="btn-secondary text-xs font-semibold py-1 px-3 rounded-md">Apply</button>
+                                        </div>
+
+                                        <div class="bulk-output-name-row">
+                                            <span class="bulk-output-name-label">Output Name</span>
+                                            <input id="bulk-output-name" type="text" class="bulk-output-name-input" placeholder="e.g. export → saved as export_1.jpg">
+                                        </div>
+                                        <div class="bulk-action-row">
                                             <label id="bulk-alpha-toggle" class="footer-toggle text-gray-300 cursor-pointer justify-start">
                                                 <input id="bulk-preserve-alpha" type="checkbox" class="accent-blue-500 cursor-pointer" checked>
                                                 <span>Preserve Alpha</span>
                                             </label>
-
-                                            <button id="bulk-download-btn" class="btn-primary font-semibold py-3 px-4 rounded-md text-sm disabled:bg-gray-600 disabled:cursor-not-allowed" disabled>
-                                                Download Bulk ZIP
+                                            <button id="bulk-download-btn" class="btn-primary font-semibold py-2 px-4 rounded-md text-sm disabled:bg-gray-600 disabled:cursor-not-allowed" disabled>
+                                                Download ZIP
                                             </button>
                                         </div>
                                     </div>
 
-                                    <div class="bulk-summary-grid">
-                                        <div class="bulk-summary-card">
-                                            <div class="bulk-summary-label">Files</div>
-                                            <div id="bulk-preview-count" class="bulk-summary-value">—</div>
-                                        </div>
-                                        <div class="bulk-summary-card">
-                                            <div class="bulk-summary-label">Format</div>
-                                            <div id="bulk-preview-format" class="bulk-summary-value">PNG</div>
-                                        </div>
-                                        <div class="bulk-summary-card">
-                                            <div class="bulk-summary-label">Scale</div>
-                                            <div id="bulk-preview-scale" class="bulk-summary-value">100%</div>
-                                        </div>
-                                    </div>
+                                    <div id="bulk-preview-count" class="hidden"></div>
+                                    <div id="bulk-preview-format" class="hidden"></div>
+                                    <div id="bulk-preview-scale" class="hidden"></div>
                                     <div class="bulk-list-shell bulk-result-shell">
                                         <div class="bulk-list-head bulk-result-head">
                                             <span>Image</span>
@@ -536,26 +519,19 @@
                                             <div id="bulk-folder-name" class="bulk-dashboard-value bulk-dashboard-value-wide">—</div>
                                         </div>
                                         <div class="bulk-dashboard-stat">
-                                            <div class="bulk-summary-label">Supported</div>
-                                            <div id="bulk-file-count" class="bulk-dashboard-value">—</div>
+                                            <div class="bulk-summary-label">Files</div>
+                                            <div class="bulk-dashboard-value"><span id="bulk-file-count">—</span><span id="bulk-skip-count-wrap" class="bulk-skip-badge hidden"> · <span id="bulk-skip-count">0</span> skipped</span></div>
                                         </div>
                                         <div class="bulk-dashboard-stat">
-                                            <div class="bulk-summary-label">Skipped</div>
-                                            <div id="bulk-skip-count" class="bulk-dashboard-value">—</div>
-                                        </div>
-                                        <div class="bulk-dashboard-stat">
-                                            <div class="bulk-summary-label">Original Total</div>
+                                            <div class="bulk-summary-label">Original</div>
                                             <div id="bulk-original-total" class="bulk-dashboard-value">—</div>
                                         </div>
                                         <div class="bulk-dashboard-stat">
-                                            <div class="bulk-summary-label">Estimated Output</div>
+                                            <div class="bulk-summary-label">Output</div>
                                             <div id="bulk-est-output" class="bulk-dashboard-value">—</div>
                                         </div>
-                                        <div class="bulk-dashboard-stat">
-                                            <div class="bulk-summary-label">Saved</div>
-                                            <div id="bulk-est-original" class="bulk-dashboard-value">—</div>
-                                        </div>
                                     </div>
+                                    <div id="bulk-est-original" class="hidden"></div>
 
                                     <div class="bulk-selected-card">
                                         <div class="bulk-selected-header">
@@ -567,7 +543,7 @@
                                         </div>
                                         <div id="bulk-selected-path" class="bulk-selected-path">Choose a folder from the left sidebar to begin.</div>
                                         <div class="bulk-detail-grid">
-                                            <div class="bulk-detail-item">
+                                            <div class="bulk-detail-item bulk-detail-item-full">
                                                 <span class="bulk-detail-label">Export File</span>
                                                 <span id="bulk-selected-export-name" class="bulk-detail-value">—</span>
                                             </div>
@@ -584,14 +560,11 @@
                                                 <span id="bulk-selected-output-dims" class="bulk-detail-value">—</span>
                                             </div>
                                             <div class="bulk-detail-item">
-                                                <span class="bulk-detail-label">Estimated Size</span>
+                                                <span class="bulk-detail-label">Est. Size</span>
                                                 <span id="bulk-selected-est-size" class="bulk-detail-value">—</span>
                                             </div>
-                                            <div class="bulk-detail-item">
-                                                <span class="bulk-detail-label">Format</span>
-                                                <span id="bulk-selected-output-format" class="bulk-detail-value">—</span>
-                                            </div>
                                         </div>
+                                        <div id="bulk-selected-output-format" class="hidden"></div>
                                     </div>
                                 </div>
                             </div>

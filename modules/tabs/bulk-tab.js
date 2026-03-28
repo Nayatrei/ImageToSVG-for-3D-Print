@@ -50,8 +50,9 @@ export function createBulkTabController({
     }
 
     function buildBulkExportFileName(entry, index) {
-        const baseName = sanitizeFileComponent(entry.name, 'image');
-        return `${baseName}_${state.bulk.exportScale}p_resize${index}.${getRasterExtension(state.bulk.exportFormat)}`;
+        const rawName = state.bulk.outputName.trim() || state.bulk.folderName || entry.name;
+        const baseName = sanitizeFileComponent(rawName, 'image');
+        return `${baseName}_${index}.${getRasterExtension(state.bulk.exportFormat)}`;
     }
 
     function getBulkEstimateCacheKey(entry, target, format, preserveAlpha) {
@@ -362,6 +363,13 @@ export function createBulkTabController({
         if (elements.bulkFolderName) elements.bulkFolderName.textContent = state.bulk.folderName || '—';
         if (elements.bulkFileCount) elements.bulkFileCount.textContent = String(state.bulk.files.length);
         if (elements.bulkSkipCount) elements.bulkSkipCount.textContent = String(state.bulk.skippedCount);
+        const skipWrap = document.getElementById('bulk-skip-count-wrap');
+        if (skipWrap) skipWrap.classList.toggle('hidden', state.bulk.skippedCount === 0);
+        if (elements.bulkOutputNameInput && !state.bulk.outputName) {
+            elements.bulkOutputNameInput.placeholder = state.bulk.folderName
+                ? `e.g. ${state.bulk.folderName} (saved as name_1.${getRasterExtension(state.bulk.exportFormat)})`
+                : 'e.g. export (saved as name_1.jpg)';
+        }
         if (elements.bulkOriginalTotal) elements.bulkOriginalTotal.textContent = formatBytes(originalBytes);
         updateBulkTotalsDisplay(originalBytes);
 
@@ -524,7 +532,8 @@ export function createBulkTabController({
                 progress: 1
             });
             const zipBlob = await createZipFile(zipEntries);
-            const archiveName = `${sanitizeFileComponent(state.bulk.folderName, 'bulk_export')}_${state.bulk.exportScale}p_${getRasterExtension(state.bulk.exportFormat)}.zip`;
+            const rawArchiveName = state.bulk.outputName.trim() || state.bulk.folderName || 'bulk_export';
+            const archiveName = `${sanitizeFileComponent(rawArchiveName, 'bulk_export')}.zip`;
             downloadBlob(zipBlob, archiveName);
             elements.statusText.textContent = `Exported ${processedCount} image(s) to ${archiveName}.${failedCount ? ` Skipped ${failedCount} unreadable file(s).` : ''}`;
         } catch (error) {
@@ -569,6 +578,13 @@ export function createBulkTabController({
                 updatePreview();
             });
         });
+
+        if (elements.bulkOutputNameInput) {
+            elements.bulkOutputNameInput.addEventListener('input', () => {
+                state.bulk.outputName = elements.bulkOutputNameInput.value;
+                updatePreview();
+            });
+        }
 
         if (elements.bulkPreserveAlphaCheckbox) {
             elements.bulkPreserveAlphaCheckbox.checked = state.bulk.preserveAlpha;
