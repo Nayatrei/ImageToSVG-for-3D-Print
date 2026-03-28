@@ -295,14 +295,19 @@ export function getSortedBulkFiles(files) {
     return [...files].sort((a, b) => getBulkRelativePath(a).localeCompare(getBulkRelativePath(b)));
 }
 
-export function isImportableImageFile(file, supportedExtensions = IMPORTABLE_IMAGE_EXTENSIONS) {
-    const mimeType = String(file?.type || '').toLowerCase();
-    if (mimeType.startsWith('image/')) return true;
-    return supportedExtensions.has(getFileExtension(file?.name));
+function resolveSupportedExtensions(candidate, fallback) {
+    return candidate instanceof Set ? candidate : fallback;
 }
 
-export function isSupportedBulkFile(file, supportedExtensions = BULK_SUPPORTED_EXTENSIONS) {
-    return isImportableImageFile(file, supportedExtensions);
+export function isImportableImageFile(file, supportedExtensions = IMPORTABLE_IMAGE_EXTENSIONS) {
+    const extensionSet = resolveSupportedExtensions(supportedExtensions, IMPORTABLE_IMAGE_EXTENSIONS);
+    const mimeType = String(file?.type || '').toLowerCase();
+    if (mimeType.startsWith('image/')) return true;
+    return extensionSet.has(getFileExtension(file?.name));
+}
+
+export function isSupportedBulkFile(file) {
+    return isImportableImageFile(file, BULK_SUPPORTED_EXTENSIONS);
 }
 
 export function normalizeImageBlob(blob, filename = '') {

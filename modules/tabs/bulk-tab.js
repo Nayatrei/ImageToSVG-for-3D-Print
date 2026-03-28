@@ -279,23 +279,28 @@ export function createBulkTabController({
     async function handleFolderSelection(files) {
         syncWorkspaceView();
 
-        const sortedFiles = getSortedBulkFiles(files);
-        const supportedFiles = sortedFiles.filter(isSupportedBulkFile);
-        const skippedUnsupported = sortedFiles.length - supportedFiles.length;
-        const supportedTotal = supportedFiles.length;
-
         showLoader(true, {
             title: 'Scanning Folder...',
-            subtitle: supportedTotal
-                ? `0 / ${supportedTotal} supported image(s) analyzed`
-                : 'Checking selected folder contents',
-            progress: supportedTotal ? 0 : 1
+            subtitle: 'Preparing folder scan...'
         });
-        elements.statusText.textContent = supportedTotal
-            ? `Scanning ${supportedTotal} compatible image(s)...`
-            : `Checking selected folder for ${IMPORTABLE_IMAGE_PROMPT}...`;
 
         try {
+            const sortedFiles = getSortedBulkFiles(files);
+            const supportedFiles = sortedFiles.filter((file) => isSupportedBulkFile(file));
+            const skippedUnsupported = sortedFiles.length - supportedFiles.length;
+            const supportedTotal = supportedFiles.length;
+
+            showLoader(true, {
+                title: 'Scanning Folder...',
+                subtitle: supportedTotal
+                    ? `0 / ${supportedTotal} supported image(s) analyzed`
+                    : 'Checking selected folder contents',
+                progress: supportedTotal ? 0 : 1
+            });
+            elements.statusText.textContent = supportedTotal
+                ? `Scanning ${supportedTotal} compatible image(s)...`
+                : `Checking selected folder for ${IMPORTABLE_IMAGE_PROMPT}...`;
+
             let processedCount = 0;
             const loadedEntries = await Promise.all(supportedFiles.map(async (file) => {
                 try {
@@ -344,7 +349,7 @@ export function createBulkTabController({
             state.bulk.selectedPreviewIndex = -1;
             state.bulk.skippedCount = 0;
             updatePreview();
-            elements.statusText.textContent = 'Failed to scan folder.';
+            elements.statusText.textContent = `Folder scan failed: ${error.message || 'Unexpected error while reading the selected folder.'}`;
         } finally {
             showLoader(false);
         }
