@@ -296,6 +296,37 @@
             animation: spin 1s linear infinite;
         }
 
+        .loader-progress-shell {
+            width: min(22rem, calc(100vw - 3rem));
+            margin-top: 1rem;
+        }
+
+        .loader-progress-track {
+            width: 100%;
+            height: 0.65rem;
+            border-radius: 999px;
+            overflow: hidden;
+            background: rgba(55, 65, 81, 0.95);
+            border: 1px solid rgba(75, 85, 99, 0.85);
+            box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.28);
+        }
+
+        .loader-progress-bar {
+            width: 0%;
+            height: 100%;
+            border-radius: inherit;
+            background: linear-gradient(90deg, #3b82f6, #38bdf8);
+            transition: width 140ms ease;
+        }
+
+        .loader-progress-meta {
+            margin-top: 0.45rem;
+            text-align: right;
+            font-size: 0.78rem;
+            font-weight: 600;
+            color: #bfdbfe;
+        }
+
         @keyframes spin {
             to { transform: rotate(360deg); }
         }

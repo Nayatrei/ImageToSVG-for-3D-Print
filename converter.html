@@ -25,7 +25,14 @@
 
     <div id="loader-overlay" class="fixed inset-0 flex flex-col items-center justify-center hidden">
         <div class="spinner h-16 w-16 rounded-full border-4"></div>
-        <p class="mt-4 text-lg font-semibold text-gray-300">Processing Image...</p>
+        <p id="loader-title" class="mt-4 text-lg font-semibold text-gray-300">Processing Image...</p>
+        <p id="loader-subtitle" class="mt-2 text-sm text-gray-400 hidden"></p>
+        <div id="loader-progress-shell" class="loader-progress-shell hidden">
+            <div class="loader-progress-track">
+                <div id="loader-progress-bar" class="loader-progress-bar"></div>
+            </div>
+            <div id="loader-progress-meta" class="loader-progress-meta">0%</div>
+        </div>
     </div>
 
     <div class="app-shell">

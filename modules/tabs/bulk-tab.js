@@ -282,11 +282,21 @@ export function createBulkTabController({
         const sortedFiles = getSortedBulkFiles(files);
         const supportedFiles = sortedFiles.filter(isSupportedBulkFile);
         const skippedUnsupported = sortedFiles.length - supportedFiles.length;
+        const supportedTotal = supportedFiles.length;
 
-        showLoader(true);
-        elements.statusText.textContent = 'Scanning folder...';
+        showLoader(true, {
+            title: 'Scanning Folder...',
+            subtitle: supportedTotal
+                ? `0 / ${supportedTotal} supported image(s) analyzed`
+                : 'Checking selected folder contents',
+            progress: supportedTotal ? 0 : 1
+        });
+        elements.statusText.textContent = supportedTotal
+            ? `Scanning ${supportedTotal} supported image(s)...`
+            : 'Checking selected folder...';
 
         try {
+            let processedCount = 0;
             const loadedEntries = await Promise.all(supportedFiles.map(async (file) => {
                 try {
                     const metrics = await loadImageMetricsFromFile(file);
@@ -302,6 +312,13 @@ export function createBulkTabController({
                 } catch (error) {
                     console.warn('Skipping unreadable bulk file:', file.name, error);
                     return null;
+                } finally {
+                    processedCount += 1;
+                    showLoader(true, {
+                        title: 'Scanning Folder...',
+                        subtitle: `${processedCount} / ${supportedTotal} supported image(s) analyzed`,
+                        progress: supportedTotal ? processedCount / supportedTotal : 1
+                    });
                 }
             }));
 
@@ -345,11 +362,20 @@ export function createBulkTabController({
         let failedCount = 0;
 
         try {
-            showLoader(true);
+            showLoader(true, {
+                title: 'Converting Bulk Images...',
+                subtitle: `0 / ${state.bulk.files.length} image(s) converted`,
+                progress: 0
+            });
             if (elements.bulkDownloadBtn) elements.bulkDownloadBtn.disabled = true;
 
             for (const [index, entry] of state.bulk.files.entries()) {
                 elements.statusText.textContent = `Converting ${index + 1}/${state.bulk.files.length}: ${entry.name}`;
+                showLoader(true, {
+                    title: 'Converting Bulk Images...',
+                    subtitle: `${index} / ${state.bulk.files.length} image(s) converted`,
+                    progress: state.bulk.files.length ? index / state.bulk.files.length : 0
+                });
 
                 try {
                     const { img, cleanup } = await loadImageElementFromFile(entry.file);
@@ -365,6 +391,12 @@ export function createBulkTabController({
                     failedCount++;
                     console.warn('Bulk export skipped file:', entry.name, error);
                 }
+
+                showLoader(true, {
+                    title: 'Converting Bulk Images...',
+                    subtitle: `${index + 1} / ${state.bulk.files.length} image(s) converted`,
+                    progress: state.bulk.files.length ? (index + 1) / state.bulk.files.length : 1
+                });
             }
 
             if (!processedCount) {
@@ -372,6 +404,11 @@ export function createBulkTabController({
             }
 
             elements.statusText.textContent = 'Packaging ZIP archive...';
+            showLoader(true, {
+                title: 'Packaging ZIP Archive...',
+                subtitle: `${processedCount} file(s) ready for download`,
+                progress: 1
+            });
             const zipBlob = await createZipFile(zipEntries);
             const archiveName = `${sanitizeFileComponent(state.bulk.folderName, 'bulk_export')}_${state.bulk.exportScale}p_${getRasterExtension(state.bulk.exportFormat)}.zip`;
             downloadBlob(zipBlob, archiveName);

@@ -8,6 +8,11 @@ document.addEventListener('DOMContentLoaded', () => {
         welcomeScreen: document.getElementById('welcome-screen'),
         mainContent: document.getElementById('main-content'),
         loaderOverlay: document.getElementById('loader-overlay'),
+        loaderTitle: document.getElementById('loader-title'),
+        loaderSubtitle: document.getElementById('loader-subtitle'),
+        loaderProgressShell: document.getElementById('loader-progress-shell'),
+        loaderProgressBar: document.getElementById('loader-progress-bar'),
+        loaderProgressMeta: document.getElementById('loader-progress-meta'),
         workspace: document.querySelector('.workspace'),
         sidebarImportSection: document.getElementById('sidebar-import-section'),
         importPanelTitle: document.getElementById('import-panel-title'),
@@ -211,7 +216,52 @@ document.addEventListener('DOMContentLoaded', () => {
         activeTab: 'svg'
     };
 
-    function showLoader(show) {
+    function showLoader(show, options = {}) {
+        if (show) {
+            const {
+                title = 'Processing Image...',
+                subtitle = '',
+                progress = null
+            } = options;
+
+            if (elements.loaderTitle) {
+                elements.loaderTitle.textContent = title;
+            }
+
+            if (elements.loaderSubtitle) {
+                elements.loaderSubtitle.textContent = subtitle;
+                elements.loaderSubtitle.classList.toggle('hidden', !subtitle);
+            }
+
+            if (elements.loaderProgressShell && elements.loaderProgressBar && elements.loaderProgressMeta) {
+                const hasProgress = typeof progress === 'number' && !Number.isNaN(progress);
+                const normalizedProgress = hasProgress
+                    ? Math.max(0, Math.min(1, progress))
+                    : 0;
+
+                elements.loaderProgressShell.classList.toggle('hidden', !hasProgress);
+                elements.loaderProgressBar.style.width = `${normalizedProgress * 100}%`;
+                elements.loaderProgressMeta.textContent = `${Math.round(normalizedProgress * 100)}%`;
+            }
+        } else {
+            if (elements.loaderTitle) {
+                elements.loaderTitle.textContent = 'Processing Image...';
+            }
+            if (elements.loaderSubtitle) {
+                elements.loaderSubtitle.textContent = '';
+                elements.loaderSubtitle.classList.add('hidden');
+            }
+            if (elements.loaderProgressShell) {
+                elements.loaderProgressShell.classList.add('hidden');
+            }
+            if (elements.loaderProgressBar) {
+                elements.loaderProgressBar.style.width = '0%';
+            }
+            if (elements.loaderProgressMeta) {
+                elements.loaderProgressMeta.textContent = '0%';
+            }
+        }
+
         elements.loaderOverlay.style.display = show ? 'flex' : 'none';
     }
 
