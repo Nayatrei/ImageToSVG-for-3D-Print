@@ -42,23 +42,27 @@
             </header>
 
             <div class="flex-grow p-6 overflow-y-auto">
-                <div class="mb-6">
-                    <h2 class="text-lg font-semibold mb-3 text-gray-200">1. Load Image</h2>
+                <div id="sidebar-import-section" class="mb-6">
+                    <h2 id="import-panel-title" class="text-lg font-semibold mb-3 text-gray-200">1. Load Image</h2>
                     <div class="p-4 bg-gray-800 rounded-lg border border-dashed border-gray-600 text-center">
                         <button id="import-btn" class="w-full btn-primary font-semibold py-2 px-4 rounded-md mb-2">
-                            Import From Device
+                            <span id="import-btn-label">Import From Device</span>
                         </button>
                         <input type="file" id="file-input" accept="image/*" class="hidden">
-                        <p class="text-xs text-gray-500 my-2">OR</p>
-                        <div class="flex">
-                            <input type="text" id="url-input" placeholder="Paste image URL" class="flex-grow text-sm p-2 border bg-gray-900 border-gray-600 rounded-l-md outline-none text-white">
-                            <button id="load-url-btn" class="bg-gray-600 text-gray-200 font-semibold px-3 rounded-r-md border border-l-0 border-gray-600 hover:bg-gray-500">Load</button>
+                        <input type="file" id="bulk-folder-input" class="hidden" webkitdirectory directory multiple accept=".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp">
+                        <p id="import-mode-copy" class="text-xs text-gray-400 mt-2">Choose a single image from your device or paste a direct image URL.</p>
+                        <div id="import-url-shell">
+                            <p id="import-url-divider" class="text-xs text-gray-500 my-2">OR</p>
+                            <div class="flex">
+                                <input type="text" id="url-input" placeholder="Paste image URL" class="flex-grow text-sm p-2 border bg-gray-900 border-gray-600 rounded-l-md outline-none text-white">
+                                <button id="load-url-btn" class="bg-gray-600 text-gray-200 font-semibold px-3 rounded-r-md border border-l-0 border-gray-600 hover:bg-gray-500">Load</button>
+                            </div>
                         </div>
                         <div id="resolution-notice" class="text-xs text-amber-400 mt-3 text-left hidden"></div>
                     </div>
                 </div>
 
-                <div>
+                <div id="sidebar-adjust-section">
                     <div class="flex justify-between items-center mb-3">
                         <h2 class="text-lg font-semibold text-gray-200">2. Adjust Conversion</h2>
                         <button id="reset-btn" class="hidden text-xs font-semibold text-blue-400 hover:text-blue-300">Reset to Initial</button>
@@ -150,7 +154,7 @@
                 </div>
             </div>
 
-            <footer class="p-6 border-t border-gray-700 space-y-3">
+            <footer id="sidebar-primary-footer" class="p-6 border-t border-gray-700 space-y-3">
                 <button id="analyze-colors-btn" class="w-full btn-primary font-bold py-3 px-4 rounded-lg text-lg disabled:bg-gray-600 disabled:cursor-not-allowed" disabled>
                     1. Analyze Colors
                 </button>
@@ -208,13 +212,7 @@
                             <div class="flex justify-between items-center mb-3 original-image-header">
                                 <div>
                                     <h3 class="font-semibold text-gray-200" style="font-size: clamp(0.875rem, 1.5vw, 1rem);">Original Images</h3>
-                                    <div id="bulk-folder-summary" class="text-xs text-gray-400 mt-1">Select a folder to scan PNG, JPG, JPEG, and WEBP images.</div>
-                                </div>
-                                <div class="flex items-center gap-2">
-                                    <button id="bulk-folder-btn" class="btn-primary font-semibold py-2 px-4 rounded-md text-sm">
-                                        Choose Folder
-                                    </button>
-                                    <input type="file" id="bulk-folder-input" class="hidden" webkitdirectory directory multiple accept=".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp">
+                                    <div id="bulk-folder-summary" class="text-xs text-gray-400 mt-1">Choose a folder from the left sidebar to scan PNG, JPG, JPEG, and WEBP images.</div>
                                 </div>
                             </div>
                             <div class="bulk-list-shell">
@@ -471,59 +469,107 @@
                                             <span>Estimated</span>
                                         </div>
                                         <div id="bulk-preview-list" class="bulk-list-body">
-                                            <div class="bulk-empty-state">Select a folder to preview bulk output.</div>
+                                            <div class="bulk-empty-state">Choose a folder from the left sidebar to preview bulk output.</div>
                                         </div>
                                     </div>
                                 </div>
                             </div>
 
-                            <div class="output-card">
+                            <div class="output-card bulk-dashboard-card">
                                 <div class="output-card-header">
-                                    <h4 class="output-card-title">Export Settings</h4>
+                                    <h4 class="output-card-title">Result Dashboard</h4>
+                                    <span id="bulk-selected-chip" class="bulk-selected-chip">No selection</span>
                                 </div>
                                 <div class="output-card-content">
-                                    <div class="mb-4 p-3 bg-gray-800 rounded-lg">
-                                        <div class="text-xs font-semibold text-gray-400 mb-2">Bulk Input</div>
-                                        <div class="grid grid-cols-2 gap-2 text-xs">
-                                            <div class="flex justify-between gap-3">
-                                                <span class="text-gray-500">Folder:</span>
-                                                <span id="bulk-folder-name" class="font-mono text-gray-300 truncate text-right">—</span>
+                                    <div class="bulk-size-hero">
+                                        <div id="bulk-total-saved" class="bulk-size-hero-value">—</div>
+                                        <div id="bulk-total-saved-percent" class="bulk-size-hero-meta">—</div>
+                                    </div>
+
+                                    <div class="bulk-dashboard-grid">
+                                        <div class="bulk-dashboard-stat">
+                                            <div class="bulk-summary-label">Folder</div>
+                                            <div id="bulk-folder-name" class="bulk-dashboard-value bulk-dashboard-value-wide">—</div>
+                                        </div>
+                                        <div class="bulk-dashboard-stat">
+                                            <div class="bulk-summary-label">Supported</div>
+                                            <div id="bulk-file-count" class="bulk-dashboard-value">—</div>
+                                        </div>
+                                        <div class="bulk-dashboard-stat">
+                                            <div class="bulk-summary-label">Skipped</div>
+                                            <div id="bulk-skip-count" class="bulk-dashboard-value">—</div>
+                                        </div>
+                                        <div class="bulk-dashboard-stat">
+                                            <div class="bulk-summary-label">Original Total</div>
+                                            <div id="bulk-original-total" class="bulk-dashboard-value">—</div>
+                                        </div>
+                                        <div class="bulk-dashboard-stat">
+                                            <div class="bulk-summary-label">Estimated Output</div>
+                                            <div id="bulk-est-output" class="bulk-dashboard-value">—</div>
+                                        </div>
+                                        <div class="bulk-dashboard-stat">
+                                            <div class="bulk-summary-label">Saved</div>
+                                            <div id="bulk-est-original" class="bulk-dashboard-value">—</div>
+                                        </div>
+                                    </div>
+
+                                    <div class="bulk-selected-card">
+                                        <div class="bulk-selected-header">
+                                            <div>
+                                                <div class="bulk-summary-label">Selected Output</div>
+                                                <div id="bulk-selected-name" class="bulk-selected-name">No file selected</div>
                                             </div>
-                                            <div class="flex justify-between gap-3">
-                                                <span class="text-gray-500">Supported:</span>
-                                                <span id="bulk-file-count" class="font-mono text-gray-300">—</span>
+                                            <div id="bulk-selected-format" class="bulk-selected-format-pill">PNG</div>
+                                        </div>
+                                        <div id="bulk-selected-path" class="bulk-selected-path">Choose a folder from the left sidebar to begin.</div>
+                                        <div class="bulk-detail-grid">
+                                            <div class="bulk-detail-item">
+                                                <span class="bulk-detail-label">Export File</span>
+                                                <span id="bulk-selected-export-name" class="bulk-detail-value">—</span>
                                             </div>
-                                            <div class="flex justify-between gap-3">
-                                                <span class="text-gray-500">Skipped:</span>
-                                                <span id="bulk-skip-count" class="font-mono text-gray-300">—</span>
+                                            <div class="bulk-detail-item">
+                                                <span class="bulk-detail-label">Original</span>
+                                                <span id="bulk-selected-original-dims" class="bulk-detail-value">—</span>
                                             </div>
-                                            <div class="flex justify-between gap-3">
-                                                <span class="text-gray-500">Source Total:</span>
-                                                <span id="bulk-original-total" class="font-mono text-gray-300">—</span>
+                                            <div class="bulk-detail-item">
+                                                <span class="bulk-detail-label">Original Size</span>
+                                                <span id="bulk-selected-original-size" class="bulk-detail-value">—</span>
+                                            </div>
+                                            <div class="bulk-detail-item">
+                                                <span class="bulk-detail-label">Output</span>
+                                                <span id="bulk-selected-output-dims" class="bulk-detail-value">—</span>
+                                            </div>
+                                            <div class="bulk-detail-item">
+                                                <span class="bulk-detail-label">Estimated Size</span>
+                                                <span id="bulk-selected-est-size" class="bulk-detail-value">—</span>
+                                            </div>
+                                            <div class="bulk-detail-item">
+                                                <span class="bulk-detail-label">Format</span>
+                                                <span id="bulk-selected-output-format" class="bulk-detail-value">—</span>
                                             </div>
                                         </div>
                                     </div>
 
-                                    <div class="mb-3">
-                                        <div class="text-xs font-semibold text-gray-400 mb-2">Resize</div>
-                                        <div class="flex flex-wrap gap-2 justify-center mb-3">
-                                            <button class="resize-chip bulk-resize-chip" data-scale="25">25%</button>
-                                            <button class="resize-chip bulk-resize-chip" data-scale="50">50%</button>
-                                            <button class="resize-chip bulk-resize-chip active" data-scale="100">100%</button>
-                                            <button class="resize-chip bulk-resize-chip" data-scale="200">200%</button>
-                                            <button class="resize-chip bulk-resize-chip" data-scale="300">300%</button>
+                                    <div class="bulk-controls-card">
+                                        <div class="text-xs font-semibold text-gray-400 mb-2">Export Controls</div>
+                                        <div class="mb-3">
+                                            <div class="text-xs font-semibold text-gray-400 mb-2">Resize</div>
+                                            <div class="flex flex-wrap gap-2 justify-center mb-3">
+                                                <button class="resize-chip bulk-resize-chip" data-scale="25">25%</button>
+                                                <button class="resize-chip bulk-resize-chip" data-scale="50">50%</button>
+                                                <button class="resize-chip bulk-resize-chip active" data-scale="100">100%</button>
+                                                <button class="resize-chip bulk-resize-chip" data-scale="200">200%</button>
+                                                <button class="resize-chip bulk-resize-chip" data-scale="300">300%</button>
+                                            </div>
+                                            <div class="flex items-center justify-center gap-2">
+                                                <span class="text-xs text-gray-400">Custom:</span>
+                                                <input id="bulk-resize-custom" type="number" min="1" max="500" class="w-20 text-sm p-2 rounded border border-gray-600 bg-gray-900 text-white" placeholder="100">
+                                                <span class="text-xs text-gray-400">%</span>
+                                                <button id="apply-bulk-custom-resize" class="btn-secondary text-xs font-semibold py-1 px-3 rounded-md">Apply</button>
+                                            </div>
                                         </div>
-                                        <div class="flex items-center justify-center gap-2">
-                                            <span class="text-xs text-gray-400">Custom:</span>
-                                            <input id="bulk-resize-custom" type="number" min="1" max="500" class="w-20 text-sm p-2 rounded border border-gray-600 bg-gray-900 text-white" placeholder="100">
-                                            <span class="text-xs text-gray-400">%</span>
-                                            <button id="apply-bulk-custom-resize" class="btn-secondary text-xs font-semibold py-1 px-3 rounded-md">Apply</button>
-                                        </div>
-                                    </div>
 
-                                    <div class="p-3 bg-gray-800 rounded-lg border border-gray-700">
-                                        <div class="text-xs font-semibold text-gray-400 mb-2">Format</div>
-                                        <div class="flex flex-col gap-3">
+                                        <div class="flex flex-col gap-3 mb-4">
                                             <select id="bulk-format-select" class="text-sm p-2 rounded border border-gray-600 bg-gray-900 text-white">
                                                 <option value="png" selected>PNG</option>
                                                 <option value="jpg">JPG</option>
@@ -534,24 +580,10 @@
                                                 <span>Preserve Alpha</span>
                                             </label>
                                         </div>
-                                    </div>
 
-                                    <div class="p-3 bg-gray-800 rounded-lg border border-gray-700">
-                                        <div class="text-xs font-semibold text-gray-400 mb-2">Export Size</div>
-                                        <div class="bulk-size-hero">
-                                            <div id="bulk-total-saved" class="bulk-size-hero-value">—</div>
-                                            <div id="bulk-total-saved-percent" class="bulk-size-hero-meta">—</div>
-                                        </div>
-                                        <div class="grid grid-cols-2 gap-3 text-xs">
-                                            <div class="text-center p-2 bg-gray-900 rounded">
-                                                <div class="text-gray-400 font-semibold mb-1">Original Total</div>
-                                                <div id="bulk-est-original" class="font-mono text-gray-300">—</div>
-                                            </div>
-                                            <div class="text-center p-2 bg-gray-900 rounded">
-                                                <div class="text-gray-400 font-semibold mb-1">Estimated Output</div>
-                                                <div id="bulk-est-output" class="font-mono text-gray-300">—</div>
-                                            </div>
-                                        </div>
+                                        <button id="bulk-download-btn" class="w-full btn-primary font-semibold py-3 px-4 rounded-md text-sm disabled:bg-gray-600 disabled:cursor-not-allowed" disabled>
+                                            Download Bulk ZIP
+                                        </button>
                                     </div>
                                 </div>
                             </div>
@@ -637,16 +669,7 @@
                     </div>
                 </footer>
 
-                <footer id="bulk-download-footer" class="hidden p-4 border-t border-gray-700 bg-gray-800 flex-shrink-0">
-                    <div class="footer-action-stack footer-action-stack-single">
-                        <div class="footer-action-card">
-                            <button id="bulk-download-btn" class="btn-primary font-semibold py-3 px-4 rounded-md text-sm disabled:bg-gray-600 disabled:cursor-not-allowed" disabled>
-                                Bulk Download
-                            </button>
-                            <div class="footer-action-meta">ZIP archive with resized images</div>
-                        </div>
-                    </div>
-                </footer>
+                <footer id="bulk-download-footer" class="hidden p-4 border-t border-gray-700 bg-gray-800 flex-shrink-0"></footer>
             </div><!-- Close main-content -->
         </main>
     </div>

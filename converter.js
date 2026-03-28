@@ -9,6 +9,13 @@ document.addEventListener('DOMContentLoaded', () => {
         mainContent: document.getElementById('main-content'),
         loaderOverlay: document.getElementById('loader-overlay'),
         workspace: document.querySelector('.workspace'),
+        sidebarImportSection: document.getElementById('sidebar-import-section'),
+        importPanelTitle: document.getElementById('import-panel-title'),
+        importBtnLabel: document.getElementById('import-btn-label'),
+        importModeCopy: document.getElementById('import-mode-copy'),
+        importUrlShell: document.getElementById('import-url-shell'),
+        sidebarAdjustSection: document.getElementById('sidebar-adjust-section'),
+        sidebarPrimaryFooter: document.getElementById('sidebar-primary-footer'),
         sourceImage: document.getElementById('source-image'),
         singleOriginalView: document.getElementById('single-original-view'),
         bulkOriginalView: document.getElementById('bulk-original-view'),
@@ -17,7 +24,6 @@ document.addEventListener('DOMContentLoaded', () => {
         fileInput: document.getElementById('file-input'),
         urlInput: document.getElementById('url-input'),
         loadUrlBtn: document.getElementById('load-url-btn'),
-        bulkFolderBtn: document.getElementById('bulk-folder-btn'),
         bulkFolderInput: document.getElementById('bulk-folder-input'),
         bulkFolderSummary: document.getElementById('bulk-folder-summary'),
         bulkSourceList: document.getElementById('bulk-source-list'),
@@ -40,6 +46,16 @@ document.addEventListener('DOMContentLoaded', () => {
         bulkEstOriginal: document.getElementById('bulk-est-original'),
         bulkEstOutput: document.getElementById('bulk-est-output'),
         bulkDownloadBtn: document.getElementById('bulk-download-btn'),
+        bulkSelectedChip: document.getElementById('bulk-selected-chip'),
+        bulkSelectedName: document.getElementById('bulk-selected-name'),
+        bulkSelectedPath: document.getElementById('bulk-selected-path'),
+        bulkSelectedExportName: document.getElementById('bulk-selected-export-name'),
+        bulkSelectedOriginalDims: document.getElementById('bulk-selected-original-dims'),
+        bulkSelectedOriginalSize: document.getElementById('bulk-selected-original-size'),
+        bulkSelectedOutputDims: document.getElementById('bulk-selected-output-dims'),
+        bulkSelectedEstSize: document.getElementById('bulk-selected-est-size'),
+        bulkSelectedFormat: document.getElementById('bulk-selected-format'),
+        bulkSelectedOutputFormat: document.getElementById('bulk-selected-output-format'),
         savePngBtn: document.getElementById('save-png-btn'),
         saveJpgBtn: document.getElementById('save-jpg-btn'),
         saveSvgBtn: document.getElementById('save-svg-btn'),
@@ -157,6 +173,7 @@ document.addEventListener('DOMContentLoaded', () => {
             exportScale: 100,
             exportFormat: 'png',
             preserveAlpha: true,
+            selectedPreviewIndex: -1,
             previewItems: [],
             totals: {
                 originalBytes: 0,
@@ -228,6 +245,37 @@ document.addEventListener('DOMContentLoaded', () => {
             } else if (!imageLoaded) {
                 elements.outputSection.style.display = 'none';
             }
+        }
+    }
+
+    function syncImportPanel() {
+        const isBulk = state.activeTab === 'bulk';
+
+        if (elements.importPanelTitle) {
+            elements.importPanelTitle.textContent = isBulk ? '1. Load Folder' : '1. Load Image';
+        }
+        if (elements.importBtnLabel) {
+            elements.importBtnLabel.textContent = isBulk ? 'Choose Folder' : 'Import From Device';
+        }
+        if (elements.importModeCopy) {
+            elements.importModeCopy.textContent = isBulk
+                ? 'Scan a folder of PNG, JPG, JPEG, or WEBP images for batch resize and ZIP export.'
+                : 'Choose a single image from your device or paste a direct image URL.';
+        }
+        if (elements.importUrlShell) {
+            elements.importUrlShell.classList.toggle('hidden', isBulk);
+        }
+        if (elements.sidebarAdjustSection) {
+            elements.sidebarAdjustSection.classList.toggle('hidden', isBulk);
+        }
+        if (elements.sidebarPrimaryFooter) {
+            elements.sidebarPrimaryFooter.classList.toggle('hidden', isBulk);
+        }
+        if (elements.resolutionNotice && isBulk) {
+            elements.resolutionNotice.classList.add('hidden');
+        }
+        if (elements.importBtn) {
+            elements.importBtn.setAttribute('aria-label', isBulk ? 'Choose a folder for bulk conversion' : 'Import an image from your device');
         }
     }
 
@@ -322,10 +370,11 @@ document.addEventListener('DOMContentLoaded', () => {
             elements.rasterDownloadFooter.classList.toggle('hidden', target !== 'raster');
         }
         if (elements.bulkDownloadFooter) {
-            elements.bulkDownloadFooter.classList.toggle('hidden', target !== 'bulk');
+            elements.bulkDownloadFooter.classList.add('hidden');
         }
 
         setOriginalPanelMode(target === 'bulk' ? 'bulk' : 'single');
+        syncImportPanel();
         syncWorkspaceView();
 
         updateSegmentedControlIndicator();
@@ -441,7 +490,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function bindAppEvents() {
         if (elements.importBtn) {
-            elements.importBtn.addEventListener('click', () => elements.fileInput.click());
+            elements.importBtn.addEventListener('click', () => {
+                if (state.activeTab === 'bulk') {
+                    elements.bulkFolderInput?.click();
+                    return;
+                }
+                elements.fileInput?.click();
+            });
         }
 
         if (elements.fileInput) {
@@ -500,6 +555,7 @@ document.addEventListener('DOMContentLoaded', () => {
         bulkTab.setExportScale(state.bulk.exportScale);
         svgTab.setHighFidelity(state.highFidelity);
         rasterTab.updateExportScaleDisplay();
+        syncImportPanel();
         syncWorkspaceView();
 
         if (typeof chrome !== 'undefined' && chrome.storage) {

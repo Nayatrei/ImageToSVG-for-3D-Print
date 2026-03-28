@@ -50,6 +50,79 @@ export function createBulkTabController({
         return `${baseName}_${state.bulk.exportScale}p_resize${index}.${getRasterExtension(state.bulk.exportFormat)}`;
     }
 
+    function getSelectedPreviewItem() {
+        if (state.bulk.selectedPreviewIndex < 0) return null;
+        return state.bulk.previewItems[state.bulk.selectedPreviewIndex] || null;
+    }
+
+    function syncSelectedPreviewIndex() {
+        if (!state.bulk.previewItems.length) {
+            state.bulk.selectedPreviewIndex = -1;
+            return;
+        }
+
+        if (
+            state.bulk.selectedPreviewIndex < 0
+            || state.bulk.selectedPreviewIndex >= state.bulk.previewItems.length
+        ) {
+            state.bulk.selectedPreviewIndex = 0;
+        }
+    }
+
+    function renderSelectedPreviewDetails() {
+        const selectedItem = getSelectedPreviewItem();
+        const formatLabel = getFormatLabel(state.bulk.exportFormat);
+
+        if (elements.bulkSelectedChip) {
+            elements.bulkSelectedChip.textContent = selectedItem
+                ? `${state.bulk.selectedPreviewIndex + 1} / ${state.bulk.previewItems.length}`
+                : 'No selection';
+        }
+
+        if (elements.bulkSelectedFormat) {
+            elements.bulkSelectedFormat.textContent = formatLabel;
+        }
+
+        if (!selectedItem) {
+            if (elements.bulkSelectedName) elements.bulkSelectedName.textContent = 'No file selected';
+            if (elements.bulkSelectedPath) {
+                elements.bulkSelectedPath.textContent = state.bulk.folderName
+                    ? 'This folder does not have a selectable preview item yet.'
+                    : 'Choose a folder from the left sidebar to begin.';
+            }
+            if (elements.bulkSelectedExportName) elements.bulkSelectedExportName.textContent = '—';
+            if (elements.bulkSelectedOriginalDims) elements.bulkSelectedOriginalDims.textContent = '—';
+            if (elements.bulkSelectedOriginalSize) elements.bulkSelectedOriginalSize.textContent = '—';
+            if (elements.bulkSelectedOutputDims) elements.bulkSelectedOutputDims.textContent = '—';
+            if (elements.bulkSelectedEstSize) elements.bulkSelectedEstSize.textContent = '—';
+            if (elements.bulkSelectedOutputFormat) elements.bulkSelectedOutputFormat.textContent = '—';
+            return;
+        }
+
+        if (elements.bulkSelectedName) elements.bulkSelectedName.textContent = selectedItem.name;
+        if (elements.bulkSelectedPath) {
+            elements.bulkSelectedPath.textContent = selectedItem.relativePath !== selectedItem.name
+                ? selectedItem.relativePath
+                : 'Top-level file';
+        }
+        if (elements.bulkSelectedExportName) elements.bulkSelectedExportName.textContent = selectedItem.exportName;
+        if (elements.bulkSelectedOriginalDims) {
+            elements.bulkSelectedOriginalDims.textContent = `${selectedItem.width}×${selectedItem.height}px`;
+        }
+        if (elements.bulkSelectedOriginalSize) {
+            elements.bulkSelectedOriginalSize.textContent = formatBytes(selectedItem.size);
+        }
+        if (elements.bulkSelectedOutputDims) {
+            elements.bulkSelectedOutputDims.textContent = `${selectedItem.target.width}×${selectedItem.target.height}px`;
+        }
+        if (elements.bulkSelectedEstSize) {
+            elements.bulkSelectedEstSize.textContent = formatBytes(selectedItem.estimatedBytes);
+        }
+        if (elements.bulkSelectedOutputFormat) {
+            elements.bulkSelectedOutputFormat.textContent = formatLabel;
+        }
+    }
+
     function renderBulkSourceList() {
         if (!elements.bulkSourceList) return;
         elements.bulkSourceList.innerHTML = '';
@@ -59,7 +132,7 @@ export function createBulkTabController({
             empty.className = 'bulk-empty-state';
             empty.textContent = state.bulk.folderName
                 ? `No supported ${Array.from(BULK_SUPPORTED_EXTENSIONS).join(', ').toUpperCase()} images were found.`
-                : 'No folder selected.';
+                : 'Choose a folder from the left sidebar to see supported images.';
             elements.bulkSourceList.appendChild(empty);
             return;
         }
@@ -86,19 +159,26 @@ export function createBulkTabController({
             const empty = document.createElement('div');
             empty.className = 'bulk-empty-state';
             empty.textContent = state.bulk.folderName
-                ? 'No bulk preview available for this folder.'
-                : 'Select a folder to preview bulk output.';
+                ? 'No bulk preview is available for this folder.'
+                : 'Choose a folder from the left sidebar to preview bulk output.';
             elements.bulkPreviewList.appendChild(empty);
             return;
         }
 
         const fragment = document.createDocumentFragment();
-        state.bulk.previewItems.forEach((entry) => {
-            const row = document.createElement('div');
-            row.className = 'bulk-list-row bulk-result-row';
+        state.bulk.previewItems.forEach((entry, index) => {
+            const row = document.createElement('button');
+            row.type = 'button';
+            row.className = 'bulk-list-row bulk-result-row bulk-result-button';
+            row.classList.toggle('is-selected', index === state.bulk.selectedPreviewIndex);
             row.appendChild(createBulkListCell('Image', entry.name, entry.relativePath !== entry.name ? entry.relativePath : entry.exportName));
             row.appendChild(createBulkListCell('Result', `${entry.target.width}×${entry.target.height}px`, entry.exportName));
             row.appendChild(createBulkListCell('Estimated', formatBytes(entry.estimatedBytes), getFormatLabel(state.bulk.exportFormat)));
+            row.addEventListener('click', () => {
+                state.bulk.selectedPreviewIndex = index;
+                renderBulkPreviewList();
+                renderSelectedPreviewDetails();
+            });
             fragment.appendChild(row);
         });
 
@@ -140,6 +220,7 @@ export function createBulkTabController({
         const savedPercent = originalBytes > 0 ? (savedBytes / originalBytes) * 100 : 0;
 
         state.bulk.previewItems = previewItems;
+        syncSelectedPreviewIndex();
         state.bulk.totals = {
             originalBytes,
             estimatedBytes,
@@ -156,7 +237,7 @@ export function createBulkTabController({
         if (elements.bulkFileCount) elements.bulkFileCount.textContent = String(state.bulk.files.length);
         if (elements.bulkSkipCount) elements.bulkSkipCount.textContent = String(state.bulk.skippedCount);
         if (elements.bulkOriginalTotal) elements.bulkOriginalTotal.textContent = formatBytes(originalBytes);
-        if (elements.bulkEstOriginal) elements.bulkEstOriginal.textContent = formatBytes(originalBytes);
+        if (elements.bulkEstOriginal) elements.bulkEstOriginal.textContent = formatBytes(Math.abs(savedBytes));
         if (elements.bulkEstOutput) elements.bulkEstOutput.textContent = formatBytes(estimatedBytes);
 
         if (elements.bulkTotalSaved) {
@@ -182,12 +263,13 @@ export function createBulkTabController({
         if (elements.bulkFolderSummary) {
             elements.bulkFolderSummary.textContent = state.bulk.folderName
                 ? `${state.bulk.folderName} · ${state.bulk.files.length} supported image(s)${state.bulk.skippedCount ? ` · ${state.bulk.skippedCount} skipped` : ''}`
-                : 'Select a folder to scan PNG, JPG, JPEG, and WEBP images.';
+                : 'Choose a folder from the left sidebar to scan PNG, JPG, JPEG, and WEBP images.';
         }
 
         updateBulkAlphaVisibility();
-        renderBulkPreviewList();
         renderBulkSourceList();
+        renderBulkPreviewList();
+        renderSelectedPreviewDetails();
 
         if (elements.bulkDownloadBtn) {
             elements.bulkDownloadBtn.disabled = state.bulk.files.length === 0;
@@ -228,6 +310,7 @@ export function createBulkTabController({
 
             state.bulk.folderName = sortedFiles.length ? getBulkFolderName(sortedFiles) : '';
             state.bulk.files = validFiles;
+            state.bulk.selectedPreviewIndex = validFiles.length ? 0 : -1;
             state.bulk.skippedCount = skippedUnsupported + invalidCount;
 
             updatePreview();
@@ -241,6 +324,7 @@ export function createBulkTabController({
             console.error('Bulk folder scan failed:', error);
             state.bulk.folderName = '';
             state.bulk.files = [];
+            state.bulk.selectedPreviewIndex = -1;
             state.bulk.skippedCount = 0;
             updatePreview();
             elements.statusText.textContent = 'Failed to scan folder.';
@@ -304,12 +388,7 @@ export function createBulkTabController({
     }
 
     function bindEvents() {
-        if (elements.bulkFolderBtn && elements.bulkFolderInput) {
-            elements.bulkFolderBtn.addEventListener('click', () => {
-                syncWorkspaceView();
-                elements.bulkFolderInput.click();
-            });
-
+        if (elements.bulkFolderInput) {
             elements.bulkFolderInput.addEventListener('change', async (event) => {
                 const files = Array.from(event.target.files || []);
                 if (files.length) {
