@@ -7,7 +7,8 @@ export function createSvgTabController({
     state,
     elements,
     showLoader,
-    showWorkspace,
+    syncWorkspaceView,
+    hasSingleImageLoaded,
     updateSegmentedControlIndicator,
     downloadBlob,
     downloadSVG,
@@ -1104,7 +1105,7 @@ export function createSvgTabController({
     }
 
     function onSourceImageLoaded() {
-        showWorkspace(true);
+        syncWorkspaceView();
         elements.analyzeColorsBtn.disabled = false;
 
         const w = elements.sourceImage.naturalWidth;
@@ -1131,8 +1132,12 @@ export function createSvgTabController({
         saveInitialSliderValues();
         elements.analyzeColorsBtn.click();
 
-        const activeTab = Array.from(elements.exportTabs || []).find((button) => button.classList.contains('active'));
-        if (activeTab?.dataset.tab === 'raster') {
+        if (state.activeTab === 'svg') {
+            onTabActivated();
+        } else if (state.activeTab === 'raster') {
+            setAvailableLayersVisible(false);
+            setFinalPaletteVisible(false);
+        } else {
             setAvailableLayersVisible(false);
             setFinalPaletteVisible(false);
         }
@@ -1141,6 +1146,7 @@ export function createSvgTabController({
     }
 
     function onTabActivated() {
+        if (!hasSingleImageLoaded()) return;
         setAvailableLayersVisible(true);
         setFinalPaletteVisible(true);
         objPreview.render();

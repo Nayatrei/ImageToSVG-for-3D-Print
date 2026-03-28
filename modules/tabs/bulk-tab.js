@@ -22,7 +22,7 @@ export function createBulkTabController({
     state,
     elements,
     showLoader,
-    ensureBulkWorkspaceVisible,
+    syncWorkspaceView,
     downloadBlob
 }) {
     function createBulkListCell(label, primary, secondary = '') {
@@ -195,7 +195,7 @@ export function createBulkTabController({
     }
 
     async function handleFolderSelection(files) {
-        ensureBulkWorkspaceVisible();
+        syncWorkspaceView();
 
         const sortedFiles = getSortedBulkFiles(files);
         const supportedFiles = sortedFiles.filter(isSupportedBulkFile);
@@ -306,7 +306,7 @@ export function createBulkTabController({
     function bindEvents() {
         if (elements.bulkFolderBtn && elements.bulkFolderInput) {
             elements.bulkFolderBtn.addEventListener('click', () => {
-                ensureBulkWorkspaceVisible();
+                syncWorkspaceView();
                 elements.bulkFolderInput.click();
             });
 

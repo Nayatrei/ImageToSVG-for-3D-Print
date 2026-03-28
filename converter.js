@@ -190,21 +190,12 @@ document.addEventListener('DOMContentLoaded', () => {
         zoom: {
             all: { scale: 1, x: 0, y: 0, isDragging: false },
             selected: { scale: 1, x: 0, y: 0, isDragging: false }
-        }
+        },
+        activeTab: 'svg'
     };
 
     function showLoader(show) {
         elements.loaderOverlay.style.display = show ? 'flex' : 'none';
-    }
-
-    function showWorkspace(show) {
-        if (show) {
-            elements.welcomeScreen.style.display = 'none';
-            elements.mainContent.classList.remove('hidden');
-        } else {
-            elements.welcomeScreen.style.display = 'flex';
-            elements.mainContent.classList.add('hidden');
-        }
     }
 
     function hasSingleImageLoaded() {
@@ -221,10 +212,22 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    function ensureBulkWorkspaceVisible() {
-        showWorkspace(true);
+    function syncWorkspaceView() {
+        const imageLoaded = hasSingleImageLoaded();
+        const showMainContent = state.activeTab === 'bulk' || imageLoaded;
+
+        if (elements.welcomeScreen) {
+            elements.welcomeScreen.style.display = showMainContent ? 'none' : 'flex';
+        }
+        if (elements.mainContent) {
+            elements.mainContent.classList.toggle('hidden', !showMainContent);
+        }
         if (elements.outputSection) {
-            elements.outputSection.style.display = 'flex';
+            if (state.activeTab === 'bulk') {
+                elements.outputSection.style.display = 'flex';
+            } else if (!imageLoaded) {
+                elements.outputSection.style.display = 'none';
+            }
         }
     }
 
@@ -281,7 +284,7 @@ document.addEventListener('DOMContentLoaded', () => {
         state,
         elements,
         showLoader,
-        ensureBulkWorkspaceVisible,
+        syncWorkspaceView,
         downloadBlob
     });
 
@@ -289,7 +292,8 @@ document.addEventListener('DOMContentLoaded', () => {
         state,
         elements,
         showLoader,
-        showWorkspace,
+        syncWorkspaceView,
+        hasSingleImageLoaded,
         updateSegmentedControlIndicator,
         downloadBlob,
         downloadSVG,
@@ -299,6 +303,8 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     function switchExportTab(target) {
+        state.activeTab = target;
+
         elements.exportTabs.forEach((btn) => {
             const isActive = btn.dataset.tab === target;
             btn.classList.toggle('active', isActive);
@@ -320,18 +326,13 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         setOriginalPanelMode(target === 'bulk' ? 'bulk' : 'single');
-
-        if (target === 'bulk') {
-            ensureBulkWorkspaceVisible();
-        } else if (!hasSingleImageLoaded()) {
-            showWorkspace(false);
-        }
+        syncWorkspaceView();
 
         updateSegmentedControlIndicator();
 
-        if (target === 'svg') {
+        if (target === 'svg' && hasSingleImageLoaded()) {
             svgTab.onTabActivated();
-        } else if (target === 'raster') {
+        } else if (target === 'raster' && hasSingleImageLoaded()) {
             svgTab.setAvailableLayersVisible(false);
             svgTab.setFinalPaletteVisible(false);
             rasterTab.onTabActivated();
@@ -499,6 +500,7 @@ document.addEventListener('DOMContentLoaded', () => {
         bulkTab.setExportScale(state.bulk.exportScale);
         svgTab.setHighFidelity(state.highFidelity);
         rasterTab.updateExportScaleDisplay();
+        syncWorkspaceView();
 
         if (typeof chrome !== 'undefined' && chrome.storage) {
             chrome.storage.local.get(['imageUrlToConvert'], (result) => {
