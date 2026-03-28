@@ -455,6 +455,43 @@
                                     <h4 class="output-card-title">Bulk Preview</h4>
                                 </div>
                                 <div class="output-card-content">
+                                    <div class="bulk-format-tabs" role="tablist" aria-label="Bulk Export Format">
+                                        <button type="button" class="bulk-format-tab active" data-format="jpg">JPG</button>
+                                        <button type="button" class="bulk-format-tab" data-format="png">PNG</button>
+                                        <button type="button" class="bulk-format-tab" data-format="tga">TGA</button>
+                                    </div>
+
+                                    <div class="bulk-controls-card bulk-controls-card-inline">
+                                        <div class="text-xs font-semibold text-gray-400 mb-2">Export Controls</div>
+                                        <div class="mb-3">
+                                            <div class="text-xs font-semibold text-gray-400 mb-2">Resize</div>
+                                            <div class="flex flex-wrap gap-2 justify-center mb-3">
+                                                <button class="resize-chip bulk-resize-chip" data-scale="25">25%</button>
+                                                <button class="resize-chip bulk-resize-chip" data-scale="50">50%</button>
+                                                <button class="resize-chip bulk-resize-chip active" data-scale="100">100%</button>
+                                                <button class="resize-chip bulk-resize-chip" data-scale="200">200%</button>
+                                                <button class="resize-chip bulk-resize-chip" data-scale="300">300%</button>
+                                            </div>
+                                            <div class="flex items-center justify-center gap-2">
+                                                <span class="text-xs text-gray-400">Custom:</span>
+                                                <input id="bulk-resize-custom" type="number" min="1" max="500" class="w-20 text-sm p-2 rounded border border-gray-600 bg-gray-900 text-white" placeholder="100">
+                                                <span class="text-xs text-gray-400">%</span>
+                                                <button id="apply-bulk-custom-resize" class="btn-secondary text-xs font-semibold py-1 px-3 rounded-md">Apply</button>
+                                            </div>
+                                        </div>
+
+                                        <div class="bulk-inline-actions">
+                                            <label id="bulk-alpha-toggle" class="footer-toggle text-gray-300 cursor-pointer justify-start">
+                                                <input id="bulk-preserve-alpha" type="checkbox" class="accent-blue-500 cursor-pointer" checked>
+                                                <span>Preserve Alpha</span>
+                                            </label>
+
+                                            <button id="bulk-download-btn" class="btn-primary font-semibold py-3 px-4 rounded-md text-sm disabled:bg-gray-600 disabled:cursor-not-allowed" disabled>
+                                                Download Bulk ZIP
+                                            </button>
+                                        </div>
+                                    </div>
+
                                     <div class="bulk-summary-grid">
                                         <div class="bulk-summary-card">
                                             <div class="bulk-summary-label">Files</div>
@@ -555,42 +592,6 @@
                                                 <span id="bulk-selected-output-format" class="bulk-detail-value">—</span>
                                             </div>
                                         </div>
-                                    </div>
-
-                                    <div class="bulk-controls-card">
-                                        <div class="text-xs font-semibold text-gray-400 mb-2">Export Controls</div>
-                                        <div class="mb-3">
-                                            <div class="text-xs font-semibold text-gray-400 mb-2">Resize</div>
-                                            <div class="flex flex-wrap gap-2 justify-center mb-3">
-                                                <button class="resize-chip bulk-resize-chip" data-scale="25">25%</button>
-                                                <button class="resize-chip bulk-resize-chip" data-scale="50">50%</button>
-                                                <button class="resize-chip bulk-resize-chip active" data-scale="100">100%</button>
-                                                <button class="resize-chip bulk-resize-chip" data-scale="200">200%</button>
-                                                <button class="resize-chip bulk-resize-chip" data-scale="300">300%</button>
-                                            </div>
-                                            <div class="flex items-center justify-center gap-2">
-                                                <span class="text-xs text-gray-400">Custom:</span>
-                                                <input id="bulk-resize-custom" type="number" min="1" max="500" class="w-20 text-sm p-2 rounded border border-gray-600 bg-gray-900 text-white" placeholder="100">
-                                                <span class="text-xs text-gray-400">%</span>
-                                                <button id="apply-bulk-custom-resize" class="btn-secondary text-xs font-semibold py-1 px-3 rounded-md">Apply</button>
-                                            </div>
-                                        </div>
-
-                                        <div class="flex flex-col gap-3 mb-4">
-                                            <select id="bulk-format-select" class="text-sm p-2 rounded border border-gray-600 bg-gray-900 text-white">
-                                                <option value="png" selected>PNG</option>
-                                                <option value="jpg">JPG</option>
-                                                <option value="tga">TGA</option>
-                                            </select>
-                                            <label id="bulk-alpha-toggle" class="footer-toggle text-gray-300 cursor-pointer justify-start">
-                                                <input id="bulk-preserve-alpha" type="checkbox" class="accent-blue-500 cursor-pointer" checked>
-                                                <span>Preserve Alpha</span>
-                                            </label>
-                                        </div>
-
-                                        <button id="bulk-download-btn" class="w-full btn-primary font-semibold py-3 px-4 rounded-md text-sm disabled:bg-gray-600 disabled:cursor-not-allowed" disabled>
-                                            Download Bulk ZIP
-                                        </button>
                                     </div>
                                 </div>
                             </div>

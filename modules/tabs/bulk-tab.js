@@ -1,5 +1,6 @@
 import { createZipFile } from '../export3d.js';
 import {
+    estimateRasterBlobSizeFromSource,
     estimateSizeBytes,
     formatBytes,
     getBulkFolderName,
@@ -25,6 +26,9 @@ export function createBulkTabController({
     syncWorkspaceView,
     downloadBlob
 }) {
+    const bulkEstimateCache = new Map();
+    let bulkEstimateJobId = 0;
+
     function createBulkListCell(label, primary, secondary = '') {
         const cell = document.createElement('div');
         cell.className = 'bulk-list-cell';
@@ -48,6 +52,130 @@ export function createBulkTabController({
     function buildBulkExportFileName(entry, index) {
         const baseName = sanitizeFileComponent(entry.name, 'image');
         return `${baseName}_${state.bulk.exportScale}p_resize${index}.${getRasterExtension(state.bulk.exportFormat)}`;
+    }
+
+    function getBulkEstimateCacheKey(entry, target, format, preserveAlpha) {
+        return [
+            entry.relativePath,
+            entry.size,
+            entry.width,
+            entry.height,
+            entry.file?.lastModified || 0,
+            target.width,
+            target.height,
+            format,
+            preserveAlpha ? 1 : 0
+        ].join('|');
+    }
+
+    async function getBulkAccurateEstimate(entry, target, format, preserveAlpha) {
+        const cacheKey = getBulkEstimateCacheKey(entry, target, format, preserveAlpha);
+        if (bulkEstimateCache.has(cacheKey)) {
+            return bulkEstimateCache.get(cacheKey);
+        }
+
+        const { img, cleanup } = await loadImageElementFromFile(entry.file);
+        try {
+            const bytes = await estimateRasterBlobSizeFromSource(img, target, format, preserveAlpha);
+            bulkEstimateCache.set(cacheKey, bytes);
+            return bytes;
+        } finally {
+            cleanup();
+        }
+    }
+
+    function formatEstimatedBytes(bytes) {
+        return typeof bytes === 'number' ? formatBytes(bytes) : 'Estimating...';
+    }
+
+    function updateBulkTotalsDisplay(originalBytes) {
+        const resolvedItems = state.bulk.previewItems.filter((entry) => typeof entry.estimatedBytes === 'number');
+        const allResolved = resolvedItems.length === state.bulk.previewItems.length;
+
+        if (!state.bulk.previewItems.length) {
+            state.bulk.totals = {
+                originalBytes,
+                estimatedBytes: 0,
+                savedBytes: 0,
+                savedPercent: 0
+            };
+            if (elements.bulkEstOriginal) elements.bulkEstOriginal.textContent = '—';
+            if (elements.bulkEstOutput) elements.bulkEstOutput.textContent = '—';
+            if (elements.bulkTotalSaved) elements.bulkTotalSaved.textContent = '—';
+            if (elements.bulkTotalSavedPercent) elements.bulkTotalSavedPercent.textContent = '—';
+            return;
+        }
+
+        if (!allResolved) {
+            state.bulk.totals = {
+                originalBytes,
+                estimatedBytes: 0,
+                savedBytes: 0,
+                savedPercent: 0
+            };
+            if (elements.bulkEstOriginal) elements.bulkEstOriginal.textContent = 'Estimating...';
+            if (elements.bulkEstOutput) elements.bulkEstOutput.textContent = 'Estimating...';
+            if (elements.bulkTotalSaved) {
+                elements.bulkTotalSaved.textContent = `Estimating ${resolvedItems.length}/${state.bulk.previewItems.length}`;
+            }
+            if (elements.bulkTotalSavedPercent) {
+                elements.bulkTotalSavedPercent.textContent = 'Calculating actual output sizes';
+            }
+            return;
+        }
+
+        const estimatedBytes = resolvedItems.reduce((sum, entry) => sum + entry.estimatedBytes, 0);
+        const savedBytes = originalBytes - estimatedBytes;
+        const savedPercent = originalBytes > 0 ? (savedBytes / originalBytes) * 100 : 0;
+
+        state.bulk.totals = {
+            originalBytes,
+            estimatedBytes,
+            savedBytes,
+            savedPercent
+        };
+
+        if (elements.bulkEstOriginal) elements.bulkEstOriginal.textContent = formatBytes(Math.abs(savedBytes));
+        if (elements.bulkEstOutput) elements.bulkEstOutput.textContent = formatBytes(estimatedBytes);
+
+        if (elements.bulkTotalSaved) {
+            if (savedBytes > 0) {
+                elements.bulkTotalSaved.textContent = `Saved ${formatBytes(savedBytes)}`;
+            } else if (savedBytes < 0) {
+                elements.bulkTotalSaved.textContent = `Larger by ${formatBytes(Math.abs(savedBytes))}`;
+            } else {
+                elements.bulkTotalSaved.textContent = 'No size change';
+            }
+        }
+
+        if (elements.bulkTotalSavedPercent) {
+            if (savedBytes > 0) {
+                elements.bulkTotalSavedPercent.textContent = `${savedPercent.toFixed(1)}% smaller overall`;
+            } else if (savedBytes < 0) {
+                elements.bulkTotalSavedPercent.textContent = `${Math.abs(savedPercent).toFixed(1)}% larger overall`;
+            } else {
+                elements.bulkTotalSavedPercent.textContent = '0.0% difference';
+            }
+        }
+    }
+
+    async function hydrateBulkEstimates(jobId, format, preserveAlpha) {
+        for (const item of state.bulk.previewItems) {
+            if (jobId !== bulkEstimateJobId) return;
+            if (typeof item.estimatedBytes === 'number') continue;
+
+            try {
+                item.estimatedBytes = await getBulkAccurateEstimate(item, item.target, format, preserveAlpha);
+            } catch (error) {
+                console.warn(`Falling back to approximate ${getFormatLabel(format)} bulk estimate for ${item.name}.`, error);
+                item.estimatedBytes = estimateSizeBytes(item.target.width, item.target.height, format, preserveAlpha);
+            }
+
+            if (jobId !== bulkEstimateJobId) return;
+            updateBulkTotalsDisplay(state.bulk.files.reduce((sum, entry) => sum + entry.size, 0));
+            renderBulkPreviewList();
+            renderSelectedPreviewDetails();
+        }
     }
 
     function getSelectedPreviewItem() {
@@ -116,7 +244,7 @@ export function createBulkTabController({
             elements.bulkSelectedOutputDims.textContent = `${selectedItem.target.width}×${selectedItem.target.height}px`;
         }
         if (elements.bulkSelectedEstSize) {
-            elements.bulkSelectedEstSize.textContent = formatBytes(selectedItem.estimatedBytes);
+            elements.bulkSelectedEstSize.textContent = formatEstimatedBytes(selectedItem.estimatedBytes);
         }
         if (elements.bulkSelectedOutputFormat) {
             elements.bulkSelectedOutputFormat.textContent = formatLabel;
@@ -173,7 +301,7 @@ export function createBulkTabController({
             row.classList.toggle('is-selected', index === state.bulk.selectedPreviewIndex);
             row.appendChild(createBulkListCell('Image', entry.name, entry.relativePath !== entry.name ? entry.relativePath : entry.exportName));
             row.appendChild(createBulkListCell('Result', `${entry.target.width}×${entry.target.height}px`, entry.exportName));
-            row.appendChild(createBulkListCell('Estimated', formatBytes(entry.estimatedBytes), getFormatLabel(state.bulk.exportFormat)));
+            row.appendChild(createBulkListCell('Estimated', formatEstimatedBytes(entry.estimatedBytes), getFormatLabel(state.bulk.exportFormat)));
             row.addEventListener('click', () => {
                 state.bulk.selectedPreviewIndex = index;
                 renderBulkPreviewList();
@@ -205,60 +333,37 @@ export function createBulkTabController({
         const preserveAlpha = getPreserveAlphaForFormat(state.bulk.exportFormat, state.bulk.preserveAlpha);
         const previewItems = state.bulk.files.map((entry, index) => {
             const target = getScaledDimensions({ width: entry.width, height: entry.height }, state.bulk.exportScale);
-            const estimatedBytes = estimateSizeBytes(target.width, target.height, state.bulk.exportFormat, preserveAlpha);
+            const estimateCacheKey = getBulkEstimateCacheKey(entry, target, state.bulk.exportFormat, preserveAlpha);
+            const estimatedBytes = bulkEstimateCache.has(estimateCacheKey)
+                ? bulkEstimateCache.get(estimateCacheKey)
+                : null;
             return {
                 ...entry,
                 target,
                 estimatedBytes,
+                estimateCacheKey,
                 exportName: buildBulkExportFileName(entry, index + 1)
             };
         });
 
         const originalBytes = state.bulk.files.reduce((sum, entry) => sum + entry.size, 0);
-        const estimatedBytes = previewItems.reduce((sum, entry) => sum + entry.estimatedBytes, 0);
-        const savedBytes = originalBytes - estimatedBytes;
-        const savedPercent = originalBytes > 0 ? (savedBytes / originalBytes) * 100 : 0;
 
         state.bulk.previewItems = previewItems;
         syncSelectedPreviewIndex();
-        state.bulk.totals = {
-            originalBytes,
-            estimatedBytes,
-            savedBytes,
-            savedPercent
-        };
+        bulkEstimateJobId += 1;
 
         if (elements.bulkPreviewCount) elements.bulkPreviewCount.textContent = String(state.bulk.files.length);
         if (elements.bulkPreviewFormat) elements.bulkPreviewFormat.textContent = getFormatLabel(state.bulk.exportFormat);
         if (elements.bulkPreviewScale) elements.bulkPreviewScale.textContent = `${state.bulk.exportScale}%`;
-        if (elements.bulkFormatSelect) elements.bulkFormatSelect.value = state.bulk.exportFormat;
+        elements.bulkFormatTabs.forEach((tab) => {
+            tab.classList.toggle('active', tab.dataset.format === state.bulk.exportFormat);
+        });
         if (elements.bulkPreserveAlphaCheckbox) elements.bulkPreserveAlphaCheckbox.checked = state.bulk.preserveAlpha;
         if (elements.bulkFolderName) elements.bulkFolderName.textContent = state.bulk.folderName || '—';
         if (elements.bulkFileCount) elements.bulkFileCount.textContent = String(state.bulk.files.length);
         if (elements.bulkSkipCount) elements.bulkSkipCount.textContent = String(state.bulk.skippedCount);
         if (elements.bulkOriginalTotal) elements.bulkOriginalTotal.textContent = formatBytes(originalBytes);
-        if (elements.bulkEstOriginal) elements.bulkEstOriginal.textContent = formatBytes(Math.abs(savedBytes));
-        if (elements.bulkEstOutput) elements.bulkEstOutput.textContent = formatBytes(estimatedBytes);
-
-        if (elements.bulkTotalSaved) {
-            if (savedBytes > 0) {
-                elements.bulkTotalSaved.textContent = `Saved ${formatBytes(savedBytes)}`;
-            } else if (savedBytes < 0) {
-                elements.bulkTotalSaved.textContent = `Larger by ${formatBytes(Math.abs(savedBytes))}`;
-            } else {
-                elements.bulkTotalSaved.textContent = 'No size change';
-            }
-        }
-
-        if (elements.bulkTotalSavedPercent) {
-            if (savedBytes > 0) {
-                elements.bulkTotalSavedPercent.textContent = `${savedPercent.toFixed(1)}% smaller overall`;
-            } else if (savedBytes < 0) {
-                elements.bulkTotalSavedPercent.textContent = `${Math.abs(savedPercent).toFixed(1)}% larger overall`;
-            } else {
-                elements.bulkTotalSavedPercent.textContent = '0.0% difference';
-            }
-        }
+        updateBulkTotalsDisplay(originalBytes);
 
         if (elements.bulkFolderSummary) {
             elements.bulkFolderSummary.textContent = state.bulk.folderName
@@ -273,6 +378,10 @@ export function createBulkTabController({
 
         if (elements.bulkDownloadBtn) {
             elements.bulkDownloadBtn.disabled = state.bulk.files.length === 0;
+        }
+
+        if (state.bulk.previewItems.length) {
+            void hydrateBulkEstimates(bulkEstimateJobId, state.bulk.exportFormat, preserveAlpha);
         }
     }
 
@@ -454,13 +563,12 @@ export function createBulkTabController({
             });
         }
 
-        if (elements.bulkFormatSelect) {
-            elements.bulkFormatSelect.value = state.bulk.exportFormat;
-            elements.bulkFormatSelect.addEventListener('change', () => {
-                state.bulk.exportFormat = elements.bulkFormatSelect.value;
+        elements.bulkFormatTabs.forEach((tab) => {
+            tab.addEventListener('click', () => {
+                state.bulk.exportFormat = tab.dataset.format;
                 updatePreview();
             });
-        }
+        });
 
         if (elements.bulkPreserveAlphaCheckbox) {
             elements.bulkPreserveAlphaCheckbox.checked = state.bulk.preserveAlpha;

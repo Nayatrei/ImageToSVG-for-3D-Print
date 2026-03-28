@@ -261,6 +261,11 @@ export async function renderRasterBlobFromSource(source, target, format, preserv
     return exportCanvasToRasterBlob(canvas, format, preserveAlpha);
 }
 
+export async function estimateRasterBlobSizeFromSource(source, target, format, preserveAlpha) {
+    const blob = await renderRasterBlobFromSource(source, target, format, preserveAlpha);
+    return blob.size;
+}
+
 export function estimateSizeBytes(width, height, format, alpha) {
     if (!width || !height) return 0;
     const channels = alpha ? 4 : 3;

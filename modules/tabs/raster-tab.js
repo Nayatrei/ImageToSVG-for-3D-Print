@@ -1,4 +1,5 @@
 import {
+    estimateRasterBlobSizeFromSource,
     estimateSizeBytes,
     formatBytes,
     getFormatLabel,
@@ -23,6 +24,33 @@ export function createRasterTabController({
         width: 0,
         height: 0
     };
+    const sizeEstimateCache = new Map();
+    let sizeEstimateRequestId = 0;
+
+    function getEstimateCacheKey(targetDims, format, preserveAlpha) {
+        const sourceKey = [
+            state.originalImageUrl || 'image',
+            state.originalImageSize || 0,
+            elements.sourceImage?.naturalWidth || 0,
+            elements.sourceImage?.naturalHeight || 0,
+            targetDims?.width || 0,
+            targetDims?.height || 0,
+            format,
+            preserveAlpha ? 1 : 0
+        ];
+        return sourceKey.join('|');
+    }
+
+    async function getAccurateEstimate(targetDims, format, preserveAlpha) {
+        const cacheKey = getEstimateCacheKey(targetDims, format, preserveAlpha);
+        if (sizeEstimateCache.has(cacheKey)) {
+            return sizeEstimateCache.get(cacheKey);
+        }
+
+        const bytes = await estimateRasterBlobSizeFromSource(elements.sourceImage, targetDims, format, preserveAlpha);
+        sizeEstimateCache.set(cacheKey, bytes);
+        return bytes;
+    }
 
     function getBaseDimensions() {
         if (state.tracedata?.width && state.tracedata?.height) {
@@ -42,10 +70,49 @@ export function createRasterTabController({
             elements.sizeEstTga.textContent = '—';
             return;
         }
+
+        if (!elements.sourceImage?.complete || !elements.sourceImage?.naturalWidth) {
+            elements.sizeEstPng.textContent = '—';
+            elements.sizeEstJpg.textContent = '—';
+            elements.sizeEstTga.textContent = '—';
+            return;
+        }
+
         const alpha = !!state.preserveAlpha;
-        elements.sizeEstPng.textContent = formatBytes(estimateSizeBytes(targetDims.width, targetDims.height, 'png', alpha));
-        elements.sizeEstJpg.textContent = formatBytes(estimateSizeBytes(targetDims.width, targetDims.height, 'jpg', false));
-        elements.sizeEstTga.textContent = formatBytes(estimateSizeBytes(targetDims.width, targetDims.height, 'tga', alpha));
+        const estimateConfigs = [
+            { element: elements.sizeEstPng, format: 'png', preserveAlpha: alpha },
+            { element: elements.sizeEstJpg, format: 'jpg', preserveAlpha: false },
+            { element: elements.sizeEstTga, format: 'tga', preserveAlpha: alpha }
+        ];
+
+        const requestId = ++sizeEstimateRequestId;
+
+        estimateConfigs.forEach((config) => {
+            const cacheKey = getEstimateCacheKey(targetDims, config.format, config.preserveAlpha);
+            if (sizeEstimateCache.has(cacheKey)) {
+                config.element.textContent = formatBytes(sizeEstimateCache.get(cacheKey));
+            } else {
+                config.element.textContent = 'Estimating...';
+            }
+        });
+
+        void Promise.all(estimateConfigs.map(async (config) => {
+            try {
+                const bytes = await getAccurateEstimate(targetDims, config.format, config.preserveAlpha);
+                return { ...config, bytes };
+            } catch (error) {
+                console.warn(`Falling back to approximate ${getFormatLabel(config.format)} estimate.`, error);
+                return {
+                    ...config,
+                    bytes: estimateSizeBytes(targetDims.width, targetDims.height, config.format, config.preserveAlpha)
+                };
+            }
+        })).then((results) => {
+            if (requestId !== sizeEstimateRequestId) return;
+            results.forEach(({ element, bytes }) => {
+                element.textContent = formatBytes(bytes);
+            });
+        });
     }
 
     function updateExportScaleDisplay() {
