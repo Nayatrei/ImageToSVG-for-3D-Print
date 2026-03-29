@@ -1,6 +1,7 @@
 import { createBulkTabController } from './modules/tabs/bulk-tab.js';
 import { createRasterTabController } from './modules/tabs/raster-tab.js';
 import { createSvgTabController } from './modules/tabs/svg-tab.js';
+import { createLogoTabController } from './modules/tabs/logo-tab.js';
 import {
     getDataUrlSize,
     getImageFormat,
@@ -153,7 +154,37 @@ document.addEventListener('DOMContentLoaded', () => {
         toggleFinalPaletteBtn: document.getElementById('toggle-final-palette'),
         exportLayersBtn: document.getElementById('export-layers-btn'),
         useBaseLayerCheckbox: document.getElementById('use-base-layer'),
-        baseLayerSelect: document.getElementById('base-layer-select')
+        baseLayerSelect: document.getElementById('base-layer-select'),
+        // Logo tab elements
+        logoExportFooter: document.getElementById('logo-export-footer'),
+        logoSvgSourceMirror: document.getElementById('logo-svg-source-mirror'),
+        logoOriginalResolution: document.getElementById('logo-original-resolution'),
+        logoSvgPreview: document.getElementById('logo-svg-preview'),
+        logoObjPreviewCanvas: document.getElementById('logo-obj-preview-canvas'),
+        logoObjPreviewPlaceholder: document.getElementById('logo-obj-preview-placeholder'),
+        logoObjFitView: document.getElementById('logo-obj-fit-view'),
+        logoObjRecenter: document.getElementById('logo-obj-recenter'),
+        logoObjTargetLock: document.getElementById('logo-obj-target-lock'),
+        logoObjModeGhost: document.getElementById('logo-obj-mode-ghost'),
+        logoObjModeSolo: document.getElementById('logo-obj-mode-solo'),
+        logoLayerStackList: document.getElementById('logo-layer-stack-list'),
+        logoLayerStackMeta: document.getElementById('logo-layer-stack-meta'),
+        logoPreviewResolution: document.getElementById('logo-preview-resolution'),
+        logoQualityIndicator: document.getElementById('logo-quality-indicator'),
+        logoPaletteContainer: document.getElementById('logo-palette-container'),
+        logoPaletteRow: document.getElementById('logo-palette-row'),
+        logoFinalPaletteContainer: document.getElementById('logo-final-palette-container'),
+        logoLayerMergingSection: document.getElementById('logo-layer-merging-section'),
+        logoMergeRulesContainer: document.getElementById('logo-merge-rules-container'),
+        logoAddMergeRuleBtn: document.getElementById('logo-add-merge-rule-btn'),
+        logoUseBaseLayerCheckbox: document.getElementById('logo-use-base-layer'),
+        logoBaseLayerSelect: document.getElementById('logo-base-layer-select'),
+        logoExportLayersBtn: document.getElementById('logo-export-layers-btn'),
+        logoDownloadSilhouetteBtn: document.getElementById('logo-download-silhouette-btn'),
+        logoDownloadCombinedLayersBtn: document.getElementById('logo-download-combined-layers-btn'),
+        logoExportObjBtn: document.getElementById('logo-export-obj-btn'),
+        logoExport3mfBtn: document.getElementById('logo-export-3mf-btn'),
+        logoExportStlBtn: document.getElementById('logo-export-stl-btn')
     };
 
     const state = {
@@ -223,7 +254,37 @@ document.addEventListener('DOMContentLoaded', () => {
             all: { scale: 1, x: 0, y: 0, isDragging: false },
             selected: { scale: 1, x: 0, y: 0, isDragging: false }
         },
-        activeTab: 'svg'
+        activeTab: 'svg',
+        logo: {
+            tracedata: null,
+            quantizedData: null,
+            lastOptions: null,
+            silhouetteTracedata: null,
+            mergeRules: [],
+            initialSliderValues: {},
+            isDirty: false,
+            selectedLayerIndices: new Set(),
+            selectedFinalLayerIndices: new Set(),
+            tooltipTimeout: null,
+            colorsAnalyzed: false,
+            estimatedColorCount: null,
+            layerThicknesses: null,
+            useBaseLayer: true,
+            baseLayerIndex: 0,
+            highFidelity: false,
+            showAvailableLayers: true,
+            showFinalPalette: true,
+            objPreview: {
+                renderer: null, scene: null, camera: null, group: null,
+                isDragging: false, lastX: 0, lastY: 0,
+                rotationX: -0.65, rotationY: 0.45,
+                interactionsBound: false, retryScheduled: false,
+                zoom: 1, target: null, fitTarget: null,
+                panX: 0, panY: 0, panScale: 1, basePosition: null,
+                targetLocked: true, layerDisplayMode: 'ghost'
+            },
+            zoom: { all: { scale: 1, x: 0, y: 0, isDragging: false } }
+        }
     };
 
     function showLoader(show, options = {}) {
@@ -429,6 +490,21 @@ document.addEventListener('DOMContentLoaded', () => {
         onRasterExportStateChanged: rasterTab.updateExportScaleDisplay
     });
 
+    const logoTab = createLogoTabController({
+        state,
+        ls: state.logo,
+        elements,
+        showLoader,
+        syncWorkspaceView,
+        hasSingleImageLoaded,
+        updateSegmentedControlIndicator,
+        downloadBlob,
+        downloadSVG,
+        getImageBaseName,
+        onRasterImageLoaded: rasterTab.onSourceImageLoaded,
+        onRasterExportStateChanged: rasterTab.updateExportScaleDisplay
+    });
+
     function switchExportTab(target) {
         state.activeTab = target;
 
@@ -445,6 +521,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (elements.svgExportFooter) {
             elements.svgExportFooter.classList.toggle('hidden', target !== 'svg');
         }
+        if (elements.logoExportFooter) {
+            elements.logoExportFooter.classList.toggle('hidden', target !== 'logo');
+        }
         if (elements.rasterDownloadFooter) {
             elements.rasterDownloadFooter.classList.toggle('hidden', target !== 'raster');
         }
@@ -452,7 +531,8 @@ document.addEventListener('DOMContentLoaded', () => {
             elements.bulkDownloadFooter.classList.add('hidden');
         }
 
-        setOriginalPanelMode(target === 'bulk' ? 'bulk' : target === 'svg' ? 'svg' : 'single');
+        const isSvgLike = target === 'svg' || target === 'logo';
+        setOriginalPanelMode(target === 'bulk' ? 'bulk' : isSvgLike ? 'svg' : 'single');
         syncImportPanel();
         syncWorkspaceView();
 
@@ -460,6 +540,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (target === 'svg' && hasSingleImageLoaded()) {
             svgTab.onTabActivated();
+        } else if (target === 'logo' && hasSingleImageLoaded()) {
+            logoTab.onTabActivated();
         } else if (target === 'raster' && hasSingleImageLoaded()) {
             svgTab.setAvailableLayersVisible(false);
             svgTab.setFinalPaletteVisible(false);
@@ -483,6 +565,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         elements.sourceImage.src = src;
         if (elements.svgSourceMirror) elements.svgSourceMirror.src = src;
+        if (elements.logoSvgSourceMirror) elements.logoSvgSourceMirror.src = src;
     }
 
     function resetImageInfo() {
@@ -646,6 +729,7 @@ document.addEventListener('DOMContentLoaded', () => {
         rasterTab.bindEvents();
         bulkTab.bindEvents();
         svgTab.bindEvents();
+        logoTab.bindEvents();
 
         switchExportTab('svg');
         rasterTab.setExportScale(state.exportScale);
