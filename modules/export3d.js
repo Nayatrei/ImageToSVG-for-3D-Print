@@ -17,6 +17,16 @@ function buildMtl(materials, name) {
     return output;
 }
 
+function createRectBaseShape(THREERef, minX, minY, maxX, maxY) {
+    const plate = new THREERef.Shape();
+    plate.moveTo(minX, minY);
+    plate.lineTo(maxX, minY);
+    plate.lineTo(maxX, maxY);
+    plate.lineTo(minX, maxY);
+    plate.closePath();
+    return plate;
+}
+
 // Helper to build layer geometries grouped by color
 function buildLayerGeometries({
     dataToExport,
@@ -54,6 +64,11 @@ function buildLayerGeometries({
 
     // Group geometries by layer index
     const layerGeometries = new Map(); // layerIndex -> { geometries: [], color: {r,g,b}, zPosition, depth }
+    const shapesByLayer = new Map();
+    let svgMinX = Infinity;
+    let svgMinY = Infinity;
+    let svgMaxX = -Infinity;
+    let svgMaxY = -Infinity;
 
     svgData.paths.forEach((path) => {
         const shapes = SVGLoader.createShapes(path);
@@ -64,14 +79,38 @@ function buildLayerGeometries({
             : new THREERef.Color(path.color || '#000');
         const hex = sourceColor.getHexString();
         const layerIndex = getLayerIndexForColor(layerIndexMap, hex);
+        shapes.forEach((shape) => {
+            if (!shapesByLayer.has(layerIndex)) {
+                shapesByLayer.set(layerIndex, { shapes: [], hex, sourceColor });
+            }
+            shapesByLayer.get(layerIndex).shapes.push(shape);
+            shape.getPoints(16).forEach((pt) => {
+                if (pt.x < svgMinX) svgMinX = pt.x;
+                if (pt.y < svgMinY) svgMinY = pt.y;
+                if (pt.x > svgMaxX) svgMaxX = pt.x;
+                if (pt.y > svgMaxY) svgMaxY = pt.y;
+            });
+        });
+    });
+
+    const svgBoundsValid = svgMaxX > svgMinX && svgMaxY > svgMinY;
+
+    shapesByLayer.forEach(({ shapes, hex, sourceColor }, layerIndex) => {
         const layerDepth = layout.depths[layerIndex] || defaultThickness;
         const zPosition = layout.positions[layerIndex] || 0;
 
         if (!layerGeometries.has(layerIndex)) {
             const paletteColor = dataToExport.palette[layerIndex];
+            const fallbackColor = sourceColor || new THREERef.Color('#000000');
             layerGeometries.set(layerIndex, {
                 geometries: [],
-                color: { r: paletteColor.r, g: paletteColor.g, b: paletteColor.b },
+                color: paletteColor
+                    ? { r: paletteColor.r, g: paletteColor.g, b: paletteColor.b }
+                    : {
+                        r: Math.round(fallbackColor.r * 255),
+                        g: Math.round(fallbackColor.g * 255),
+                        b: Math.round(fallbackColor.b * 255)
+                    },
                 zPosition,
                 depth: layerDepth,
                 hex
@@ -79,7 +118,12 @@ function buildLayerGeometries({
         }
 
         const layerData = layerGeometries.get(layerIndex);
-        shapes.forEach((shape) => {
+        const isBase = state.useBaseLayer && layerIndex === state.baseLayerIndex;
+        const shapesToExtrude = (isBase && svgBoundsValid)
+            ? [createRectBaseShape(THREERef, svgMinX, svgMinY, svgMaxX, svgMaxY)]
+            : shapes;
+
+        shapesToExtrude.forEach((shape) => {
             const geometry = new THREERef.ExtrudeGeometry(shape, {
                 depth: layerDepth,
                 curveSegments,

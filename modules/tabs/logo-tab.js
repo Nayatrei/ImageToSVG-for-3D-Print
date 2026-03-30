@@ -623,27 +623,18 @@ export function createLogoTabController({
         const zoomInAll = document.getElementById('logo-zoom-in-all');
         const zoomOutAll = document.getElementById('logo-zoom-out-all');
         const zoomResetAll = document.getElementById('logo-zoom-reset-all');
-        const zoomInSelected = null;
-        const zoomOutSelected = null;
-        const zoomResetSelected = null;
 
         if (zoomInAll) zoomInAll.addEventListener('click', () => zoomPreview('all', 1.25));
         if (zoomOutAll) zoomOutAll.addEventListener('click', () => zoomPreview('all', 0.8));
         if (zoomResetAll) zoomResetAll.addEventListener('click', () => resetZoom('all'));
 
-        if (zoomInSelected) zoomInSelected.addEventListener('click', () => zoomPreview('selected', 1.25));
-        if (zoomOutSelected) zoomOutSelected.addEventListener('click', () => zoomPreview('selected', 0.8));
-        if (zoomResetSelected) zoomResetSelected.addEventListener('click', () => resetZoom('selected'));
-
         setupPanControls('all');
-        setupPanControls('selected');
-
         updateZoomDisplay('all');
-        updateZoomDisplay('selected');
     }
 
     function zoomPreview(type, factor) {
-        const zoomState = ls.zoom[type];
+        const zoomState = ls.zoom?.[type];
+        if (!zoomState) return;
         const newScale = Math.max(0.1, Math.min(5, zoomState.scale * factor));
         zoomState.scale = newScale;
         updatePreviewTransform(type);
@@ -651,7 +642,8 @@ export function createLogoTabController({
     }
 
     function resetZoom(type) {
-        const zoomState = ls.zoom[type];
+        const zoomState = ls.zoom?.[type];
+        if (!zoomState) return;
         zoomState.scale = 1;
         zoomState.x = 0;
         zoomState.y = 0;
@@ -664,7 +656,8 @@ export function createLogoTabController({
         if (!container) return;
         const content = container.querySelector('.preview-content');
         if (!content) return;
-        const zoomState = ls.zoom[type];
+        const zoomState = ls.zoom?.[type];
+        if (!zoomState) return;
 
         content.style.transform = `translate(${zoomState.x}px, ${zoomState.y}px) scale(${zoomState.scale})`;
 
@@ -676,7 +669,9 @@ export function createLogoTabController({
     }
 
     function updateZoomDisplay(type) {
-        const zoomLevel = Math.round(ls.zoom[type].scale * 100);
+        const zoomState = ls.zoom?.[type];
+        if (!zoomState) return;
+        const zoomLevel = Math.round(zoomState.scale * 100);
         const resetButton = document.getElementById(`logo-zoom-reset-${type}`);
         if (resetButton) {
             resetButton.textContent = `${zoomLevel}%`;
@@ -685,8 +680,8 @@ export function createLogoTabController({
         const zoomInBtn = document.getElementById(`logo-zoom-in-${type}`);
         const zoomOutBtn = document.getElementById(`logo-zoom-out-${type}`);
 
-        if (zoomInBtn) zoomInBtn.disabled = ls.zoom[type].scale >= 5;
-        if (zoomOutBtn) zoomOutBtn.disabled = ls.zoom[type].scale <= 0.1;
+        if (zoomInBtn) zoomInBtn.disabled = zoomState.scale >= 5;
+        if (zoomOutBtn) zoomOutBtn.disabled = zoomState.scale <= 0.1;
     }
 
     function setupPanControls(type) {
@@ -694,71 +689,73 @@ export function createLogoTabController({
         if (!container) return;
         const content = container.querySelector('.preview-content');
         if (!content) return;
+        const zoomState = ls.zoom?.[type];
+        if (!zoomState) return;
         let startX;
         let startY;
         let initialX;
         let initialY;
 
         content.addEventListener('mousedown', (e) => {
-            if (ls.zoom[type].scale <= 1) return;
+            if (zoomState.scale <= 1) return;
 
             e.preventDefault();
-            ls.zoom[type].isDragging = true;
+            zoomState.isDragging = true;
             container.classList.add('dragging');
 
             startX = e.clientX;
             startY = e.clientY;
-            initialX = ls.zoom[type].x;
-            initialY = ls.zoom[type].y;
+            initialX = zoomState.x;
+            initialY = zoomState.y;
         });
 
         document.addEventListener('mousemove', (e) => {
-            if (!ls.zoom[type].isDragging) return;
+            if (!zoomState.isDragging) return;
 
             e.preventDefault();
             const deltaX = e.clientX - startX;
             const deltaY = e.clientY - startY;
-            ls.zoom[type].x = initialX + deltaX;
-            ls.zoom[type].y = initialY + deltaY;
+            zoomState.x = initialX + deltaX;
+            zoomState.y = initialY + deltaY;
             updatePreviewTransform(type);
         });
 
         document.addEventListener('mouseup', () => {
-            if (ls.zoom[type].isDragging) {
-                ls.zoom[type].isDragging = false;
+            if (zoomState.isDragging) {
+                zoomState.isDragging = false;
                 container.classList.remove('dragging');
             }
         });
 
         content.addEventListener('touchstart', (e) => {
-            if (ls.zoom[type].scale <= 1) return;
+            if (zoomState.scale <= 1) return;
 
             e.preventDefault();
-            ls.zoom[type].isDragging = true;
+            zoomState.isDragging = true;
             container.classList.add('dragging');
 
             const touch = e.touches[0];
             startX = touch.clientX;
             startY = touch.clientY;
-            initialX = ls.zoom[type].x;
-            initialY = ls.zoom[type].y;
+            initialX = zoomState.x;
+            initialY = zoomState.y;
         }, { passive: false });
 
         document.addEventListener('touchmove', (e) => {
-            if (!ls.zoom[type].isDragging) return;
+            if (!zoomState.isDragging) return;
 
             e.preventDefault();
             const touch = e.touches[0];
             const deltaX = touch.clientX - startX;
             const deltaY = touch.clientY - startY;
-            ls.zoom[type].x = initialX + deltaX;
-            ls.zoom[type].y = initialY + deltaY;
+            zoomState.x = initialX + deltaX;
+            zoomState.y = initialY + deltaY;
             updatePreviewTransform(type);
         }, { passive: false });
 
         document.addEventListener('touchend', () => {
-            if (ls.zoom[type].isDragging) {
-                ls.zoom[type].isDragging = false;
+            if (zoomState.isDragging) {
+                zoomState.isDragging = false;
                 container.classList.remove('dragging');
             }
         });

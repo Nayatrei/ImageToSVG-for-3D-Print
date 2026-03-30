@@ -1216,6 +1216,22 @@ export function createSvgTabController({
         setupZoomControls();
         objPreview.bindControls();
 
+        if (elements.useBaseLayerCheckbox) {
+            elements.useBaseLayerCheckbox.addEventListener('change', (e) => {
+                state.useBaseLayer = e.target.checked;
+                if (elements.baseLayerSelect) elements.baseLayerSelect.disabled = !e.target.checked;
+                updateFilteredPreview();
+            });
+            state.useBaseLayer = elements.useBaseLayerCheckbox.checked;
+            if (elements.baseLayerSelect) elements.baseLayerSelect.disabled = !elements.useBaseLayerCheckbox.checked;
+        }
+        if (elements.baseLayerSelect) {
+            elements.baseLayerSelect.addEventListener('change', (e) => {
+                state.baseLayerIndex = parseInt(e.target.value, 10);
+                updateFilteredPreview();
+            });
+        }
+
         if (elements.previewResolution) {
             elements.previewResolution.addEventListener('change', () => {
                 if (state.tracedata) {

@@ -3,6 +3,9 @@ import { buildLayerIndexMap, getLayerIndexForColor } from './obj-layers.js';
 import { ensureLayerThicknesses, computeLayerLayout } from './layer-layout.js';
 import { computeObjScalePlan } from './obj-scale.js';
 
+const BED_TOP_Z = 0;
+const BED_CONTACT_EPSILON = 0.05;
+
 export function createObjPreview({
     state,
     elements,
@@ -677,9 +680,13 @@ export function createObjPreview({
                 const layerDepth = layout.depths[layerIndex] || thickness;
                 const isSelected = !hasSelection || selectionSet.has(layerIndex);
                 if (hasSelection && displayMode === 'solo' && !isSelected) return;
+                const paletteColor = dataToExport.palette[layerIndex];
+                const materialColor = paletteColor
+                    ? new THREERef.Color(paletteColor.r / 255, paletteColor.g / 255, paletteColor.b / 255)
+                    : sourceColor;
 
                 const material = new THREERef.MeshStandardMaterial({
-                    color: sourceColor,
+                    color: materialColor,
                     side: THREERef.DoubleSide,
                     transparent: hasSelection && !isSelected,
                     opacity: hasSelection && !isSelected ? 0.18 : 1
@@ -716,6 +723,38 @@ export function createObjPreview({
                 });
             });
 
+            const hasPreviewGeometry = preview.group.children.some((child) => child?.isMesh && child.geometry);
+            if (!hasPreviewGeometry) {
+                buildBuildPlate(THREERef, bed);
+
+                preview.basePosition = new THREERef.Vector3(0, 0, 0);
+                preview.panX = 0;
+                preview.panY = 0;
+                preview.group.position.copy(preview.basePosition);
+                preview.group.rotation.set(
+                    preview.showBuildPlate === false ? preview.rotationX : 0,
+                    preview.showBuildPlate === false ? preview.rotationY : 0,
+                    0
+                );
+
+                const frameMaxDim = preview.showBuildPlate === false
+                    ? Math.max(120, thickness * 20)
+                    : Math.max(bed.width, bed.depth, 120);
+                const lift = Math.max(thickness * 2, 10);
+                const distance = frameMaxDim * 1.1 + lift * 2.2;
+                preview.frameMaxDim = frameMaxDim;
+                preview.panScale = frameMaxDim / 320;
+                preview.lookAtTarget = new THREERef.Vector3(0, 0, preview.showBuildPlate === false ? 10 : 0);
+                preview.fitTarget = new THREERef.Vector3(0, -distance * 0.82, distance * 1.08 + lift);
+                preview.target = preview.fitTarget.clone();
+
+                setPlaceholder('No printable geometry for current selection.', true);
+                updateLayerStackPreview(dataToExport, thickness, selectionSet);
+                updateSizeReadout(null);
+                renderFrame();
+                return;
+            }
+
             const bbox = new THREERef.Box3().setFromObject(preview.group);
             const size = new THREERef.Vector3();
             bbox.getSize(size);
@@ -737,7 +776,7 @@ export function createObjPreview({
             centeredBox.getSize(finalSize);
             const zOffset = preview.showBuildPlate === false
                 ? -center.z
-                : 4.5 - centeredBox.min.z;
+                : (BED_TOP_Z + BED_CONTACT_EPSILON) - centeredBox.min.z;
             preview.basePosition = new THREERef.Vector3(-center.x, -center.y, zOffset);
             preview.panX = 0;
             preview.panY = 0;
