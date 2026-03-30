@@ -44,6 +44,9 @@ export function createSvgTabController({
         if (elements.objDetailValue && elements.objDetailSlider) {
             elements.objDetailValue.textContent = elements.objDetailSlider.value;
         }
+        if (elements.objScaleValue && elements.objScaleSlider) {
+            elements.objScaleValue.textContent = elements.objScaleSlider.value;
+        }
     }
 
     function setAvailableLayersVisible(show) {
@@ -1187,6 +1190,13 @@ export function createSvgTabController({
                 updateFilteredPreview();
             });
         }
+        if (elements.objScaleSlider && elements.objScaleValue) {
+            elements.objScaleValue.textContent = elements.objScaleSlider.value;
+            elements.objScaleSlider.addEventListener('input', () => {
+                elements.objScaleValue.textContent = elements.objScaleSlider.value;
+                updateFilteredPreview();
+            });
+        }
         if (elements.objBedSelect) {
             elements.objBedSelect.addEventListener('change', () => updateFilteredPreview());
         }
@@ -1217,7 +1227,7 @@ export function createSvgTabController({
 
         document.querySelectorAll('.control-panel input[type="range"]').forEach((slider) => {
             slider.addEventListener('input', (e) => {
-                if (e.target.id === 'obj-thickness' || e.target.id === 'obj-detail') {
+                if (e.target.id === 'obj-thickness' || e.target.id === 'obj-detail' || e.target.id === 'obj-scale') {
                     return;
                 }
                 if (!state.isDirty) {

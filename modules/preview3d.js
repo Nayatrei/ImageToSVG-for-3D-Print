@@ -1,6 +1,7 @@
 import { OBJ_ZOOM_MIN, OBJ_ZOOM_MAX, BED_PRESETS } from './config.js';
 import { buildLayerIndexMap, getLayerIndexForColor } from './obj-layers.js';
 import { ensureLayerThicknesses, computeLayerLayout } from './layer-layout.js';
+import { computeObjScalePlan } from './obj-scale.js';
 
 export function createObjPreview({
     state,
@@ -220,6 +221,16 @@ export function createObjPreview({
         elements.objBuildPlateToggle.classList.toggle('active', showBuildPlate);
         elements.objBuildPlateToggle.setAttribute('aria-pressed', showBuildPlate ? 'true' : 'false');
         elements.objBuildPlateToggle.title = showBuildPlate ? 'Hide build plate' : 'Show build plate';
+    }
+
+    function updateSizeReadout(scalePlan) {
+        if (!elements.objSizeReadout) return;
+        if (!scalePlan || !scalePlan.footprintWidth || !scalePlan.footprintDepth) {
+            elements.objSizeReadout.textContent = 'Footprint: —';
+            return;
+        }
+        const clampSuffix = scalePlan.wasClamped ? ' · capped by bed' : '';
+        elements.objSizeReadout.textContent = `Footprint: ${scalePlan.footprintWidth.toFixed(1)} × ${scalePlan.footprintDepth.toFixed(1)} mm${clampSuffix}`;
     }
 
     function setBuildPlateVisible(showBuildPlate) {
@@ -595,6 +606,7 @@ export function createObjPreview({
             clearBuildPlate();
             setPlaceholder('3D preview will appear after analysis.', true);
             updateLayerStackPreview(null, 0, new Set());
+            updateSizeReadout(null);
             renderFrame();
             return;
         }
@@ -611,6 +623,7 @@ export function createObjPreview({
             const bed = BED_PRESETS[bedKey] || BED_PRESETS.x1;
             const marginValue = elements.objMarginInput ? parseFloat(elements.objMarginInput.value) : 5;
             const margin = Number.isFinite(marginValue) ? Math.max(0, marginValue) : 5;
+            const scaleValue = elements.objScaleSlider ? parseFloat(elements.objScaleSlider.value) : 100;
             const selectionSet = getSelectionIndices();
             const hasSelection = selectionSet.size > 0;
             const displayMode = state.objPreview.layerDisplayMode;
@@ -707,12 +720,15 @@ export function createObjPreview({
             const size = new THREERef.Vector3();
             bbox.getSize(size);
 
-            if (size.x > 0 && size.y > 0) {
-                const maxWidth = Math.max(1, bed.width - margin * 2);
-                const maxDepth = Math.max(1, bed.depth - margin * 2);
-                const scale = Math.min(maxWidth / size.x, maxDepth / size.y, 1);
-                preview.group.scale.set(scale, scale, 1);
-            }
+            const scalePlan = computeObjScalePlan({
+                rawWidth: size.x,
+                rawDepth: size.y,
+                bedKey,
+                margin,
+                scalePercent: scaleValue
+            });
+            preview.group.scale.set(scalePlan.scale, scalePlan.scale, 1);
+            updateSizeReadout(scalePlan);
 
             const centeredBox = new THREERef.Box3().setFromObject(preview.group);
             const center = new THREERef.Vector3();

@@ -1,6 +1,6 @@
-import { BED_PRESETS } from './config.js';
 import { buildLayerIndexMap, getLayerIndexForColor } from './obj-layers.js';
 import { ensureLayerThicknesses, computeLayerLayout } from './layer-layout.js';
+import { computeObjScalePlan } from './obj-scale.js';
 
 function buildMtl(materials, name) {
     if (!materials || materials.size === 0) return '';
@@ -34,9 +34,9 @@ function buildLayerGeometries({
     const detailValue = elements.objDetailSlider ? parseInt(elements.objDetailSlider.value, 10) : 6;
     const curveSegments = Number.isFinite(detailValue) ? Math.max(1, detailValue) : 6;
     const bedKey = elements.objBedSelect?.value || 'x1';
-    const bed = BED_PRESETS[bedKey] || BED_PRESETS.x1;
     const marginValue = elements.objMarginInput ? parseFloat(elements.objMarginInput.value) : 5;
     const margin = Number.isFinite(marginValue) ? Math.max(0, marginValue) : 5;
+    const scaleValue = elements.objScaleSlider ? parseFloat(elements.objScaleSlider.value) : 100;
 
     const svgString = tracer.getsvgstring(dataToExport, state.lastOptions);
     const loader = new SVGLoader();
@@ -130,15 +130,17 @@ function buildLayerGeometries({
     const size = new THREERef.Vector3();
     bbox.getSize(size);
 
-    let scale = 1;
-    if (size.x > 0 && size.y > 0) {
-        const maxWidth = Math.max(1, bed.width - margin * 2);
-        const maxDepth = Math.max(1, bed.depth - margin * 2);
-        scale = Math.min(maxWidth / size.x, maxDepth / size.y, 1);
-    }
+    const scalePlan = computeObjScalePlan({
+        rawWidth: size.x,
+        rawDepth: size.y,
+        bedKey,
+        margin,
+        scalePercent: scaleValue
+    });
+    const scale = scalePlan.scale;
 
     // Apply scale to geometries if needed
-    if (scale < 1) {
+    if (Math.abs(scale - 1) > 1e-6) {
         mergedLayers.forEach((layerData) => {
             layerData.geometry.scale(scale, scale, 1);
         });
@@ -151,7 +153,8 @@ function buildLayerGeometries({
         layers: mergedLayers,
         layerThicknesses,
         layout,
-        scale
+        scale,
+        scalePlan
     };
 }
 

@@ -142,6 +142,14 @@
                                 </div>
                                 <p id="obj-detail-tooltip" class="slider-tooltip text-xs text-gray-400 mt-1 h-4 opacity-0"></p>
                             </div>
+                            <div>
+                                <label for="obj-scale" class="text-sm font-medium text-gray-300">OBJ Scale (%)</label>
+                                <div class="flex items-center space-x-2">
+                                    <input type="range" id="obj-scale" min="25" max="200" value="100" step="5">
+                                    <span id="obj-scale-value" class="text-sm font-mono bg-gray-700 border border-gray-600 rounded-md px-2 py-0.5 w-12 text-center text-gray-200">100</span>
+                                </div>
+                                <p id="obj-size-readout" class="text-xs text-gray-400 mt-1">Footprint: —</p>
+                            </div>
                             <div class="grid grid-cols-2 gap-2">
                                 <div>
                                     <label for="obj-bed" class="text-sm font-medium text-gray-300">Printer Bed</label>

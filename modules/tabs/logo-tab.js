@@ -82,6 +82,9 @@ export function createLogoTabController({
         if (le.objDetailValue && le.objDetailSlider) {
             le.objDetailValue.textContent = le.objDetailSlider.value;
         }
+        if (le.objScaleValue && le.objScaleSlider) {
+            le.objScaleValue.textContent = le.objScaleSlider.value;
+        }
     }
 
     function setAvailableLayersVisible(show) {
@@ -1235,6 +1238,13 @@ export function createLogoTabController({
                 updateFilteredPreview();
             });
         }
+        if (le.objScaleSlider && le.objScaleValue) {
+            le.objScaleValue.textContent = le.objScaleSlider.value;
+            le.objScaleSlider.addEventListener('input', () => {
+                le.objScaleValue.textContent = le.objScaleSlider.value;
+                updateFilteredPreview();
+            });
+        }
         if (le.objBedSelect) {
             le.objBedSelect.addEventListener('change', () => updateFilteredPreview());
         }
@@ -1282,7 +1292,7 @@ export function createLogoTabController({
         document.querySelectorAll('.control-panel input[type="range"]').forEach((slider) => {
             slider.addEventListener('input', (e) => {
                 if (state.activeTab !== 'logo') return;
-                if (e.target.id === 'obj-thickness' || e.target.id === 'obj-detail') {
+                if (e.target.id === 'obj-thickness' || e.target.id === 'obj-detail' || e.target.id === 'obj-scale') {
                     return;
                 }
                 if (!ls.isDirty) {

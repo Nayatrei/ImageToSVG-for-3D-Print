@@ -145,6 +145,9 @@ document.addEventListener('DOMContentLoaded', () => {
         objThicknessValue: document.getElementById('obj-thickness-value'),
         objDetailSlider: document.getElementById('obj-detail'),
         objDetailValue: document.getElementById('obj-detail-value'),
+        objScaleSlider: document.getElementById('obj-scale'),
+        objScaleValue: document.getElementById('obj-scale-value'),
+        objSizeReadout: document.getElementById('obj-size-readout'),
         exportObjBtn: document.getElementById('export-obj-btn'),
         export3mfBtn: document.getElementById('export-3mf-btn'),
         exportStlBtn: document.getElementById('export-stl-btn'),
@@ -380,6 +383,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function syncWorkspaceView() {
         const imageLoaded = hasSingleImageLoaded();
         const showMainContent = state.activeTab === 'bulk' || imageLoaded;
+        const isSvgLike = state.activeTab === 'svg' || state.activeTab === 'logo';
 
         if (elements.welcomeScreen) {
             elements.welcomeScreen.style.display = showMainContent ? 'none' : 'flex';
@@ -391,6 +395,8 @@ document.addEventListener('DOMContentLoaded', () => {
             const showOutput = state.activeTab === 'bulk' || imageLoaded;
             elements.outputSection.style.display = showOutput ? 'flex' : 'none';
         }
+
+        setOriginalPanelMode(state.activeTab === 'bulk' ? 'bulk' : isSvgLike ? 'svg' : 'single');
     }
 
     function syncImportPanel() {
