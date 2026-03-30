@@ -275,16 +275,20 @@
                                         <span class="text-xs text-gray-500 font-normal">L-drag rotate · R-drag pan · Scroll zoom</span>
                                     </h3>
                                     <div class="preview-card-actions flex items-center gap-2">
-                                        <div class="toggle-controls flex bg-gray-800 rounded-md border border-gray-600">
-                                            <button id="obj-mode-ghost" class="px-2 py-1 text-xs">Ghost</button>
-                                            <button id="obj-mode-solo" class="px-2 py-1 text-xs">Solo</button>
-                                        </div>
-                                        <button id="obj-fit-view" class="btn-secondary text-xs px-2 py-1 rounded-md" title="Fit model to view">Fit</button>
+                                        <button id="obj-build-plate-toggle" class="btn-secondary text-xs px-3 py-1 rounded-md active" type="button" title="Toggle build plate">Plate</button>
+                                        <label class="preview-bed-picker" for="obj-preview-bed">
+                                            <span class="text-xs text-gray-500">Bed</span>
+                                            <select id="obj-preview-bed" class="text-xs bg-gray-800 border border-gray-600 rounded px-2 py-1 text-white" title="Preview build plate size">
+                                                <option value="x1" selected>X1 · 256×256</option>
+                                                <option value="h2d">H2D · 325×320</option>
+                                                <option value="a1mini">A1 mini · 180×180</option>
+                                            </select>
+                                        </label>
                                         <button id="obj-recenter" class="hidden" aria-hidden="true"></button>
                                         <button id="obj-target-lock" class="hidden" aria-hidden="true"></button>
                                     </div>
                                 </div>
-                                <div class="preview-container preview-container-flexible bg-grid rounded-md overflow-hidden relative">
+                                <div class="preview-container preview-container-flexible bg-grid rounded-md overflow-hidden relative obj-preview-stage">
                                     <canvas id="obj-preview-canvas" class="obj-preview-canvas"></canvas>
                                     <div id="obj-preview-placeholder" class="preview-placeholder">3D preview will appear after analysis.</div>
                                 </div>
@@ -402,16 +406,20 @@
                                         <span class="text-xs text-gray-500 font-normal">L-drag rotate · R-drag pan · Scroll zoom</span>
                                     </h3>
                                     <div class="preview-card-actions flex items-center gap-2">
-                                        <div class="toggle-controls flex bg-gray-800 rounded-md border border-gray-600">
-                                            <button id="logo-obj-mode-ghost" class="px-2 py-1 text-xs">Ghost</button>
-                                            <button id="logo-obj-mode-solo" class="px-2 py-1 text-xs">Solo</button>
-                                        </div>
-                                        <button id="logo-obj-fit-view" class="btn-secondary text-xs px-2 py-1 rounded-md" title="Fit model to view">Fit</button>
+                                        <button id="logo-obj-build-plate-toggle" class="btn-secondary text-xs px-3 py-1 rounded-md active" type="button" title="Toggle build plate">Plate</button>
+                                        <label class="preview-bed-picker" for="logo-obj-preview-bed">
+                                            <span class="text-xs text-gray-500">Bed</span>
+                                            <select id="logo-obj-preview-bed" class="text-xs bg-gray-800 border border-gray-600 rounded px-2 py-1 text-white" title="Preview build plate size">
+                                                <option value="x1" selected>X1 · 256×256</option>
+                                                <option value="h2d">H2D · 325×320</option>
+                                                <option value="a1mini">A1 mini · 180×180</option>
+                                            </select>
+                                        </label>
                                         <button id="logo-obj-recenter" class="hidden" aria-hidden="true"></button>
                                         <button id="logo-obj-target-lock" class="hidden" aria-hidden="true"></button>
                                     </div>
                                 </div>
-                                <div class="preview-container preview-container-flexible bg-grid rounded-md overflow-hidden relative">
+                                <div class="preview-container preview-container-flexible bg-grid rounded-md overflow-hidden relative obj-preview-stage">
                                     <canvas id="logo-obj-preview-canvas" class="obj-preview-canvas"></canvas>
                                     <div id="logo-obj-preview-placeholder" class="preview-placeholder">3D preview will appear after analysis.</div>
                                 </div>

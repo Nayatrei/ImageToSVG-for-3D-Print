@@ -27,6 +27,8 @@ export function createLogoTabController({
         selectedLayerText: null,
         objPreviewCanvas: elements.logoObjPreviewCanvas,
         objPreviewPlaceholder: elements.logoObjPreviewPlaceholder,
+        objBuildPlateToggle: elements.logoObjBuildPlateToggle,
+        objPreviewBedSelect: elements.logoObjPreviewBedSelect,
         objFitView: elements.logoObjFitView,
         objRecenter: elements.logoObjRecenter,
         objTargetLock: elements.logoObjTargetLock,

@@ -379,6 +379,11 @@
             height: 100%;
             display: block;
         }
+        .obj-preview-stage {
+            background:
+                radial-gradient(circle at top, rgba(148, 163, 184, 0.16), rgba(31, 41, 55, 0.88) 48%, rgba(10, 14, 21, 0.98) 100%);
+            border: 1px solid rgba(107, 114, 128, 0.35);
+        }
         .preview-placeholder {
             position: absolute;
             inset: 0;
@@ -1763,6 +1768,24 @@
         .toggle-controls button.active {
             background-color: #374151;
             color: #f9fafb;
+        }
+
+        .preview-bed-picker {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.375rem;
+            border: 1px solid #4b5563;
+            background: rgba(17, 24, 39, 0.72);
+        }
+
+        .preview-bed-picker span {
+            white-space: nowrap;
+        }
+
+        .preview-bed-picker select {
+            min-width: 9.5rem;
         }
 
         .layer-stack-card {

@@ -102,6 +102,8 @@ document.addEventListener('DOMContentLoaded', () => {
         svgPreviewFiltered: document.getElementById('svg-preview-filtered'),
         objPreviewCanvas: document.getElementById('obj-preview-canvas'),
         objPreviewPlaceholder: document.getElementById('obj-preview-placeholder'),
+        objBuildPlateToggle: document.getElementById('obj-build-plate-toggle'),
+        objPreviewBedSelect: document.getElementById('obj-preview-bed'),
         objFitView: document.getElementById('obj-fit-view'),
         objRecenter: document.getElementById('obj-recenter'),
         objTargetLock: document.getElementById('obj-target-lock'),
@@ -162,6 +164,8 @@ document.addEventListener('DOMContentLoaded', () => {
         logoSvgPreview: document.getElementById('logo-svg-preview'),
         logoObjPreviewCanvas: document.getElementById('logo-obj-preview-canvas'),
         logoObjPreviewPlaceholder: document.getElementById('logo-obj-preview-placeholder'),
+        logoObjBuildPlateToggle: document.getElementById('logo-obj-build-plate-toggle'),
+        logoObjPreviewBedSelect: document.getElementById('logo-obj-preview-bed'),
         logoObjFitView: document.getElementById('logo-obj-fit-view'),
         logoObjRecenter: document.getElementById('logo-obj-recenter'),
         logoObjTargetLock: document.getElementById('logo-obj-target-lock'),
@@ -248,6 +252,7 @@ document.addEventListener('DOMContentLoaded', () => {
             panScale: 1,
             basePosition: null,
             targetLocked: true,
+            showBuildPlate: true,
             layerDisplayMode: 'ghost'
         },
         zoom: {
@@ -281,7 +286,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 interactionsBound: false, retryScheduled: false,
                 zoom: 1, target: null, fitTarget: null,
                 panX: 0, panY: 0, panScale: 1, basePosition: null,
-                targetLocked: true, layerDisplayMode: 'ghost'
+                targetLocked: true, showBuildPlate: true, layerDisplayMode: 'ghost'
             },
             zoom: { all: { scale: 1, x: 0, y: 0, isDragging: false } }
         }

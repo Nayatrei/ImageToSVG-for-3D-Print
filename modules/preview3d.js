@@ -27,29 +27,32 @@ export function createObjPreview({
         renderer.setPixelRatio(window.devicePixelRatio || 1);
 
         const scene = new THREERef.Scene();
+        const bedGroup = new THREERef.Group();
         const camera = new THREERef.PerspectiveCamera(45, 1, 0.1, 10000);
         const group = new THREERef.Group();
+        scene.add(bedGroup);
         scene.add(group);
 
-        // Improved lighting for better depth perception
-        const ambient = new THREERef.AmbientLight(0xffffff, 0.4);
+        const ambient = new THREERef.AmbientLight(0xffffff, 0.52);
+        const hemiLight = new THREERef.HemisphereLight(0xcbd5e1, 0x111827, 0.5);
 
         // Main key light from upper front-right
-        const keyLight = new THREERef.DirectionalLight(0xffffff, 0.8);
-        keyLight.position.set(1, -1, 2);
+        const keyLight = new THREERef.DirectionalLight(0xffffff, 1);
+        keyLight.position.set(1.2, -1.5, 2.4);
 
         // Fill light from opposite side (softer)
-        const fillLight = new THREERef.DirectionalLight(0xffffff, 0.3);
-        fillLight.position.set(-1, 0.5, 1);
+        const fillLight = new THREERef.DirectionalLight(0xffffff, 0.34);
+        fillLight.position.set(-1.2, 0.7, 1.1);
 
         // Rim/back light for edge definition
-        const rimLight = new THREERef.DirectionalLight(0xffffff, 0.25);
-        rimLight.position.set(0, 1, -1);
+        const rimLight = new THREERef.DirectionalLight(0xffffff, 0.28);
+        rimLight.position.set(0.3, 1.3, 1.4);
 
-        scene.add(ambient, keyLight, fillLight, rimLight);
+        scene.add(ambient, hemiLight, keyLight, fillLight, rimLight);
 
         state.objPreview.renderer = renderer;
         state.objPreview.scene = scene;
+        state.objPreview.bedGroup = bedGroup;
         state.objPreview.camera = camera;
         state.objPreview.group = group;
 
@@ -134,14 +137,28 @@ export function createObjPreview({
         preview.camera.updateProjectionMatrix();
     }
 
-    function clearGroup() {
-        const preview = state.objPreview;
-        if (!preview.group) return;
-        preview.group.children.forEach(child => {
+    function disposeObjectGroup(group) {
+        if (!group) return;
+        group.traverse((child) => {
+            if (child === group) return;
             if (child.geometry) child.geometry.dispose();
-            if (child.material) child.material.dispose();
+            if (child.material) {
+                if (Array.isArray(child.material)) {
+                    child.material.forEach((material) => material?.dispose?.());
+                } else {
+                    child.material.dispose();
+                }
+            }
         });
-        preview.group.clear();
+        group.clear();
+    }
+
+    function clearGroup() {
+        disposeObjectGroup(state.objPreview.group);
+    }
+
+    function clearBuildPlate() {
+        disposeObjectGroup(state.objPreview.bedGroup);
     }
 
     function renderFrame() {
@@ -151,7 +168,11 @@ export function createObjPreview({
             const base = preview.target.clone();
             const zoomed = base.divideScalar(Math.max(0.5, preview.zoom));
             preview.camera.position.copy(zoomed);
-            preview.camera.lookAt(0, 0, 0);
+            if (preview.lookAtTarget) {
+                preview.camera.lookAt(preview.lookAtTarget);
+            } else {
+                preview.camera.lookAt(0, 0, 0);
+            }
         }
         preview.renderer.render(preview.scene, preview.camera);
     }
@@ -176,6 +197,48 @@ export function createObjPreview({
         const next = Math.min(OBJ_ZOOM_MAX, Math.max(OBJ_ZOOM_MIN, value));
         preview.zoom = next;
         renderFrame();
+    }
+
+    function getSelectedBedKey() {
+        const sharedKey = elements.objBedSelect?.value;
+        if (sharedKey && BED_PRESETS[sharedKey]) return sharedKey;
+        const previewKey = elements.objPreviewBedSelect?.value;
+        if (previewKey && BED_PRESETS[previewKey]) return previewKey;
+        return 'x1';
+    }
+
+    function syncBedPresetControl() {
+        const bedKey = getSelectedBedKey();
+        if (elements.objPreviewBedSelect && elements.objPreviewBedSelect.value !== bedKey) {
+            elements.objPreviewBedSelect.value = bedKey;
+        }
+    }
+
+    function updateBuildPlateToggleButton() {
+        if (!elements.objBuildPlateToggle) return;
+        const showBuildPlate = state.objPreview.showBuildPlate !== false;
+        elements.objBuildPlateToggle.classList.toggle('active', showBuildPlate);
+        elements.objBuildPlateToggle.setAttribute('aria-pressed', showBuildPlate ? 'true' : 'false');
+        elements.objBuildPlateToggle.title = showBuildPlate ? 'Hide build plate' : 'Show build plate';
+    }
+
+    function setBuildPlateVisible(showBuildPlate) {
+        state.objPreview.showBuildPlate = !!showBuildPlate;
+        updateBuildPlateToggleButton();
+        render();
+    }
+
+    function setBedPreset(bedKey) {
+        if (!BED_PRESETS[bedKey]) return;
+        if (elements.objPreviewBedSelect && elements.objPreviewBedSelect.value !== bedKey) {
+            elements.objPreviewBedSelect.value = bedKey;
+        }
+        if (elements.objBedSelect && elements.objBedSelect.value !== bedKey) {
+            elements.objBedSelect.value = bedKey;
+            elements.objBedSelect.dispatchEvent(new Event('change', { bubbles: true }));
+            return;
+        }
+        render();
     }
 
     function updateLayerModeButtons() {
@@ -214,9 +277,10 @@ export function createObjPreview({
         bbox.getSize(size);
         const thicknessValue = elements.objThicknessSlider ? parseFloat(elements.objThicknessSlider.value) : 4;
         const thickness = Number.isFinite(thicknessValue) ? thicknessValue : 4;
-        const maxDim = Math.max(size.x, size.y, size.z, thickness);
-        const distance = maxDim * 1.4 + thickness * 2;
-        preview.fitTarget = new THREERef.Vector3(0, -distance, distance);
+        const frameMaxDim = preview.frameMaxDim || Math.max(size.x, size.y, size.z, thickness);
+        const lift = Math.max(size.z * 0.65, thickness * 2, 10);
+        const distance = frameMaxDim * 1.1 + lift * 2.2;
+        preview.fitTarget = new THREERef.Vector3(0, -distance * 0.82, distance * 1.08 + lift);
         preview.target = preview.fitTarget.clone();
         preview.panX = 0;
         preview.panY = 0;
@@ -234,6 +298,87 @@ export function createObjPreview({
         preview.panY = 0;
         preview.group.position.copy(preview.basePosition);
         renderFrame();
+    }
+
+    function createGridLines({ THREERef, width, depth, step, color, opacity, elevation }) {
+        const vertices = [];
+        const halfWidth = width / 2;
+        const halfDepth = depth / 2;
+
+        for (let x = -halfWidth; x <= halfWidth + 0.001; x += step) {
+            vertices.push(x, -halfDepth, elevation, x, halfDepth, elevation);
+        }
+
+        for (let y = -halfDepth; y <= halfDepth + 0.001; y += step) {
+            vertices.push(-halfWidth, y, elevation, halfWidth, y, elevation);
+        }
+
+        const geometry = new THREERef.BufferGeometry();
+        geometry.setAttribute('position', new THREERef.Float32BufferAttribute(vertices, 3));
+        const material = new THREERef.LineBasicMaterial({
+            color,
+            transparent: true,
+            opacity
+        });
+        return new THREERef.LineSegments(geometry, material);
+    }
+
+    function buildBuildPlate(THREERef, bed) {
+        const preview = state.objPreview;
+        if (!preview.bedGroup || preview.showBuildPlate === false) return;
+
+        const plateThickness = 4;
+        const skirt = new THREERef.Mesh(
+            new THREERef.BoxGeometry(bed.width + 8, bed.depth + 8, 1.4),
+            new THREERef.MeshStandardMaterial({
+                color: 0x11151c,
+                roughness: 0.95,
+                metalness: 0.05
+            })
+        );
+        skirt.position.z = -plateThickness - 0.7;
+
+        const plate = new THREERef.Mesh(
+            new THREERef.BoxGeometry(bed.width, bed.depth, plateThickness),
+            new THREERef.MeshStandardMaterial({
+                color: 0x20242d,
+                roughness: 0.92,
+                metalness: 0.08
+            })
+        );
+        plate.position.z = -plateThickness / 2;
+
+        const minorGrid = createGridLines({
+            THREERef,
+            width: bed.width,
+            depth: bed.depth,
+            step: 10,
+            color: 0x4b5563,
+            opacity: 0.42,
+            elevation: 0.05
+        });
+
+        const majorGrid = createGridLines({
+            THREERef,
+            width: bed.width,
+            depth: bed.depth,
+            step: 50,
+            color: 0xd1d5db,
+            opacity: 0.18,
+            elevation: 0.08
+        });
+
+        const edgeLines = new THREERef.LineSegments(
+            new THREERef.EdgesGeometry(new THREERef.BoxGeometry(bed.width, bed.depth, plateThickness)),
+            new THREERef.LineBasicMaterial({
+                color: 0x9ca3af,
+                transparent: true,
+                opacity: 0.3
+            })
+        );
+        edgeLines.position.z = -plateThickness / 2;
+
+        preview.bedGroup.add(skirt, plate, minorGrid, majorGrid, edgeLines);
     }
 
 
@@ -447,6 +592,7 @@ export function createObjPreview({
         const dataToExport = getDataToExport();
         if (!state.tracedata || !dataToExport) {
             clearGroup();
+            clearBuildPlate();
             setPlaceholder('3D preview will appear after analysis.', true);
             updateLayerStackPreview(null, 0, new Set());
             renderFrame();
@@ -455,18 +601,22 @@ export function createObjPreview({
 
         try {
             clearGroup();
+            clearBuildPlate();
 
             const defaultThickness = elements.objThicknessSlider ? parseFloat(elements.objThicknessSlider.value) : 4;
             const thickness = Number.isFinite(defaultThickness) ? defaultThickness : 4;
             const detailValue = elements.objDetailSlider ? parseInt(elements.objDetailSlider.value, 10) : 6;
             const curveSegments = Number.isFinite(detailValue) ? Math.max(1, detailValue) : 6;
-            const bedKey = elements.objBedSelect?.value || 'x1';
+            const bedKey = getSelectedBedKey();
             const bed = BED_PRESETS[bedKey] || BED_PRESETS.x1;
             const marginValue = elements.objMarginInput ? parseFloat(elements.objMarginInput.value) : 5;
             const margin = Number.isFinite(marginValue) ? Math.max(0, marginValue) : 5;
             const selectionSet = getSelectionIndices();
             const hasSelection = selectionSet.size > 0;
             const displayMode = state.objPreview.layerDisplayMode;
+
+            syncBedPresetControl();
+            updateBuildPlateToggleButton();
 
             const layerCount = dataToExport.palette.length;
             const layerThicknesses = ensureLayerThicknesses(state, layerCount, thickness);
@@ -567,18 +717,37 @@ export function createObjPreview({
             const centeredBox = new THREERef.Box3().setFromObject(preview.group);
             const center = new THREERef.Vector3();
             centeredBox.getCenter(center);
-            preview.basePosition = new THREERef.Vector3(-center.x, -center.y, -center.z);
+            const finalSize = new THREERef.Vector3();
+            centeredBox.getSize(finalSize);
+            const zOffset = preview.showBuildPlate === false
+                ? -center.z
+                : 4.5 - centeredBox.min.z;
+            preview.basePosition = new THREERef.Vector3(-center.x, -center.y, zOffset);
             preview.panX = 0;
             preview.panY = 0;
             preview.group.position.copy(preview.basePosition);
-            preview.group.rotation.set(preview.rotationX, preview.rotationY, 0);
+            preview.group.rotation.set(
+                preview.showBuildPlate === false ? preview.rotationX : 0,
+                preview.showBuildPlate === false ? preview.rotationY : 0,
+                0
+            );
 
-            const finalSize = new THREERef.Vector3();
-            centeredBox.getSize(finalSize);
-            const maxDim = Math.max(finalSize.x, finalSize.y, finalSize.z, thickness);
-            const distance = maxDim * 1.4 + thickness * 2;
-            preview.panScale = maxDim > 0 ? maxDim / 300 : 1;
-            preview.fitTarget = new THREERef.Vector3(0, -distance, distance);
+            buildBuildPlate(THREERef, bed);
+
+            const frameMaxDim = Math.max(
+                finalSize.x,
+                finalSize.y,
+                finalSize.z,
+                thickness,
+                preview.showBuildPlate === false ? 0 : bed.width * 0.95,
+                preview.showBuildPlate === false ? 0 : bed.depth * 0.95
+            );
+            const lift = Math.max(finalSize.z * 0.65, thickness * 2, 10);
+            const distance = frameMaxDim * 1.1 + lift * 2.2;
+            preview.frameMaxDim = frameMaxDim;
+            preview.panScale = frameMaxDim > 0 ? frameMaxDim / 320 : 1;
+            preview.lookAtTarget = new THREERef.Vector3(0, 0, preview.showBuildPlate === false ? Math.max(finalSize.z * 0.5, 2) : Math.max(finalSize.z * 0.35, 5));
+            preview.fitTarget = new THREERef.Vector3(0, -distance * 0.82, distance * 1.08 + lift);
             preview.target = preview.fitTarget.clone();
 
             setPlaceholder('', false);
@@ -591,6 +760,21 @@ export function createObjPreview({
     }
 
     function bindControls() {
+        if (elements.objBuildPlateToggle) {
+            elements.objBuildPlateToggle.addEventListener('click', () => {
+                setBuildPlateVisible(state.objPreview.showBuildPlate === false);
+            });
+        }
+        if (elements.objPreviewBedSelect) {
+            elements.objPreviewBedSelect.addEventListener('change', (event) => {
+                setBedPreset(event.target.value);
+            });
+        }
+        if (elements.objBedSelect) {
+            elements.objBedSelect.addEventListener('change', () => {
+                syncBedPresetControl();
+            });
+        }
         if (elements.objFitView) {
             elements.objFitView.addEventListener('click', () => fitView());
         }
@@ -610,6 +794,8 @@ export function createObjPreview({
         }
         updateLayerModeButtons();
         updateTargetLockButton();
+        updateBuildPlateToggleButton();
+        syncBedPresetControl();
     }
 
     return {
