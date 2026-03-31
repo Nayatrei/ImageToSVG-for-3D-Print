@@ -390,20 +390,16 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function syncWorkspaceView() {
-        const imageLoaded = hasSingleImageLoaded();
-        const logoHtmlMode = state.activeTab === 'logo' && state.logo.htmlModeActive;
-        const showMainContent = state.activeTab === 'bulk' || logoHtmlMode || imageLoaded;
         const isSvgLike = state.activeTab === 'svg' || state.activeTab === 'logo';
 
         if (elements.welcomeScreen) {
-            elements.welcomeScreen.style.display = showMainContent ? 'none' : 'flex';
+            elements.welcomeScreen.style.display = 'none';
         }
         if (elements.mainContent) {
-            elements.mainContent.classList.toggle('hidden', !showMainContent);
+            elements.mainContent.classList.remove('hidden');
         }
         if (elements.outputSection) {
-            const showOutput = state.activeTab === 'bulk' || logoHtmlMode || imageLoaded;
-            elements.outputSection.style.display = showOutput ? 'flex' : 'none';
+            elements.outputSection.style.display = 'flex';
         }
 
         setOriginalPanelMode(state.activeTab === 'bulk' ? 'bulk' : isSvgLike ? 'svg' : 'single');

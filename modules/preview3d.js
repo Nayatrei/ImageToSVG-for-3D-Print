@@ -777,10 +777,10 @@ export function createObjPreview({
                 ? -center.z
                 : (BED_TOP_Z + BED_CONTACT_EPSILON) - centeredBox.min.z;
             preview.basePosition = new THREERef.Vector3(-center.x, -center.y, zOffset);
-            preview.panX = 0;
-            preview.panY = 0;
+            if (preview.panX === undefined) preview.panX = 0;
+            if (preview.panY === undefined) preview.panY = 0;
             preview.group.position.copy(preview.basePosition);
-            preview.viewGroup.position.set(0, 0, 0);
+            preview.viewGroup.position.set(preview.panX, preview.panY, 0);
             preview.viewGroup.rotation.set(preview.rotationX, preview.rotationY, 0);
 
             buildBuildPlate(THREERef, bed);
@@ -799,7 +799,7 @@ export function createObjPreview({
             preview.panScale = frameMaxDim > 0 ? frameMaxDim / 320 : 1;
             preview.lookAtTarget = new THREERef.Vector3(0, 0, preview.showBuildPlate === false ? Math.max(finalSize.z * 0.5, 2) : Math.max(finalSize.z * 0.35, 5));
             preview.fitTarget = new THREERef.Vector3(0, -distance * 0.82, distance * 1.08 + lift);
-            preview.target = preview.fitTarget.clone();
+            if (!preview.target) preview.target = preview.fitTarget.clone();
 
             setPlaceholder('', false);
             updateLayerStackPreview(dataToExport, thickness, selectionSet);
