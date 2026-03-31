@@ -202,6 +202,23 @@ function buildLayerGeometries({
     };
 }
 
+// Normalize exported geometries: center XY around origin, shift Z so minZ=0
+function normalizeLayerGeometries(layers, THREERef) {
+    const tempGroup = new THREERef.Group();
+    layers.forEach((layerData) => {
+        tempGroup.add(new THREERef.Mesh(layerData.geometry));
+    });
+    const bbox = new THREERef.Box3().setFromObject(tempGroup);
+    const center = new THREERef.Vector3();
+    bbox.getCenter(center);
+    const shiftX = -center.x;
+    const shiftY = -center.y;
+    const shiftZ = -bbox.min.z;
+    layers.forEach((layerData) => {
+        layerData.geometry.translate(shiftX, shiftY, shiftZ);
+    });
+}
+
 // Generate binary STL from geometry
 function geometryToSTL(geometry) {
     const THREERef = window.THREE;
@@ -668,6 +685,8 @@ export function createObjExporter({
                 throw new Error('No geometry generated');
             }
 
+            normalizeLayerGeometries(result.layers, THREERef);
+
             // Build merged group for OBJ export
             const group = new THREERef.Group();
             const materials = new Map();
@@ -750,6 +769,8 @@ export function createObjExporter({
             if (!result || result.layers.size === 0) {
                 throw new Error('No geometry generated');
             }
+
+            normalizeLayerGeometries(result.layers, THREERef);
 
             const baseName = `${getImageBaseName()}_${Math.round(result.layout.maxHeight || defaultThickness)}mm`;
 

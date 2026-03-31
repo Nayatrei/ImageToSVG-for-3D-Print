@@ -2246,8 +2246,32 @@ body,
     grid-template-columns: repeat(6, minmax(0, 1fr));
 }
 
+.footer-action-stack-four {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
 .footer-action-stack-three {
     grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+/* HTML Logo Editor */
+.logo-html-textarea {
+    width: 100%;
+    min-height: 10rem;
+    padding: 0.625rem 0.75rem;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.75rem;
+    line-height: 1.5;
+    color: #e2e8f0;
+    background: #111827;
+    border: 1px solid #374151;
+    border-radius: 0.375rem;
+    resize: vertical;
+    outline: none;
+    transition: border-color 0.15s;
+}
+.logo-html-textarea:focus {
+    border-color: #6366f1;
 }
 
 .footer-action-stack-single {
@@ -2433,6 +2457,10 @@ body,
         grid-template-columns: repeat(3, minmax(0, 1fr));
     }
 
+    .footer-action-stack-four {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
     .footer-action-stack-three {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
@@ -2528,6 +2556,7 @@ body,
     }
 
     .footer-action-stack-six,
+    .footer-action-stack-four,
     .footer-action-stack-three,
     .footer-action-stack-single {
         grid-template-columns: 1fr;

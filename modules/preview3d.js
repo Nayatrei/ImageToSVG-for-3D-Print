@@ -4,7 +4,7 @@ import { ensureLayerThicknesses, computeLayerLayout } from './layer-layout.js';
 import { computeObjScalePlan } from './obj-scale.js';
 
 const BED_TOP_Z = 0;
-const BED_CONTACT_EPSILON = 0.05;
+const BED_CONTACT_EPSILON = 0.005;
 
 export function createObjPreview({
     state,
@@ -231,8 +231,13 @@ export function createObjPreview({
             elements.objSizeReadout.textContent = 'Footprint: —';
             return;
         }
-        const clampSuffix = scalePlan.wasClamped ? ' · capped by bed' : '';
-        elements.objSizeReadout.textContent = `Footprint: ${scalePlan.footprintWidth.toFixed(1)} × ${scalePlan.footprintDepth.toFixed(1)} mm${clampSuffix}`;
+        let suffix = '';
+        if (!scalePlan.fitsBed) {
+            const ow = scalePlan.overflowWidth > 0.05 ? ` +${scalePlan.overflowWidth.toFixed(1)}W` : '';
+            const od = scalePlan.overflowDepth > 0.05 ? ` +${scalePlan.overflowDepth.toFixed(1)}D` : '';
+            suffix = ` · exceeds bed${ow}${od}`;
+        }
+        elements.objSizeReadout.textContent = `Footprint: ${scalePlan.footprintWidth.toFixed(1)} × ${scalePlan.footprintDepth.toFixed(1)} mm${suffix}`;
     }
 
     function setBuildPlateVisible(showBuildPlate) {

@@ -19,34 +19,39 @@ export function computeObjScalePlan({
     const depth = Number.isFinite(rawDepth) ? Math.max(0, rawDepth) : 0;
     const safeMargin = Number.isFinite(margin) ? Math.max(0, margin) : 5;
     const requestedPercent = clampObjScalePercent(scalePercent);
-    const baselineBed = BED_PRESETS.x1;
-    const selectedBed = BED_PRESETS[bedKey] || baselineBed;
+    const selectedBed = BED_PRESETS[bedKey] || BED_PRESETS.x1;
+
+    const usableBedWidth = Math.max(1, selectedBed.width - safeMargin * 2);
+    const usableBedDepth = Math.max(1, selectedBed.depth - safeMargin * 2);
 
     if (width <= 0 || depth <= 0) {
         return {
-            scale: 1,
+            scale: requestedPercent / 100,
             requestedPercent,
             footprintWidth: 0,
             footprintDepth: 0,
-            wasClamped: false
+            fitsBed: true,
+            overflowWidth: 0,
+            overflowDepth: 0,
+            usableBedWidth,
+            usableBedDepth
         };
     }
 
-    const baselineWidth = Math.max(1, baselineBed.width - safeMargin * 2);
-    const baselineDepth = Math.max(1, baselineBed.depth - safeMargin * 2);
-    const selectedWidth = Math.max(1, selectedBed.width - safeMargin * 2);
-    const selectedDepth = Math.max(1, selectedBed.depth - safeMargin * 2);
-
-    const baselineScale = Math.min(baselineWidth / width, baselineDepth / depth, 1);
-    const requestedScale = baselineScale * (requestedPercent / 100);
-    const maxSelectedScale = Math.min(selectedWidth / width, selectedDepth / depth, 1);
-    const finalScale = Math.min(requestedScale, maxSelectedScale);
+    const finalScale = requestedPercent / 100;
+    const footprintWidth = width * finalScale;
+    const footprintDepth = depth * finalScale;
+    const fitsBed = footprintWidth <= usableBedWidth && footprintDepth <= usableBedDepth;
 
     return {
         scale: finalScale,
         requestedPercent,
-        footprintWidth: width * finalScale,
-        footprintDepth: depth * finalScale,
-        wasClamped: finalScale + 1e-6 < requestedScale
+        footprintWidth,
+        footprintDepth,
+        fitsBed,
+        overflowWidth: Math.max(0, footprintWidth - usableBedWidth),
+        overflowDepth: Math.max(0, footprintDepth - usableBedDepth),
+        usableBedWidth,
+        usableBedDepth
     };
 }

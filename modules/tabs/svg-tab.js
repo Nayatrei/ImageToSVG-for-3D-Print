@@ -875,12 +875,10 @@ export function createSvgTabController({
     function disableDownloadButtons() {
         [
             elements.exportLayersBtn,
-            elements.downloadSilhouetteBtn,
             elements.combineAndDownloadBtn,
             elements.downloadCombinedLayersBtn,
             elements.exportObjBtn,
-            elements.export3mfBtn,
-            elements.exportStlBtn
+            elements.export3mfBtn
         ].forEach((btn) => {
             if (btn) btn.disabled = true;
         });
@@ -889,10 +887,8 @@ export function createSvgTabController({
     function enableDownloadButtons() {
         [
             elements.exportLayersBtn,
-            elements.downloadSilhouetteBtn,
             elements.exportObjBtn,
-            elements.export3mfBtn,
-            elements.exportStlBtn
+            elements.export3mfBtn
         ].forEach((btn) => {
             if (btn) btn.disabled = false;
         });

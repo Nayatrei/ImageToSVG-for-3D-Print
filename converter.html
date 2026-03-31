@@ -187,6 +187,7 @@
                         <div class="segmented-control">
                             <div class="segmented-control-indicator"></div>
                             <button class="segmented-control-tab export-tab active" data-tab="svg">SVG</button>
+                            <button class="segmented-control-tab export-tab" data-tab="logo">Logo</button>
                             <button class="segmented-control-tab export-tab" data-tab="raster">JPG / PNG / TGA</button>
                             <button class="segmented-control-tab export-tab" data-tab="bulk">Bulk</button>
                         </div>
@@ -358,6 +359,147 @@
                                 </div>
                             </div>
                         </div>
+
+                    </div>
+
+                    <!-- Logo Tab Content -->
+                    <div id="tab-logo" class="export-panel hidden">
+
+                        <!-- HTML Logo Editor Card -->
+                        <div class="output-card">
+                            <div class="output-card-header">
+                                <h3 class="output-card-title">HTML Logo Editor</h3>
+                                <div class="flex items-center gap-2">
+                                    <span id="logo-html-status" class="text-xs text-gray-500"></span>
+                                    <button id="logo-html-mode-toggle" class="btn-secondary text-xs font-semibold py-1 px-3 rounded-md">Switch to HTML Mode</button>
+                                </div>
+                            </div>
+                            <div id="logo-html-editor-body" class="hidden output-card-content">
+                                <div class="flex flex-wrap gap-2 mb-3">
+                                    <span class="text-xs text-gray-400 self-center">Templates:</span>
+                                    <button class="logo-html-preset resize-chip" data-preset="pill">Pill Button</button>
+                                    <button class="logo-html-preset resize-chip" data-preset="badge">Icon Badge</button>
+                                    <button class="logo-html-preset resize-chip" data-preset="cta">CTA Button</button>
+                                </div>
+                                <textarea id="logo-html-input" class="logo-html-textarea" spellcheck="false" placeholder="Paste HTML + inline CSS here…"></textarea>
+                            </div>
+                        </div>
+
+                        <!-- Row 1: Source / SVG Preview -->
+                        <div class="svg-compare-grid">
+                            <div class="svg-compare-col">
+                                <div class="svg-col-header">
+                                    <span class="svg-col-title">Source</span>
+                                    <span id="logo-original-resolution" class="svg-col-meta"></span>
+                                </div>
+                                <div class="bg-grid rounded-md flex items-center justify-center overflow-hidden svg-source-frame">
+                                    <img id="logo-svg-source-mirror" alt="Original" class="max-w-full max-h-full object-contain">
+                                </div>
+                            </div>
+                            <div class="svg-compare-col">
+                                <div class="svg-col-header">
+                                    <span class="svg-col-title">Logo Preview</span>
+                                    <div class="flex items-center gap-2">
+                                        <select id="logo-preview-resolution" class="text-xs bg-gray-800 border border-gray-600 rounded px-2 py-1 text-white" title="Preview Resolution">
+                                            <option value="256">256px</option>
+                                            <option value="512" selected>512px</option>
+                                            <option value="1024">1024px</option>
+                                            <option value="2048">2048px</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="preview-container preview-container-flexible bg-grid rounded-md overflow-hidden relative" data-preview="logo-all">
+                                    <div class="preview-content w-full h-full flex items-center justify-center" style="transform-origin: center center;">
+                                        <img id="logo-svg-preview" class="max-w-full max-h-full pointer-events-none" style="display: none;">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Row 2: 3D Preview | Layer Heights -->
+                        <div class="svg-3d-grid">
+                            <div class="output-card">
+                                <div class="output-card-header">
+                                    <h3 class="output-card-title">
+                                        3D Preview
+                                        <span class="text-xs text-gray-500 font-normal">L-drag rotate · Scroll zoom</span>
+                                    </h3>
+                                    <div class="preview-card-actions flex items-center gap-2">
+                                        <button id="logo-obj-build-plate-toggle" class="btn-secondary text-xs px-3 py-1 rounded-md active" type="button" title="Toggle build plate">Plate</button>
+                                        <label class="preview-bed-picker" for="logo-obj-preview-bed">
+                                            <span class="text-xs text-gray-500">Bed</span>
+                                            <select id="logo-obj-preview-bed" class="text-xs bg-gray-800 border border-gray-600 rounded px-2 py-1 text-white" title="Preview build plate size">
+                                                <option value="x1" selected>X1 · 256×256</option>
+                                                <option value="h2d">H2D · 325×320</option>
+                                                <option value="a1mini">A1 mini · 180×180</option>
+                                            </select>
+                                        </label>
+                                        <button id="logo-obj-recenter" class="btn-secondary text-xs px-2 py-1 rounded-md" title="Recenter">Recenter</button>
+                                        <button id="logo-obj-target-lock" class="btn-secondary text-xs px-2 py-1 rounded-md" title="Lock target">Lock</button>
+                                    </div>
+                                </div>
+                                <div class="preview-container preview-container-flexible bg-grid rounded-md overflow-hidden relative obj-preview-stage">
+                                    <canvas id="logo-obj-preview-canvas" class="obj-preview-canvas"></canvas>
+                                    <div id="logo-obj-preview-placeholder" class="preview-placeholder">3D preview will appear after analysis.</div>
+                                </div>
+                            </div>
+
+                            <div class="output-card svg-layer-heights-card">
+                                <div class="output-card-header">
+                                    <h3 class="output-card-title">Layer Heights</h3>
+                                    <div class="flex items-center gap-2">
+                                        <span id="logo-quality-indicator" class="text-xs text-gray-500"></span>
+                                        <span id="logo-layer-stack-meta" class="text-xs text-gray-500">—</span>
+                                    </div>
+                                </div>
+                                <div class="output-card-content" style="overflow-y: auto; flex: 1;">
+                                    <div class="layer-stack-options">
+                                        <label class="layer-stack-option">
+                                            <input type="checkbox" id="logo-use-base-layer" class="layer-stack-checkbox">
+                                            <span>Base layer</span>
+                                        </label>
+                                        <select id="logo-base-layer-select" class="layer-stack-select" disabled>
+                                            <option value="0">L0</option>
+                                        </select>
+                                    </div>
+                                    <div id="logo-layer-stack-list" class="layer-stack-list"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Row 3: Layers & Merging (collapsible) -->
+                        <div class="output-card">
+                            <div class="output-card-header collapsible-trigger" id="logo-layers-toggle">
+                                <h4 class="output-card-title">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                                    </svg>
+                                    Layers & Merging
+                                </h4>
+                                <span class="text-xs text-gray-400">Click to expand</span>
+                            </div>
+                            <div id="logo-layers-section" class="collapsible-section collapsed">
+                                <div class="output-grid two-col" style="margin-bottom: 0;">
+                                    <div class="output-card-content">
+                                        <div id="logo-palette-row" style="display:none;">
+                                            <div id="logo-palette-container" class="hidden"></div>
+                                        </div>
+                                        <div id="logo-layer-merging-section" style="display:none;">
+                                            <h5 class="text-xs font-semibold text-gray-400 mb-2">Merge Rules</h5>
+                                            <div id="logo-merge-rules-container" class="space-y-2 mb-3"></div>
+                                            <button id="logo-add-merge-rule-btn" class="btn-secondary text-xs font-semibold py-1 px-3 rounded-md" disabled>+ Add Rule</button>
+                                        </div>
+                                    </div>
+                                    <div class="output-card-content">
+                                        <h5 class="text-xs font-semibold text-gray-400 mb-2">Output Colors</h5>
+                                        <div id="logo-final-palette-container" class="flex flex-wrap gap-2 min-h-[36px]"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Hidden source img for HTML render path -->
+                        <img id="logo-html-source-img" style="display:none;" alt="">
 
                     </div>
 
@@ -613,42 +755,52 @@
 
                 <!-- SVG Export Footer (Fixed at bottom) -->
                 <footer id="svg-export-footer" class="p-4 border-t border-gray-700 bg-gray-800 flex-shrink-0">
-                    <div class="footer-action-stack footer-action-stack-six">
+                    <div class="footer-action-stack footer-action-stack-four">
                         <div class="footer-action-card">
-                            <button id="export-layers-btn" class="btn-primary font-semibold py-3 px-4 rounded-md text-sm disabled:bg-gray-600 disabled:cursor-not-allowed" disabled>
-                                Export Layers
+                            <button id="export-layers-btn" class="btn-secondary font-semibold py-3 px-4 rounded-md text-sm disabled:bg-gray-600 disabled:cursor-not-allowed" disabled>
+                                Layers (ZIP)
                             </button>
-                            <div class="footer-action-meta">Separate files (original or merged)</div>
-                        </div>
-                        <div class="footer-action-card">
-                            <button id="download-silhouette-btn" class="btn-secondary font-semibold py-3 px-4 rounded-md text-sm disabled:bg-gray-600 disabled:cursor-not-allowed" disabled>
-                                Silhouette
-                            </button>
-                            <div class="footer-action-meta">Outline only</div>
+                            <div class="footer-action-meta">Separate SVG files per layer</div>
                         </div>
                         <div class="footer-action-card">
                             <button id="download-combined-layers-btn" class="btn-secondary font-semibold py-3 px-4 rounded-md text-sm disabled:bg-gray-600 disabled:cursor-not-allowed" disabled>
-                                Combined
+                                Combined SVG
                             </button>
                             <div class="footer-action-meta">Single file (original or merged)</div>
                         </div>
                         <div class="footer-action-card">
-                            <button id="export-obj-btn" class="btn-secondary font-semibold py-3 px-4 rounded-md text-sm disabled:bg-gray-600 disabled:cursor-not-allowed" disabled>
-                                OBJ + MTL
+                            <button id="export-obj-btn" class="btn-primary font-semibold py-3 px-4 rounded-md text-sm disabled:bg-gray-600 disabled:cursor-not-allowed" disabled>
+                                Export OBJ
                             </button>
-                            <div class="footer-action-meta">3D with materials</div>
+                            <div class="footer-action-meta">3D model + materials for Bambu</div>
                         </div>
                         <div class="footer-action-card">
                             <button id="export-3mf-btn" class="btn-secondary font-semibold py-3 px-4 rounded-md text-sm disabled:bg-gray-600 disabled:cursor-not-allowed" disabled>
-                                3MF
+                                Export 3MF
                             </button>
-                            <div class="footer-action-meta">Bambu Studio</div>
+                            <div class="footer-action-meta">Native Bambu Studio project</div>
+                        </div>
+                    </div>
+                </footer>
+
+                <!-- Logo Export Footer -->
+                <footer id="logo-export-footer" class="hidden p-4 border-t border-gray-700 bg-gray-800 flex-shrink-0">
+                    <div class="footer-action-stack footer-action-stack-four">
+                        <div class="footer-action-card">
+                            <button id="logo-export-layers-btn" class="btn-secondary font-semibold py-3 px-4 rounded-md text-sm disabled:bg-gray-600 disabled:cursor-not-allowed" disabled>Layers (ZIP)</button>
+                            <div class="footer-action-meta">Separate SVG files per layer</div>
                         </div>
                         <div class="footer-action-card">
-                            <button id="export-stl-btn" class="btn-secondary font-semibold py-3 px-4 rounded-md text-sm disabled:bg-gray-600 disabled:cursor-not-allowed" disabled>
-                                STL
-                            </button>
-                            <div class="footer-action-meta">Per-layer files</div>
+                            <button id="logo-download-combined-layers-btn" class="btn-secondary font-semibold py-3 px-4 rounded-md text-sm disabled:bg-gray-600 disabled:cursor-not-allowed" disabled>Combined SVG</button>
+                            <div class="footer-action-meta">Single file (original or merged)</div>
+                        </div>
+                        <div class="footer-action-card">
+                            <button id="logo-export-obj-btn" class="btn-primary font-semibold py-3 px-4 rounded-md text-sm disabled:bg-gray-600 disabled:cursor-not-allowed" disabled>Export OBJ</button>
+                            <div class="footer-action-meta">3D model + materials for Bambu</div>
+                        </div>
+                        <div class="footer-action-card">
+                            <button id="logo-export-3mf-btn" class="btn-secondary font-semibold py-3 px-4 rounded-md text-sm disabled:bg-gray-600 disabled:cursor-not-allowed" disabled>Export 3MF</button>
+                            <div class="footer-action-meta">Native Bambu Studio project</div>
                         </div>
                     </div>
                 </footer>

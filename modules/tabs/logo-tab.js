@@ -54,7 +54,18 @@ export function createLogoTabController({
         export3mfBtn: elements.logoExport3mfBtn,
         exportStlBtn: elements.logoExportStlBtn,
         originalResolution: elements.logoOriginalResolution,
+        // HTML editor elements
+        htmlSourceImg: elements.logoHtmlSourceImg,
+        htmlInput: elements.logoHtmlInput,
+        htmlStatus: elements.logoHtmlStatus,
+        htmlModeToggle: elements.logoHtmlModeToggle,
+        htmlEditorBody: elements.logoHtmlEditorBody,
     };
+
+    // Returns the active source image (HTML-rendered or imported)
+    function getLogoSourceImage() {
+        return ls.htmlModeActive && le.htmlSourceImg ? le.htmlSourceImg : le.sourceImage;
+    }
 
     function saveInitialSliderValues() {
         ls.initialSliderValues = {
@@ -247,7 +258,8 @@ export function createLogoTabController({
         });
 
         if (ls.highFidelity) {
-            const rel = Math.max(0.5, Math.sqrt(le.sourceImage.naturalWidth * le.sourceImage.naturalHeight) / 512);
+            const _src = getLogoSourceImage();
+            const rel = Math.max(0.5, Math.sqrt(_src.naturalWidth * _src.naturalHeight) / 512);
             const detailScale = Math.min(rel, 1.0);
             options.pathomit = Math.round(map(P, 0, 6) * detailScale);
             options.roundcoords = Math.round(map(P, 1, 2));
@@ -284,15 +296,16 @@ export function createLogoTabController({
         return new Promise((resolve, reject) => {
             setTimeout(async () => {
                 try {
-                    const width = le.sourceImage.naturalWidth;
-                    const height = le.sourceImage.naturalHeight;
+                    const srcImg = getLogoSourceImage();
+                    const width = srcImg.naturalWidth;
+                    const height = srcImg.naturalHeight;
                     if (!width || !height) throw new Error('Invalid image dimensions');
 
                     const canvas = document.createElement('canvas');
                     canvas.width = width;
                     canvas.height = height;
                     const ctx = canvas.getContext('2d');
-                    ctx.drawImage(le.sourceImage, 0, 0, width, height);
+                    ctx.drawImage(srcImg, 0, 0, width, height);
                     const imageData = ctx.getImageData(0, 0, width, height);
 
                     const options = buildOptimizedOptions();
@@ -334,6 +347,176 @@ export function createLogoTabController({
             }, 50);
         });
     }
+
+    // ── HTML Logo Editor ───────────────────────────────────────────────────────
+
+    const HTML_PRESETS = {
+        pill: `<div style="
+  display:inline-flex; align-items:center; justify-content:center;
+  padding:18px 48px; border-radius:999px;
+  background:linear-gradient(135deg,#6366f1,#8b5cf6);
+  font-family:system-ui,sans-serif; font-size:28px; font-weight:700;
+  color:#fff; letter-spacing:0.01em; white-space:nowrap;">
+  My Brand
+</div>`,
+        badge: `<div style="
+  display:inline-flex; flex-direction:column; align-items:center; justify-content:center;
+  width:200px; height:200px; border-radius:24px;
+  background:#1e293b; border:3px solid #6366f1;
+  font-family:system-ui,sans-serif; gap:8px;">
+  <span style="font-size:64px;">🚀</span>
+  <span style="font-size:20px; font-weight:700; color:#e2e8f0;">LAUNCH</span>
+</div>`,
+        cta: `<div style="
+  display:inline-flex; align-items:center; justify-content:center;
+  padding:20px 52px; border-radius:12px;
+  background:#f59e0b; box-shadow:0 4px 24px rgba(245,158,11,0.5);
+  font-family:system-ui,sans-serif; font-size:26px; font-weight:800;
+  color:#1c1917; letter-spacing:0.02em; white-space:nowrap;">
+  GET STARTED →
+</div>`
+    };
+
+    function sanitizeHtml(raw) {
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(raw, 'text/html');
+        // Remove script elements
+        doc.querySelectorAll('script').forEach(el => el.remove());
+        // Remove dangerous attributes
+        const FORBIDDEN_ATTRS = /^on|^srcdoc$/i;
+        const JS_PROTO = /^\s*javascript\s*:/i;
+        doc.querySelectorAll('*').forEach(el => {
+            [...el.attributes].forEach(attr => {
+                if (FORBIDDEN_ATTRS.test(attr.name)) {
+                    el.removeAttribute(attr.name);
+                } else if ((attr.name === 'href' || attr.name === 'src' || attr.name === 'action') && JS_PROTO.test(attr.value)) {
+                    el.removeAttribute(attr.name);
+                }
+            });
+        });
+        return doc.body.innerHTML;
+    }
+
+    function renderHtmlToDataUrl(html) {
+        return new Promise((resolve, reject) => {
+            const SIZE = 1024;
+            const clean = sanitizeHtml(html);
+
+            // Use SVG foreignObject with a single XHTML div root (correct spec)
+            const containerStyle = [
+                `width:${SIZE}px`, `height:${SIZE}px`, `margin:0`, `padding:0`,
+                `display:flex`, `align-items:center`, `justify-content:center`,
+                `background:white`, `overflow:hidden`, `box-sizing:border-box`
+            ].join(';');
+
+            const svgMarkup = `<?xml version="1.0" encoding="UTF-8"?>` +
+                `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xhtml="http://www.w3.org/1999/xhtml" width="${SIZE}" height="${SIZE}">` +
+                `<foreignObject x="0" y="0" width="${SIZE}" height="${SIZE}">` +
+                `<div xmlns="http://www.w3.org/1999/xhtml" style="${containerStyle}">` +
+                `${clean}` +
+                `</div>` +
+                `</foreignObject>` +
+                `</svg>`;
+
+            // Must use a data URI (not blob URL) — SVG with foreignObject taints canvas
+            // when loaded via blob URL, but data URIs bypass that restriction.
+            const blob = new Blob([svgMarkup], { type: 'image/svg+xml;charset=utf-8' });
+            const reader = new FileReader();
+            const timeout = setTimeout(() => reject(new Error('Render timeout')), 8000);
+            reader.onload = (ev) => {
+                const dataUri = ev.target.result;
+                const img = new Image();
+                img.onload = () => {
+                    clearTimeout(timeout);
+                    try {
+                        const canvas = document.createElement('canvas');
+                        canvas.width = SIZE;
+                        canvas.height = SIZE;
+                        const ctx = canvas.getContext('2d');
+                        ctx.fillStyle = '#ffffff';
+                        ctx.fillRect(0, 0, SIZE, SIZE);
+                        ctx.drawImage(img, 0, 0, SIZE, SIZE);
+                        resolve(canvas.toDataURL('image/png'));
+                    } catch (err) {
+                        reject(err);
+                    }
+                };
+                img.onerror = () => {
+                    clearTimeout(timeout);
+                    reject(new Error('Render failed'));
+                };
+                img.src = dataUri;
+            };
+            reader.onerror = () => { clearTimeout(timeout); reject(new Error('Read failed')); };
+            reader.readAsDataURL(blob);
+        });
+    }
+
+    function setHtmlStatus(text, isError = false) {
+        if (!le.htmlStatus) return;
+        le.htmlStatus.textContent = text;
+        le.htmlStatus.style.color = isError ? '#f87171' : '#9ca3af';
+    }
+
+    async function triggerHtmlRender() {
+        const html = le.htmlInput ? le.htmlInput.value.trim() : '';
+        if (!html) {
+            setHtmlStatus('');
+            return;
+        }
+        setHtmlStatus('Rendering…');
+        try {
+            const dataUrl = await renderHtmlToDataUrl(html);
+            await onHtmlRendered(dataUrl);
+            setHtmlStatus('Ready');
+        } catch (err) {
+            setHtmlStatus('Render failed', true);
+            console.warn('HTML logo render error:', err);
+        }
+    }
+
+    function scheduleHtmlRender() {
+        clearTimeout(ls.htmlRenderTimer);
+        ls.htmlRenderTimer = setTimeout(triggerHtmlRender, 400);
+    }
+
+    async function onHtmlRendered(dataUrl) {
+        if (!le.htmlSourceImg) return;
+        await new Promise((resolve, reject) => {
+            le.htmlSourceImg.onload = resolve;
+            le.htmlSourceImg.onerror = reject;
+            le.htmlSourceImg.src = dataUrl;
+        });
+        ls.htmlModeActive = true;
+        // Update source mirror to show rendered HTML
+        if (le.svgSourceMirror) {
+            le.svgSourceMirror.src = dataUrl;
+            le.svgSourceMirror.style.display = '';
+        }
+        const w = le.htmlSourceImg.naturalWidth;
+        const h = le.htmlSourceImg.naturalHeight;
+        if (le.originalResolution) le.originalResolution.textContent = `${w}×${h} px`;
+        ls.colorsAnalyzed = false;
+        ls.layerThicknesses = null;
+        await analyzeColorsClick();
+    }
+
+    function setHtmlMode(active) {
+        ls.htmlModeActive = active;
+        if (le.htmlEditorBody) le.htmlEditorBody.classList.toggle('hidden', !active);
+        if (le.htmlModeToggle) {
+            le.htmlModeToggle.textContent = active ? 'Switch to Image Mode' : 'Switch to HTML Mode';
+        }
+        if (!active) {
+            // Return to normal image source
+            if (elements.sourceImage && elements.sourceImage.src) {
+                if (le.svgSourceMirror) le.svgSourceMirror.src = elements.sourceImage.src;
+            }
+        }
+        syncWorkspaceView();
+    }
+
+    // ── End HTML Logo Editor ───────────────────────────────────────────────────
 
     function estimateDominantColors(imageData) {
         const width = imageData.width;
@@ -1482,6 +1665,32 @@ export function createLogoTabController({
         });
 
         elements.sourceImage.addEventListener('load', onSourceImageLoaded);
+
+        // HTML editor bindings
+        if (le.htmlModeToggle) {
+            le.htmlModeToggle.addEventListener('click', () => {
+                setHtmlMode(!ls.htmlModeActive);
+                if (ls.htmlModeActive && le.htmlInput && le.htmlInput.value.trim()) {
+                    scheduleHtmlRender();
+                }
+            });
+        }
+
+        if (le.htmlInput) {
+            le.htmlInput.addEventListener('input', () => {
+                if (ls.htmlModeActive) scheduleHtmlRender();
+            });
+        }
+
+        const presetBtns = document.querySelectorAll('#tab-logo .logo-html-preset');
+        presetBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const preset = HTML_PRESETS[btn.dataset.preset];
+                if (!preset || !le.htmlInput) return;
+                le.htmlInput.value = preset;
+                if (ls.htmlModeActive) scheduleHtmlRender();
+            });
+        });
     }
 
     return {

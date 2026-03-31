@@ -191,7 +191,13 @@ document.addEventListener('DOMContentLoaded', () => {
         logoDownloadCombinedLayersBtn: document.getElementById('logo-download-combined-layers-btn'),
         logoExportObjBtn: document.getElementById('logo-export-obj-btn'),
         logoExport3mfBtn: document.getElementById('logo-export-3mf-btn'),
-        logoExportStlBtn: document.getElementById('logo-export-stl-btn')
+        logoExportStlBtn: document.getElementById('logo-export-stl-btn'),
+        // Logo HTML editor elements
+        logoHtmlSourceImg: document.getElementById('logo-html-source-img'),
+        logoHtmlInput: document.getElementById('logo-html-input'),
+        logoHtmlStatus: document.getElementById('logo-html-status'),
+        logoHtmlModeToggle: document.getElementById('logo-html-mode-toggle'),
+        logoHtmlEditorBody: document.getElementById('logo-html-editor-body')
     };
 
     const state = {
@@ -281,6 +287,8 @@ document.addEventListener('DOMContentLoaded', () => {
             useBaseLayer: true,
             baseLayerIndex: 0,
             highFidelity: false,
+            htmlModeActive: false,
+            htmlRenderTimer: null,
             showAvailableLayers: true,
             showFinalPalette: true,
             objPreview: {
@@ -383,7 +391,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function syncWorkspaceView() {
         const imageLoaded = hasSingleImageLoaded();
-        const showMainContent = state.activeTab === 'bulk' || imageLoaded;
+        const logoHtmlMode = state.activeTab === 'logo' && state.logo.htmlModeActive;
+        const showMainContent = state.activeTab === 'bulk' || logoHtmlMode || imageLoaded;
         const isSvgLike = state.activeTab === 'svg' || state.activeTab === 'logo';
 
         if (elements.welcomeScreen) {
@@ -393,7 +402,7 @@ document.addEventListener('DOMContentLoaded', () => {
             elements.mainContent.classList.toggle('hidden', !showMainContent);
         }
         if (elements.outputSection) {
-            const showOutput = state.activeTab === 'bulk' || imageLoaded;
+            const showOutput = state.activeTab === 'bulk' || logoHtmlMode || imageLoaded;
             elements.outputSection.style.display = showOutput ? 'flex' : 'none';
         }
 
