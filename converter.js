@@ -238,6 +238,7 @@ document.addEventListener('DOMContentLoaded', () => {
         objPreview: {
             renderer: null,
             scene: null,
+            viewGroup: null,
             camera: null,
             group: null,
             isDragging: false,
@@ -283,7 +284,7 @@ document.addEventListener('DOMContentLoaded', () => {
             showAvailableLayers: true,
             showFinalPalette: true,
             objPreview: {
-                renderer: null, scene: null, camera: null, group: null,
+                renderer: null, scene: null, viewGroup: null, camera: null, group: null,
                 isDragging: false, lastX: 0, lastY: 0,
                 rotationX: -0.65, rotationY: 0.45,
                 interactionsBound: false, retryScheduled: false,

@@ -31,11 +31,13 @@ export function createObjPreview({
         renderer.setPixelRatio(window.devicePixelRatio || 1);
 
         const scene = new THREERef.Scene();
+        const viewGroup = new THREERef.Group();
         const bedGroup = new THREERef.Group();
         const camera = new THREERef.PerspectiveCamera(45, 1, 0.1, 10000);
         const group = new THREERef.Group();
-        scene.add(bedGroup);
-        scene.add(group);
+        viewGroup.add(bedGroup);
+        viewGroup.add(group);
+        scene.add(viewGroup);
 
         const ambient = new THREERef.AmbientLight(0xffffff, 0.52);
         const hemiLight = new THREERef.HemisphereLight(0xcbd5e1, 0x111827, 0.5);
@@ -56,6 +58,7 @@ export function createObjPreview({
 
         state.objPreview.renderer = renderer;
         state.objPreview.scene = scene;
+        state.objPreview.viewGroup = viewGroup;
         state.objPreview.bedGroup = bedGroup;
         state.objPreview.camera = camera;
         state.objPreview.group = group;
@@ -73,39 +76,35 @@ export function createObjPreview({
         preview.interactionsBound = true;
 
         const onPointerDown = (event) => {
-            // Left (0) = rotate, Right (2) or Middle (1) = pan
+            // Left (0) = rotate, Middle (1) = pan
+            if (event.button !== 0 && event.button !== 1) return;
             preview.isDragging = true;
             preview.dragButton = event.button;
             preview.lastX = event.clientX;
             preview.lastY = event.clientY;
+            event.preventDefault();
             if (canvas.setPointerCapture) canvas.setPointerCapture(event.pointerId);
         };
 
         const onPointerMove = (event) => {
-            if (!preview.isDragging || !preview.group) return;
+            if (!preview.isDragging || !preview.viewGroup) return;
             const deltaX = event.clientX - preview.lastX;
             const deltaY = event.clientY - preview.lastY;
             preview.lastX = event.clientX;
             preview.lastY = event.clientY;
 
-            const isPan = preview.dragButton === 1 || preview.dragButton === 2;
+            const isPan = preview.dragButton === 1;
             if (!isPan) {
                 // Left drag → orbit/rotate
                 preview.rotationY += deltaX * 0.01;
                 preview.rotationX += deltaY * 0.01;
-                preview.group.rotation.set(preview.rotationX, preview.rotationY, 0);
+                preview.viewGroup.rotation.set(preview.rotationX, preview.rotationY, 0);
             } else {
-                // Right/middle drag → pan
+                // Middle drag → pan
                 const scale = preview.panScale || 1;
                 preview.panX += deltaX * scale;
                 preview.panY += -deltaY * scale;
-                if (preview.basePosition) {
-                    preview.group.position.set(
-                        preview.basePosition.x + preview.panX,
-                        preview.basePosition.y + preview.panY,
-                        preview.basePosition.z
-                    );
-                }
+                preview.viewGroup.position.set(preview.panX, preview.panY, 0);
             }
             renderFrame();
         };
@@ -284,7 +283,7 @@ export function createObjPreview({
 
     function fitView() {
         const preview = state.objPreview;
-        if (!preview.group || !window.THREE) return;
+        if (!preview.group || !preview.viewGroup || !window.THREE) return;
         const THREERef = window.THREE;
         const bbox = new THREERef.Box3().setFromObject(preview.group);
         const size = new THREERef.Vector3();
@@ -298,19 +297,17 @@ export function createObjPreview({
         preview.target = preview.fitTarget.clone();
         preview.panX = 0;
         preview.panY = 0;
-        if (preview.basePosition) {
-            preview.group.position.copy(preview.basePosition);
-        }
+        preview.viewGroup.position.set(0, 0, 0);
         setZoom(1);
         renderFrame();
     }
 
     function recenterView() {
         const preview = state.objPreview;
-        if (!preview.group || !preview.basePosition) return;
+        if (!preview.viewGroup) return;
         preview.panX = 0;
         preview.panY = 0;
-        preview.group.position.copy(preview.basePosition);
+        preview.viewGroup.position.set(0, 0, 0);
         renderFrame();
     }
 
@@ -600,7 +597,7 @@ export function createObjPreview({
         const preview = state.objPreview;
         const THREERef = window.THREE;
         const SVGLoader = window.SVGLoader;
-        if (!preview.group || !THREERef || !SVGLoader) return;
+        if (!preview.group || !preview.viewGroup || !THREERef || !SVGLoader) return;
 
         resize();
         const dataToExport = getDataToExport();
@@ -731,11 +728,8 @@ export function createObjPreview({
                 preview.panX = 0;
                 preview.panY = 0;
                 preview.group.position.copy(preview.basePosition);
-                preview.group.rotation.set(
-                    preview.showBuildPlate === false ? preview.rotationX : 0,
-                    preview.showBuildPlate === false ? preview.rotationY : 0,
-                    0
-                );
+                preview.viewGroup.position.set(0, 0, 0);
+                preview.viewGroup.rotation.set(preview.rotationX, preview.rotationY, 0);
 
                 const frameMaxDim = preview.showBuildPlate === false
                     ? Math.max(120, thickness * 20)
@@ -781,11 +775,8 @@ export function createObjPreview({
             preview.panX = 0;
             preview.panY = 0;
             preview.group.position.copy(preview.basePosition);
-            preview.group.rotation.set(
-                preview.showBuildPlate === false ? preview.rotationX : 0,
-                preview.showBuildPlate === false ? preview.rotationY : 0,
-                0
-            );
+            preview.viewGroup.position.set(0, 0, 0);
+            preview.viewGroup.rotation.set(preview.rotationX, preview.rotationY, 0);
 
             buildBuildPlate(THREERef, bed);
 

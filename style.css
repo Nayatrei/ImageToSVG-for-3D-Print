@@ -1481,9 +1481,12 @@
         /* ── Bulk Redesign ─────────────────────────────────── */
 
         #tab-bulk {
-            display: flex;
             flex-direction: column;
             gap: 0.65rem;
+        }
+
+        #tab-bulk:not(.hidden) {
+            display: flex;
         }
 
         .bulk-top-bar {
