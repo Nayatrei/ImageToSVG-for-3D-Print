@@ -1,0 +1,152 @@
+                    <div id="tab-bulk" class="export-panel hidden">
+                        <div class="output-grid two-col">
+                            <div class="output-card">
+                                <div class="output-card-header">
+                                    <h4 class="output-card-title">Bulk Preview</h4>
+                                </div>
+                                <div class="output-card-content">
+                                    <div class="bulk-format-tabs" role="tablist" aria-label="Bulk Export Format">
+                                        <button type="button" class="bulk-format-tab active" data-format="jpg">JPG</button>
+                                        <button type="button" class="bulk-format-tab" data-format="png">PNG</button>
+                                        <button type="button" class="bulk-format-tab" data-format="tga">TGA</button>
+                                    </div>
+
+                                    <div class="bulk-controls-card bulk-controls-card-inline">
+                                        <div class="text-xs font-semibold text-gray-400 mb-2">Export Controls</div>
+                                        <div class="mb-3">
+                                            <div class="text-xs font-semibold text-gray-400 mb-2">Resize</div>
+                                            <div class="flex flex-wrap gap-2 justify-center mb-3">
+                                                <button class="resize-chip bulk-resize-chip" data-scale="25">25%</button>
+                                                <button class="resize-chip bulk-resize-chip" data-scale="50">50%</button>
+                                                <button class="resize-chip bulk-resize-chip active" data-scale="100">100%</button>
+                                                <button class="resize-chip bulk-resize-chip" data-scale="200">200%</button>
+                                                <button class="resize-chip bulk-resize-chip" data-scale="300">300%</button>
+                                            </div>
+                                            <div class="flex items-center justify-center gap-2">
+                                                <span class="text-xs text-gray-400">Custom:</span>
+                                                <input id="bulk-resize-custom" type="number" min="1" max="500" class="w-20 text-sm p-2 rounded border border-gray-600 bg-gray-900 text-white" placeholder="100">
+                                                <span class="text-xs text-gray-400">%</span>
+                                                <button id="apply-bulk-custom-resize" class="btn-secondary text-xs font-semibold py-1 px-3 rounded-md">Apply</button>
+                                            </div>
+                                        </div>
+
+                                        <div class="bulk-inline-actions">
+                                            <label id="bulk-alpha-toggle" class="footer-toggle text-gray-300 cursor-pointer justify-start">
+                                                <input id="bulk-preserve-alpha" type="checkbox" class="accent-blue-500 cursor-pointer" checked>
+                                                <span>Preserve Alpha</span>
+                                            </label>
+
+                                            <button id="bulk-download-btn" class="btn-primary font-semibold py-3 px-4 rounded-md text-sm disabled:bg-gray-600 disabled:cursor-not-allowed" disabled>
+                                                Download Bulk ZIP
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    <div class="bulk-summary-grid">
+                                        <div class="bulk-summary-card">
+                                            <div class="bulk-summary-label">Files</div>
+                                            <div id="bulk-preview-count" class="bulk-summary-value">—</div>
+                                        </div>
+                                        <div class="bulk-summary-card">
+                                            <div class="bulk-summary-label">Format</div>
+                                            <div id="bulk-preview-format" class="bulk-summary-value">PNG</div>
+                                        </div>
+                                        <div class="bulk-summary-card">
+                                            <div class="bulk-summary-label">Scale</div>
+                                            <div id="bulk-preview-scale" class="bulk-summary-value">100%</div>
+                                        </div>
+                                    </div>
+                                    <div class="bulk-list-shell bulk-result-shell">
+                                        <div class="bulk-list-head bulk-result-head">
+                                            <span>Image</span>
+                                            <span>Result</span>
+                                            <span>Estimated</span>
+                                        </div>
+                                        <div id="bulk-preview-list" class="bulk-list-body">
+                                            <div class="bulk-empty-state">Choose a folder from the left sidebar to preview bulk output.</div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="output-card bulk-dashboard-card">
+                                <div class="output-card-header">
+                                    <h4 class="output-card-title">Result Dashboard</h4>
+                                    <span id="bulk-selected-chip" class="bulk-selected-chip">No selection</span>
+                                </div>
+                                <div class="output-card-content">
+                                    <div class="bulk-size-hero">
+                                        <div id="bulk-total-saved" class="bulk-size-hero-value">—</div>
+                                        <div id="bulk-total-saved-percent" class="bulk-size-hero-meta">—</div>
+                                    </div>
+
+                                    <div class="bulk-dashboard-grid">
+                                        <div class="bulk-dashboard-stat">
+                                            <div class="bulk-summary-label">Folder</div>
+                                            <div id="bulk-folder-name" class="bulk-dashboard-value bulk-dashboard-value-wide">—</div>
+                                        </div>
+                                        <div class="bulk-dashboard-stat">
+                                            <div class="bulk-summary-label">Supported</div>
+                                            <div id="bulk-file-count" class="bulk-dashboard-value">—</div>
+                                        </div>
+                                        <div class="bulk-dashboard-stat">
+                                            <div class="bulk-summary-label">Skipped</div>
+                                            <div id="bulk-skip-count" class="bulk-dashboard-value">—</div>
+                                        </div>
+                                        <div class="bulk-dashboard-stat">
+                                            <div class="bulk-summary-label">Original Total</div>
+                                            <div id="bulk-original-total" class="bulk-dashboard-value">—</div>
+                                        </div>
+                                        <div class="bulk-dashboard-stat">
+                                            <div class="bulk-summary-label">Estimated Output</div>
+                                            <div id="bulk-est-output" class="bulk-dashboard-value">—</div>
+                                        </div>
+                                        <div class="bulk-dashboard-stat">
+                                            <div class="bulk-summary-label">Saved</div>
+                                            <div id="bulk-est-original" class="bulk-dashboard-value">—</div>
+                                        </div>
+                                    </div>
+
+                                    <div class="bulk-selected-card">
+                                        <div class="bulk-selected-header">
+                                            <div>
+                                                <div class="bulk-summary-label">Selected Output</div>
+                                                <div id="bulk-selected-name" class="bulk-selected-name">No file selected</div>
+                                            </div>
+                                            <div id="bulk-selected-format" class="bulk-selected-format-pill">PNG</div>
+                                        </div>
+                                        <div id="bulk-selected-path" class="bulk-selected-path">Choose a folder from the left sidebar to begin.</div>
+                                        <div class="bulk-detail-grid">
+                                            <div class="bulk-detail-item">
+                                                <span class="bulk-detail-label">Export File</span>
+                                                <span id="bulk-selected-export-name" class="bulk-detail-value">—</span>
+                                            </div>
+                                            <div class="bulk-detail-item">
+                                                <span class="bulk-detail-label">Original</span>
+                                                <span id="bulk-selected-original-dims" class="bulk-detail-value">—</span>
+                                            </div>
+                                            <div class="bulk-detail-item">
+                                                <span class="bulk-detail-label">Original Size</span>
+                                                <span id="bulk-selected-original-size" class="bulk-detail-value">—</span>
+                                            </div>
+                                            <div class="bulk-detail-item">
+                                                <span class="bulk-detail-label">Output</span>
+                                                <span id="bulk-selected-output-dims" class="bulk-detail-value">—</span>
+                                            </div>
+                                            <div class="bulk-detail-item">
+                                                <span class="bulk-detail-label">Estimated Size</span>
+                                                <span id="bulk-selected-est-size" class="bulk-detail-value">—</span>
+                                            </div>
+                                            <div class="bulk-detail-item">
+                                                <span class="bulk-detail-label">Format</span>
+                                                <span id="bulk-selected-output-format" class="bulk-detail-value">—</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+<footer id="bulk-download-footer" data-tab-footer="bulk" class="hidden p-4 border-t border-gray-700 bg-gray-800 flex-shrink-0"></footer>
+<footer id="bulk-download-footer" data-tab-footer="bulk" class="hidden p-4 border-t border-gray-700 bg-gray-800 flex-shrink-0"></footer>

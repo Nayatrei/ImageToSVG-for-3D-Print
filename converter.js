@@ -12,7 +12,25 @@ import {
 import { createElements } from './modules/app-elements.js';
 import { createState } from './modules/app-state.js';
 
-document.addEventListener('DOMContentLoaded', () => {
+async function loadTabPartials() {
+    const tabs = ['svg', 'logo', 'raster', 'bulk'];
+    await Promise.all(tabs.map(async (name) => {
+        const res = await fetch(`modules/tabs/html/tab-${name}.html`);
+        const html = await res.text();
+        const tmp = document.createElement('div');
+        tmp.innerHTML = html;
+        const panel = tmp.querySelector(`#tab-${name}`);
+        const footer = tmp.querySelector('footer');
+        const panelSlot = document.getElementById(`tab-${name}-slot`);
+        const footerSlot = document.getElementById(`footer-${name}-slot`);
+        if (panel && panelSlot) panelSlot.outerHTML = panel.outerHTML;
+        if (footer && footerSlot) footerSlot.outerHTML = footer.outerHTML;
+    }));
+}
+
+document.addEventListener('DOMContentLoaded', async () => {
+    await loadTabPartials();
+
     const elements = createElements();
     const state = createState();
 
@@ -249,18 +267,9 @@ document.addEventListener('DOMContentLoaded', () => {
             panel.classList.toggle('hidden', !isVisible);
         });
 
-        if (elements.svgExportFooter) {
-            elements.svgExportFooter.classList.toggle('hidden', target !== 'svg');
-        }
-        if (elements.logoExportFooter) {
-            elements.logoExportFooter.classList.toggle('hidden', target !== 'logo');
-        }
-        if (elements.rasterDownloadFooter) {
-            elements.rasterDownloadFooter.classList.toggle('hidden', target !== 'raster');
-        }
-        if (elements.bulkDownloadFooter) {
-            elements.bulkDownloadFooter.classList.add('hidden');
-        }
+        document.querySelectorAll('[data-tab-footer]').forEach(f => {
+            f.classList.toggle('hidden', f.dataset.tabFooter !== target);
+        });
 
         const isSvgLike = target === 'svg' || target === 'logo';
         setOriginalPanelMode(target === 'bulk' ? 'bulk' : isSvgLike ? 'svg' : 'single');

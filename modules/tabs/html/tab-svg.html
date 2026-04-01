@@ -1,0 +1,173 @@
+                    <!-- SVG Tab Content -->
+                    <div id="tab-svg" class="export-panel">
+                        <!-- Preview Grid -->
+                        <div class="output-grid two-col">
+                            <div class="output-card">
+                                <div class="output-card-header">
+                                    <h3 class="output-card-title">
+                                        3D Print Preview
+                                        <span id="quality-indicator" class="text-xs text-gray-400 font-normal"></span>
+                                    </h3>
+                                    <div class="preview-card-actions flex items-center gap-2">
+                                        <div class="zoom-controls flex bg-gray-800 rounded-md border border-gray-600">
+                                            <button id="zoom-out-all" class="p-1 hover:bg-gray-700 rounded-l-md" title="Zoom Out">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"></path>
+                                                </svg>
+                                            </button>
+                                            <button id="zoom-reset-all" class="p-1 hover:bg-gray-700 border-l border-r border-gray-600 text-xs font-mono" title="Reset Zoom">1x</button>
+                                            <button id="zoom-in-all" class="p-1 hover:bg-gray-700 rounded-r-md" title="Zoom In">
+                                                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                                                </svg>
+                                            </button>
+                                        </div>
+                                        <select id="preview-resolution" class="text-xs bg-gray-800 border border-gray-600 rounded px-2 py-1 text-white" title="Preview Resolution">
+                                            <option value="256">256px</option>
+                                            <option value="512" selected>512px</option>
+                                            <option value="1024">1024px</option>
+                                            <option value="2048">2048px</option>
+                                        </select>
+                                    </div>
+                                </div>
+                                <div class="preview-container preview-container-flexible bg-grid rounded-md overflow-hidden relative" data-preview="all">
+                                    <div class="preview-content w-full h-full flex items-center justify-center" style="transform-origin: center center;">
+                                        <img id="svg-preview" class="max-w-full max-h-full pointer-events-none" style="display: none;">
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="output-card">
+                                <div class="output-card-header">
+                                    <h3 class="output-card-title">
+                                        3D Preview
+                                        <span class="text-xs text-gray-400 font-normal">Drag to rotate · Scroll to zoom</span>
+                                    </h3>
+                                    <div class="preview-card-actions flex items-center gap-2">
+                                        <button id="obj-build-plate-toggle" class="btn-secondary text-xs px-3 py-1 rounded-md active" type="button" title="Toggle build plate">Plate</button>
+                                        <label class="preview-bed-picker" for="obj-preview-bed">
+                                            <span class="text-xs text-gray-500">Bed</span>
+                                            <select id="obj-preview-bed" class="text-xs bg-gray-800 border border-gray-600 rounded px-2 py-1 text-white" title="Preview build plate size">
+                                                <option value="x1" selected>X1 · 256×256</option>
+                                                <option value="h2d">H2D · 325×320</option>
+                                                <option value="a1mini">A1 mini · 180×180</option>
+                                            </select>
+                                        </label>
+                                        <button id="obj-recenter" class="btn-secondary text-xs px-2 py-1 rounded-md" title="Recenter model without changing zoom">Recenter</button>
+                                        <button id="obj-target-lock" class="btn-secondary text-xs px-2 py-1 rounded-md" title="Toggle target lock (pan when unlocked)">Lock</button>
+                                    </div>
+                                </div>
+                                <div class="preview-container preview-container-flexible bg-grid rounded-md overflow-hidden relative obj-preview-stage">
+                                    <canvas id="obj-preview-canvas" class="obj-preview-canvas"></canvas>
+                                    <div id="obj-preview-placeholder" class="preview-placeholder">3D preview will appear after analysis.</div>
+                                </div>
+                                <div class="layer-stack-card">
+                                    <div class="layer-stack-header">
+                                        <span>Layer Heights</span>
+                                        <span id="layer-stack-meta">—</span>
+                                    </div>
+                                    <div class="layer-stack-options">
+                                        <label class="layer-stack-option">
+                                            <input type="checkbox" id="use-base-layer" class="layer-stack-checkbox">
+                                            <span>Use base layer</span>
+                                        </label>
+                                        <select id="base-layer-select" class="layer-stack-select" disabled>
+                                            <option value="0">L0</option>
+                                        </select>
+                                    </div>
+                                    <div id="layer-stack-list" class="layer-stack-list"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Layer Selection - Collapsible -->
+                        <div class="output-card">
+                            <div class="output-card-header collapsible-trigger" id="layers-toggle">
+                                <h4 class="output-card-title">
+                                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                                    </svg>
+                                    Layers & Merging
+                                </h4>
+                                <span class="text-xs text-gray-400">Click to expand</span>
+                            </div>
+                            <div id="layers-section" class="collapsible-section collapsed">
+                                <div class="output-grid two-col" style="margin-bottom: 0;">
+                                    <div class="output-card-content">
+                                        <h5 class="text-xs font-semibold text-gray-400 mb-2">Available Layers</h5>
+                                        <div id="palette-row" style="display:none;">
+                                            <div id="palette-container" class="flex flex-wrap gap-2"></div>
+                                        </div>
+                                        <div id="layer-merging-section" style="display:none;">
+                                            <h5 class="text-xs font-semibold text-gray-400 mb-2">Layer Merging</h5>
+                                            <div id="merge-rules-container" class="space-y-2 mb-3"></div>
+                                            <button id="add-merge-rule-btn" class="btn-secondary text-xs font-semibold py-1 px-3 rounded-md" disabled>+ Add Merge Rule</button>
+                                        </div>
+                                    </div>
+
+                                    <div class="output-card-content">
+                                        <h5 class="text-xs font-semibold text-gray-400 mb-2">Final Layer Colors</h5>
+                                        <div id="final-palette-container" class="flex flex-wrap gap-2 min-h-[36px]"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+
+<footer id="svg-export-footer" data-tab-footer="svg" class="p-4 border-t border-gray-700 bg-gray-800 flex-shrink-0">
+    <div class="footer-action-stack footer-action-stack-four">
+        <div class="footer-action-card">
+            <button id="export-layers-btn" class="btn-secondary font-semibold py-3 px-4 rounded-md text-sm disabled:bg-gray-600 disabled:cursor-not-allowed" disabled>
+                Layers (ZIP)
+            </button>
+            <div class="footer-action-meta">Separate SVG files per layer</div>
+        </div>
+        <div class="footer-action-card">
+            <button id="download-combined-layers-btn" class="btn-secondary font-semibold py-3 px-4 rounded-md text-sm disabled:bg-gray-600 disabled:cursor-not-allowed" disabled>
+                Combined SVG
+            </button>
+            <div class="footer-action-meta">Single file (original or merged)</div>
+        </div>
+        <div class="footer-action-card">
+            <button id="export-obj-btn" class="btn-primary font-semibold py-3 px-4 rounded-md text-sm disabled:bg-gray-600 disabled:cursor-not-allowed" disabled>
+                Export OBJ
+            </button>
+            <div class="footer-action-meta">3D model + materials for Bambu</div>
+        </div>
+        <div class="footer-action-card">
+            <button id="export-3mf-btn" class="btn-secondary font-semibold py-3 px-4 rounded-md text-sm disabled:bg-gray-600 disabled:cursor-not-allowed" disabled>
+                Export 3MF
+            </button>
+            <div class="footer-action-meta">Native Bambu Studio project</div>
+        </div>
+    </div>
+</footer>
+<footer id="svg-export-footer" data-tab-footer="svg" class="p-4 border-t border-gray-700 bg-gray-800 flex-shrink-0">
+    <div class="footer-action-stack footer-action-stack-four">
+        <div class="footer-action-card">
+            <button id="export-layers-btn" class="btn-secondary font-semibold py-3 px-4 rounded-md text-sm disabled:bg-gray-600 disabled:cursor-not-allowed" disabled>
+                Layers (ZIP)
+            </button>
+            <div class="footer-action-meta">Separate SVG files per layer</div>
+        </div>
+        <div class="footer-action-card">
+            <button id="download-combined-layers-btn" class="btn-secondary font-semibold py-3 px-4 rounded-md text-sm disabled:bg-gray-600 disabled:cursor-not-allowed" disabled>
+                Combined SVG
+            </button>
+            <div class="footer-action-meta">Single file (original or merged)</div>
+        </div>
+        <div class="footer-action-card">
+            <button id="export-obj-btn" class="btn-primary font-semibold py-3 px-4 rounded-md text-sm disabled:bg-gray-600 disabled:cursor-not-allowed" disabled>
+                Export OBJ
+            </button>
+            <div class="footer-action-meta">3D model + materials for Bambu</div>
+        </div>
+        <div class="footer-action-card">
+            <button id="export-3mf-btn" class="btn-secondary font-semibold py-3 px-4 rounded-md text-sm disabled:bg-gray-600 disabled:cursor-not-allowed" disabled>
+                Export 3MF
+            </button>
+            <div class="footer-action-meta">Native Bambu Studio project</div>
+        </div>
+    </div>
+</footer>
