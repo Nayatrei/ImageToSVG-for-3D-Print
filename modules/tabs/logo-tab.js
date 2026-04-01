@@ -36,6 +36,7 @@ export function createLogoTabController({
         objPreviewPlaceholder: elements.logoObjPreviewPlaceholder,
         objBuildPlateToggle: elements.logoObjBuildPlateToggle,
         objPreviewBedSelect: elements.logoObjPreviewBedSelect,
+        objBedSelect: elements.logoObjPreviewBedSelect,
         objFitView: elements.logoObjFitView,
         objRecenter: elements.logoObjRecenter,
         objTargetLock: elements.logoObjTargetLock,
@@ -62,6 +63,7 @@ export function createLogoTabController({
         objThicknessValue: elements.logoObjThicknessValue,
         objMarginInput: elements.logoObjMarginInput,
         objSizeReadout: elements.logoObjSizeReadout,
+        objStructureWarning: elements.logoObjStructureWarning,
         originalResolution: elements.logoOriginalResolution,
         htmlSourceImg: elements.logoHtmlSourceImg,
         htmlInput: elements.logoHtmlInput,
@@ -320,7 +322,7 @@ export function createLogoTabController({
     }
 
     async function analyzeColorsClick() {
-        ls.layerThicknesses = null;
+        ls.layerThicknessById = {};
         await analyzeColors();
         ls.colorsAnalyzed = true;
         await optimizePathsClick();
@@ -674,7 +676,7 @@ export function createLogoTabController({
         }
         if (le.baseLayerSelect) {
             le.baseLayerSelect.addEventListener('change', (e) => {
-                ls.baseLayerIndex = parseInt(e.target.value, 10);
+                ls.baseSourceLayerId = Number.parseInt(e.target.value, 10);
                 objPreview.render();
             });
         }

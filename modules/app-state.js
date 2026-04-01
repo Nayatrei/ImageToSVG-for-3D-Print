@@ -23,10 +23,10 @@ export function createState() {
         panX: 0,
         panY: 0,
         panScale: 1,
-        basePosition: null,
         targetLocked: true,
         showBuildPlate: true,
-        layerDisplayMode: 'ghost'
+        layerDisplayMode: 'ghost',
+        needsFit: true
     });
 
     return {
@@ -46,9 +46,9 @@ export function createState() {
         tooltipTimeout: null,
         colorsAnalyzed: false,
         estimatedColorCount: null,
-        layerThicknesses: null,
+        layerThicknessById: {},
         useBaseLayer: false,
-        baseLayerIndex: 0,
+        baseSourceLayerId: null,
         exportScale: 100,
         preserveAlpha: true,
 
@@ -99,9 +99,9 @@ export function createState() {
             tooltipTimeout: null,
             colorsAnalyzed: false,
             estimatedColorCount: null,
-            layerThicknesses: null,
+            layerThicknessById: {},
             useBaseLayer: false,
-            baseLayerIndex: 0,
+            baseSourceLayerId: null,
             highFidelity: false,
             htmlModeActive: true,
             htmlRenderTimer: null,

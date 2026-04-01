@@ -17,6 +17,73 @@ export function layerHasPaths(layer) {
 }
 
 /**
+ * Resolves visible layer indices into merged output groups.
+ * Merge rules operate on the ordinal positions within visibleIndices.
+ * Returned groups preserve the target layer's original source-layer id
+ * as the stable output identity.
+ *
+ * @param {number[]} visibleIndices
+ * @param {{source:number,target:number}[]} rules
+ * @returns {Array<{ outputLayerId:number, primarySourceLayerId:number, sourceLayerIds:number[] }>}
+ */
+export function resolveMergedLayerGroups(visibleIndices, rules = []) {
+    if (!Array.isArray(visibleIndices) || visibleIndices.length === 0) return [];
+
+    if (!Array.isArray(rules) || rules.length === 0) {
+        return visibleIndices.map((sourceLayerId) => ({
+            outputLayerId: sourceLayerId,
+            primarySourceLayerId: sourceLayerId,
+            sourceLayerIds: [sourceLayerId]
+        }));
+    }
+
+    const finalTargets = {};
+    visibleIndices.forEach((_, ruleIndex) => {
+        finalTargets[ruleIndex] = ruleIndex;
+    });
+
+    rules.forEach((rule) => {
+        const source = Number.parseInt(rule?.source, 10);
+        const target = Number.parseInt(rule?.target, 10);
+        if (!Number.isInteger(source) || !Number.isInteger(target)) return;
+        if (!(source in finalTargets) || !(target in finalTargets)) return;
+
+        let ultimateTarget = target;
+        while (finalTargets[ultimateTarget] !== ultimateTarget) {
+            ultimateTarget = finalTargets[ultimateTarget];
+        }
+        finalTargets[source] = ultimateTarget;
+    });
+
+    Object.keys(finalTargets).forEach((key) => {
+        let current = Number.parseInt(key, 10);
+        while (finalTargets[current] !== current) {
+            current = finalTargets[current];
+        }
+        finalTargets[key] = current;
+    });
+
+    const groups = {};
+    visibleIndices.forEach((sourceLayerId, ruleIndex) => {
+        const targetRuleIndex = finalTargets[ruleIndex];
+        if (!groups[targetRuleIndex]) groups[targetRuleIndex] = [];
+        groups[targetRuleIndex].push(sourceLayerId);
+    });
+
+    return Object.keys(groups)
+        .map(Number)
+        .sort((a, b) => a - b)
+        .map((targetRuleIndex) => {
+            const primarySourceLayerId = visibleIndices[targetRuleIndex];
+            return {
+                outputLayerId: primarySourceLayerId,
+                primarySourceLayerId,
+                sourceLayerIds: groups[targetRuleIndex].slice()
+            };
+        });
+}
+
+/**
  * Builds a tracedata object containing only the given layer indices.
  */
 export function buildTracedataSubset(source, indices) {
@@ -37,49 +104,17 @@ export function buildTracedataSubset(source, indices) {
  */
 export function createMergedTracedata(sourceData, visibleIndices, rules) {
     if (!sourceData || !visibleIndices || !rules) return sourceData;
-
-    const finalTargets = {};
-    visibleIndices.forEach((_, ruleIndex) => {
-        finalTargets[ruleIndex] = ruleIndex;
-    });
-
-    rules.forEach((rule) => {
-        let ultimateTarget = rule.target;
-        while (finalTargets[ultimateTarget] !== ultimateTarget) {
-            ultimateTarget = finalTargets[ultimateTarget];
-        }
-        finalTargets[rule.source] = ultimateTarget;
-    });
-
-    Object.keys(finalTargets).forEach((key) => {
-        let current = parseInt(key, 10);
-        while (finalTargets[current] !== current) {
-            current = finalTargets[current];
-        }
-        finalTargets[key] = current;
-    });
-
-    const groups = {};
-    visibleIndices.forEach((originalIndex, ruleIndex) => {
-        const finalTargetRuleIndex = finalTargets[ruleIndex];
-        if (!groups[finalTargetRuleIndex]) {
-            groups[finalTargetRuleIndex] = [];
-        }
-        groups[finalTargetRuleIndex].push(originalIndex);
-    });
-
+    const groups = resolveMergedLayerGroups(visibleIndices, rules);
     const newPalette = [];
     const newLayers = [];
-    Object.keys(groups).map(Number).sort((a, b) => a - b).forEach((targetRuleIndex) => {
-        const originalIndicesInGroup = groups[targetRuleIndex];
-        const representativeOriginalIndex = visibleIndices[targetRuleIndex];
 
-        newPalette.push(sourceData.palette[representativeOriginalIndex]);
+    groups.forEach((group) => {
+        newPalette.push(sourceData.palette[group.primarySourceLayerId]);
 
         let mergedPaths = [];
-        originalIndicesInGroup.forEach((originalIndex) => {
-            if (sourceData.layers[originalIndex]) {
-                mergedPaths = mergedPaths.concat(sourceData.layers[originalIndex]);
+        group.sourceLayerIds.forEach((sourceLayerId) => {
+            if (sourceData.layers[sourceLayerId]) {
+                mergedPaths = mergedPaths.concat(sourceData.layers[sourceLayerId]);
             }
         });
         newLayers.push(mergedPaths);

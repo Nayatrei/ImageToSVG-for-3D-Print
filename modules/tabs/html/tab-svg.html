@@ -69,12 +69,13 @@
                                     <div class="layer-stack-options">
                                         <label class="layer-stack-option">
                                             <input type="checkbox" id="use-base-layer" class="layer-stack-checkbox">
-                                            <span>Use base layer</span>
+                                            <span>Support base</span>
                                         </label>
                                         <select id="base-layer-select" class="layer-stack-select" disabled>
                                             <option value="0">L0</option>
                                         </select>
                                     </div>
+                                    <p class="text-xs text-gray-500 px-3 pb-2">Selected support layer stays on the bed. All other layers start on top of it.</p>
                                     <div id="layer-stack-list" class="layer-stack-list"></div>
                                 </div>
                             </div>
@@ -116,7 +117,7 @@
                     </div>
 
 <footer id="svg-export-footer" data-tab-footer="svg" class="p-4 border-t border-gray-700 bg-gray-800 flex-shrink-0">
-    <div class="footer-action-stack footer-action-stack-four">
+    <div class="footer-action-stack footer-action-stack-five">
         <div class="footer-action-card">
             <button id="export-layers-btn" class="btn-secondary font-semibold py-3 px-4 rounded-md text-sm disabled:bg-gray-600 disabled:cursor-not-allowed" disabled>
                 Layers (ZIP)
@@ -140,6 +141,12 @@
                 Export 3MF
             </button>
             <div class="footer-action-meta">Native Bambu Studio project</div>
+        </div>
+        <div class="footer-action-card">
+            <button id="export-stl-btn" class="btn-secondary font-semibold py-3 px-4 rounded-md text-sm disabled:bg-gray-600 disabled:cursor-not-allowed" disabled>
+                Export STL
+            </button>
+            <div class="footer-action-meta">Per-layer STL files</div>
         </div>
     </div>
 </footer>

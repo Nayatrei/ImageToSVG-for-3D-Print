@@ -226,7 +226,7 @@ export function createSvgTabController({
     }
 
     async function analyzeColorsClick() {
-        state.layerThicknesses = null;
+        state.layerThicknessById = {};
         await analyzeColors();
         state.colorsAnalyzed = true;
         await optimizePathsClick();
@@ -429,7 +429,8 @@ export function createSvgTabController({
             elements.combineAndDownloadBtn,
             elements.downloadCombinedLayersBtn,
             elements.exportObjBtn,
-            elements.export3mfBtn
+            elements.export3mfBtn,
+            elements.exportStlBtn
         ].forEach(btn => { if (btn) btn.disabled = true; });
     }
 
@@ -437,7 +438,8 @@ export function createSvgTabController({
         [
             elements.exportLayersBtn,
             elements.exportObjBtn,
-            elements.export3mfBtn
+            elements.export3mfBtn,
+            elements.exportStlBtn
         ].forEach(btn => { if (btn) btn.disabled = false; });
         if (elements.combineAndDownloadBtn) elements.combineAndDownloadBtn.disabled = state.mergeRules.length === 0;
         if (elements.downloadCombinedLayersBtn) elements.downloadCombinedLayersBtn.disabled = false;
@@ -559,7 +561,7 @@ export function createSvgTabController({
         }
         if (elements.baseLayerSelect) {
             elements.baseLayerSelect.addEventListener('change', (e) => {
-                state.baseLayerIndex = parseInt(e.target.value, 10);
+                state.baseSourceLayerId = Number.parseInt(e.target.value, 10);
                 updateFilteredPreview();
             });
         }

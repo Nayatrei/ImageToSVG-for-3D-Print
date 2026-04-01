@@ -382,7 +382,7 @@ export function createHtmlEditor({ ls, le, elements, syncWorkspaceView, analyzeC
         const h = le.htmlSourceImg.naturalHeight;
         if (le.originalResolution) le.originalResolution.textContent = `${w}×${h} px`;
         ls.colorsAnalyzed = false;
-        ls.layerThicknesses = null;
+        ls.layerThicknessById = {};
         await analyzeColorsClick();
 
         // Scroll the compare panels into view so the result is visible without manual scrolling

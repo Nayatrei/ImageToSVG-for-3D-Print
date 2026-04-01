@@ -107,6 +107,7 @@
                                         </div>
                                     </div>
                                     <p id="logo-obj-size-readout" class="text-xs text-gray-500 mt-1">Footprint: —</p>
+                                    <p id="logo-obj-structure-warning" class="text-xs text-yellow-300 mt-1 hidden"></p>
                                 </div>
                             </div>
 
@@ -122,12 +123,13 @@
                                     <div class="layer-stack-options">
                                         <label class="layer-stack-option">
                                             <input type="checkbox" id="logo-use-base-layer" class="layer-stack-checkbox">
-                                            <span>Backing plate</span>
+                                            <span>Support base</span>
                                         </label>
                                         <select id="logo-base-layer-select" class="layer-stack-select" disabled>
                                             <option value="0">L0</option>
                                         </select>
                                     </div>
+                                    <p class="text-xs text-gray-500 px-3 pb-2">Selected support layer stays on the bed. All other layers start on top of it.</p>
                                     <div id="logo-layer-stack-list" class="layer-stack-list"></div>
                                 </div>
                             </div>

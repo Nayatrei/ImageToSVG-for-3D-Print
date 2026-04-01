@@ -2229,6 +2229,10 @@ body,
     grid-template-columns: repeat(6, minmax(0, 1fr));
 }
 
+.footer-action-stack-five {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
 .footer-action-stack-four {
     grid-template-columns: repeat(4, minmax(0, 1fr));
 }
@@ -2435,6 +2439,10 @@ body,
         grid-template-columns: repeat(3, minmax(0, 1fr));
     }
 
+    .footer-action-stack-five {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
     .footer-action-stack-four {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
@@ -2534,6 +2542,7 @@ body,
     }
 
     .footer-action-stack-six,
+    .footer-action-stack-five,
     .footer-action-stack-four,
     .footer-action-stack-three,
     .footer-action-stack-single {

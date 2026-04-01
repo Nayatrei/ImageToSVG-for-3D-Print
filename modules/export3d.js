@@ -1,6 +1,5 @@
-import { buildLayerIndexMap, getLayerIndexForColor } from './obj-layers.js';
-import { ensureLayerThicknesses, computeLayerLayout } from './layer-layout.js';
-import { computeObjScalePlan } from './obj-scale.js';
+import { buildObjGeometryBundle, buildObjModelPlan } from './obj-model-plan.js';
+import { layerHasPaths } from './shared/trace-utils.js';
 
 function buildMtl(materials, name) {
     if (!materials || materials.size === 0) return '';
@@ -15,207 +14,6 @@ function buildMtl(materials, name) {
         output += `illum 1\n\n`;
     });
     return output;
-}
-
-function createRectBaseShape(THREERef, minX, minY, maxX, maxY) {
-    const plate = new THREERef.Shape();
-    plate.moveTo(minX, minY);
-    plate.lineTo(maxX, minY);
-    plate.lineTo(maxX, maxY);
-    plate.lineTo(minX, maxY);
-    plate.closePath();
-    return plate;
-}
-
-// Helper to build layer geometries grouped by color
-function buildLayerGeometries({
-    dataToExport,
-    state,
-    elements,
-    tracer,
-    defaultThickness
-}) {
-    const SVGLoader = window.SVGLoader || window.THREE?.SVGLoader;
-    const THREERef = window.THREE;
-    const bufferUtils = window.BufferGeometryUtils || THREERef?.BufferGeometryUtils;
-
-    if (!SVGLoader || !THREERef || !bufferUtils) return null;
-
-    const curveSegments = 6;
-    const bedKey = elements.objBedSelect?.value || 'x1';
-    const marginValue = elements.objMarginInput ? parseFloat(elements.objMarginInput.value) : 5;
-    const margin = Number.isFinite(marginValue) ? Math.max(0, marginValue) : 5;
-    const scaleValue = elements.objScaleSlider ? parseFloat(elements.objScaleSlider.value) : 100;
-
-    const svgString = tracer.getsvgstring(dataToExport, state.lastOptions);
-    const loader = new SVGLoader();
-    const svgData = loader.parse(svgString);
-    const layerIndexMap = buildLayerIndexMap(dataToExport.palette);
-
-    const layerCount = dataToExport.palette.length;
-    const layerThicknesses = ensureLayerThicknesses(state, layerCount, defaultThickness);
-    const layout = computeLayerLayout({
-        layerThicknesses,
-        useBaseLayer: state.useBaseLayer,
-        baseLayerIndex: state.baseLayerIndex
-    });
-    state.baseLayerIndex = layout.baseLayerIndex;
-
-    // Group geometries by layer index
-    const layerGeometries = new Map(); // layerIndex -> { geometries: [], color: {r,g,b}, zPosition, depth }
-    const shapesByLayer = new Map();
-    let svgMinX = Infinity;
-    let svgMinY = Infinity;
-    let svgMaxX = -Infinity;
-    let svgMaxY = -Infinity;
-
-    svgData.paths.forEach((path) => {
-        const shapes = SVGLoader.createShapes(path);
-        if (!shapes || !shapes.length) return;
-
-        const sourceColor = path.color instanceof THREERef.Color
-            ? path.color
-            : new THREERef.Color(path.color || '#000');
-        const hex = sourceColor.getHexString();
-        const layerIndex = getLayerIndexForColor(layerIndexMap, hex);
-        shapes.forEach((shape) => {
-            if (!shapesByLayer.has(layerIndex)) {
-                shapesByLayer.set(layerIndex, { shapes: [], hex, sourceColor });
-            }
-            shapesByLayer.get(layerIndex).shapes.push(shape);
-            shape.getPoints(16).forEach((pt) => {
-                if (pt.x < svgMinX) svgMinX = pt.x;
-                if (pt.y < svgMinY) svgMinY = pt.y;
-                if (pt.x > svgMaxX) svgMaxX = pt.x;
-                if (pt.y > svgMaxY) svgMaxY = pt.y;
-            });
-        });
-    });
-
-    const svgBoundsValid = svgMaxX > svgMinX && svgMaxY > svgMinY;
-
-    shapesByLayer.forEach(({ shapes, hex, sourceColor }, layerIndex) => {
-        const layerDepth = layout.depths[layerIndex] || defaultThickness;
-        const zPosition = layout.positions[layerIndex] || 0;
-
-        if (!layerGeometries.has(layerIndex)) {
-            const paletteColor = dataToExport.palette[layerIndex];
-            const fallbackColor = sourceColor || new THREERef.Color('#000000');
-            layerGeometries.set(layerIndex, {
-                geometries: [],
-                color: paletteColor
-                    ? { r: paletteColor.r, g: paletteColor.g, b: paletteColor.b }
-                    : {
-                        r: Math.round(fallbackColor.r * 255),
-                        g: Math.round(fallbackColor.g * 255),
-                        b: Math.round(fallbackColor.b * 255)
-                    },
-                zPosition,
-                depth: layerDepth,
-                hex
-            });
-        }
-
-        const layerData = layerGeometries.get(layerIndex);
-        const isBase = state.useBaseLayer && layerIndex === state.baseLayerIndex;
-        const shapesToExtrude = (isBase && svgBoundsValid)
-            ? [createRectBaseShape(THREERef, svgMinX, svgMinY, svgMaxX, svgMaxY)]
-            : shapes;
-
-        shapesToExtrude.forEach((shape) => {
-            const geometry = new THREERef.ExtrudeGeometry(shape, {
-                depth: layerDepth,
-                curveSegments,
-                bevelEnabled: false
-            });
-            geometry.rotateX(Math.PI);
-            // Apply z position to vertices
-            const posAttr = geometry.getAttribute('position');
-            for (let i = 0; i < posAttr.count; i++) {
-                posAttr.setZ(i, posAttr.getZ(i) + zPosition);
-            }
-            posAttr.needsUpdate = true;
-            // Recompute normals after all transformations for clean surfaces
-            geometry.computeVertexNormals();
-            layerData.geometries.push(geometry);
-        });
-    });
-
-    // Merge geometries per layer
-    const mergedLayers = new Map();
-    layerGeometries.forEach((layerData, layerIndex) => {
-        if (layerData.geometries.length === 0) return;
-
-        const mergedGeometry = bufferUtils.mergeGeometries(layerData.geometries, false);
-        if (mergedGeometry) {
-            // Recompute normals after merging for clean surfaces
-            mergedGeometry.computeVertexNormals();
-            mergedLayers.set(layerIndex, {
-                geometry: mergedGeometry,
-                color: layerData.color,
-                zPosition: layerData.zPosition,
-                depth: layerData.depth,
-                hex: layerData.hex
-            });
-        }
-        // Dispose original geometries
-        layerData.geometries.forEach(g => g.dispose());
-    });
-
-    // Apply bed scaling
-    const tempGroup = new THREERef.Group();
-    mergedLayers.forEach((layerData) => {
-        const mesh = new THREERef.Mesh(layerData.geometry);
-        tempGroup.add(mesh);
-    });
-
-    const bbox = new THREERef.Box3().setFromObject(tempGroup);
-    const size = new THREERef.Vector3();
-    bbox.getSize(size);
-
-    const scalePlan = computeObjScalePlan({
-        rawWidth: size.x,
-        rawDepth: size.y,
-        bedKey,
-        margin,
-        scalePercent: scaleValue
-    });
-    const scale = scalePlan.scale;
-
-    // Apply scale to geometries if needed
-    if (Math.abs(scale - 1) > 1e-6) {
-        mergedLayers.forEach((layerData) => {
-            layerData.geometry.scale(scale, scale, 1);
-        });
-    }
-
-    // Clean up temp group
-    tempGroup.children.forEach(child => tempGroup.remove(child));
-
-    return {
-        layers: mergedLayers,
-        layerThicknesses,
-        layout,
-        scale,
-        scalePlan
-    };
-}
-
-// Normalize exported geometries: center XY around origin, shift Z so minZ=0
-function normalizeLayerGeometries(layers, THREERef) {
-    const tempGroup = new THREERef.Group();
-    layers.forEach((layerData) => {
-        tempGroup.add(new THREERef.Mesh(layerData.geometry));
-    });
-    const bbox = new THREERef.Box3().setFromObject(tempGroup);
-    const center = new THREERef.Vector3();
-    bbox.getCenter(center);
-    const shiftX = -center.x;
-    const shiftY = -center.y;
-    const shiftZ = -bbox.min.z;
-    layers.forEach((layerData) => {
-        layerData.geometry.translate(shiftX, shiftY, shiftZ);
-    });
 }
 
 // Generate binary STL from geometry
@@ -643,25 +441,51 @@ export function createObjExporter({
 }) {
     const tracer = ImageTracer || window.ImageTracer;
 
+    function getVisibleLayerIndices() {
+        if (!state.tracedata) return [];
+        const indices = [];
+        for (let i = 0; i < state.tracedata.layers.length; i++) {
+            if (layerHasPaths(state.tracedata.layers[i])) indices.push(i);
+        }
+        return indices;
+    }
+
+    function buildExportGeometry(defaultThickness) {
+        const SVGLoader = window.SVGLoader || window.THREE?.SVGLoader;
+        const THREERef = window.THREE;
+        const bufferUtils = window.BufferGeometryUtils || THREERef?.BufferGeometryUtils;
+        if (!SVGLoader || !THREERef || !bufferUtils) return null;
+
+        const visibleSourceLayerIds = getVisibleLayerIndices();
+        if (!visibleSourceLayerIds.length) return null;
+
+        const plan = buildObjModelPlan({
+            state,
+            tracer,
+            SVGLoader,
+            THREERef,
+            defaultThickness,
+            visibleSourceLayerIds
+        });
+        if (!plan || plan.outputLayers.length === 0) return null;
+
+        const geometryBundle = buildObjGeometryBundle(plan, { THREERef, bufferUtils });
+        if (!geometryBundle || geometryBundle.layers.size === 0) return null;
+
+        return geometryBundle;
+    }
+
     async function exportAsOBJ() {
         if (!state.tracedata) {
             elements.statusText.textContent = 'Generate preview before exporting OBJ.';
             return;
         }
 
-        const SVGLoader = window.SVGLoader || window.THREE?.SVGLoader;
         const OBJExporter = window.OBJExporter || window.THREE?.OBJExporter;
         const THREERef = window.THREE;
 
-        const bufferUtils = window.BufferGeometryUtils || THREERef?.BufferGeometryUtils;
-        if (!SVGLoader || !OBJExporter || !THREERef || !bufferUtils) {
+        if (!OBJExporter || !THREERef || !window.SVGLoader || !window.BufferGeometryUtils) {
             elements.statusText.textContent = 'OBJ export libraries are still loading.';
-            return;
-        }
-
-        const dataToExport = getDataToExport();
-        if (!dataToExport) {
-            elements.statusText.textContent = 'No layers available for OBJ export.';
             return;
         }
 
@@ -672,25 +496,16 @@ export function createObjExporter({
             showLoader(true);
             elements.statusText.textContent = 'Exporting OBJ...';
 
-            const result = buildLayerGeometries({
-                dataToExport,
-                state,
-                elements,
-                tracer,
-                defaultThickness
-            });
-
+            const result = buildExportGeometry(defaultThickness);
             if (!result || result.layers.size === 0) {
                 throw new Error('No geometry generated');
             }
-
-            normalizeLayerGeometries(result.layers, THREERef);
 
             // Build merged group for OBJ export
             const group = new THREERef.Group();
             const materials = new Map();
 
-            result.layers.forEach((layerData, layerIndex) => {
+            result.layers.forEach((layerData) => {
                 const color = new THREERef.Color(
                     layerData.color.r / 255,
                     layerData.color.g / 255,
@@ -708,7 +523,7 @@ export function createObjExporter({
             group.updateMatrixWorld(true);
             let obj = exporter.parse(group);
 
-            const baseName = `${getImageBaseName()}_${Math.round(result.layout.maxHeight || defaultThickness)}mm`;
+            const baseName = `${getImageBaseName()}_${Math.round(result.plan.maxHeight || defaultThickness)}mm`;
             const mtl = buildMtl(materials, baseName);
 
             if (mtl) {
@@ -720,7 +535,7 @@ export function createObjExporter({
             elements.statusText.textContent = 'OBJ export complete.';
 
             // Cleanup
-            result.layers.forEach(layerData => layerData.geometry.dispose());
+            result.layers.forEach((layerData) => layerData.geometry.dispose());
         } catch (error) {
             console.error('OBJ export failed:', error);
             elements.statusText.textContent = 'Failed to export OBJ.';
@@ -735,18 +550,9 @@ export function createObjExporter({
             return;
         }
 
-        const SVGLoader = window.SVGLoader || window.THREE?.SVGLoader;
         const THREERef = window.THREE;
-
-        const bufferUtils = window.BufferGeometryUtils || THREERef?.BufferGeometryUtils;
-        if (!SVGLoader || !THREERef || !bufferUtils) {
+        if (!THREERef || !window.SVGLoader || !window.BufferGeometryUtils) {
             elements.statusText.textContent = '3MF export libraries are still loading.';
-            return;
-        }
-
-        const dataToExport = getDataToExport();
-        if (!dataToExport) {
-            elements.statusText.textContent = 'No layers available for 3MF export.';
             return;
         }
 
@@ -757,28 +563,19 @@ export function createObjExporter({
             showLoader(true);
             elements.statusText.textContent = 'Exporting 3MF...';
 
-            const result = buildLayerGeometries({
-                dataToExport,
-                state,
-                elements,
-                tracer,
-                defaultThickness
-            });
-
+            const result = buildExportGeometry(defaultThickness);
             if (!result || result.layers.size === 0) {
                 throw new Error('No geometry generated');
             }
 
-            normalizeLayerGeometries(result.layers, THREERef);
-
-            const baseName = `${getImageBaseName()}_${Math.round(result.layout.maxHeight || defaultThickness)}mm`;
+            const baseName = `${getImageBaseName()}_${Math.round(result.plan.maxHeight || defaultThickness)}mm`;
 
             const blob = await generate3MF(result.layers, baseName);
             downloadBlob(blob, `${baseName}.3mf`);
             elements.statusText.textContent = '3MF export complete.';
 
             // Cleanup
-            result.layers.forEach(layerData => layerData.geometry.dispose());
+            result.layers.forEach((layerData) => layerData.geometry.dispose());
         } catch (error) {
             console.error('3MF export failed:', error);
             elements.statusText.textContent = 'Failed to export 3MF.';
@@ -793,18 +590,9 @@ export function createObjExporter({
             return;
         }
 
-        const SVGLoader = window.SVGLoader || window.THREE?.SVGLoader;
         const THREERef = window.THREE;
-
-        const bufferUtils = window.BufferGeometryUtils || THREERef?.BufferGeometryUtils;
-        if (!SVGLoader || !THREERef || !bufferUtils) {
+        if (!THREERef || !window.SVGLoader || !window.BufferGeometryUtils) {
             elements.statusText.textContent = 'STL export libraries are still loading.';
-            return;
-        }
-
-        const dataToExport = getDataToExport();
-        if (!dataToExport) {
-            elements.statusText.textContent = 'No layers available for STL export.';
             return;
         }
 
@@ -815,19 +603,12 @@ export function createObjExporter({
             showLoader(true);
             elements.statusText.textContent = 'Exporting STL files...';
 
-            const result = buildLayerGeometries({
-                dataToExport,
-                state,
-                elements,
-                tracer,
-                defaultThickness
-            });
-
+            const result = buildExportGeometry(defaultThickness);
             if (!result || result.layers.size === 0) {
                 throw new Error('No geometry generated');
             }
 
-            const baseName = `${getImageBaseName()}_${Math.round(result.layout.maxHeight || defaultThickness)}mm`;
+            const baseName = `${getImageBaseName()}_${Math.round(result.plan.maxHeight || defaultThickness)}mm`;
 
             // Export each layer as separate STL
             let exportedCount = 0;
@@ -844,7 +625,7 @@ export function createObjExporter({
             elements.statusText.textContent = `Exported ${exportedCount} STL files.`;
 
             // Cleanup
-            result.layers.forEach(layerData => layerData.geometry.dispose());
+            result.layers.forEach((layerData) => layerData.geometry.dispose());
         } catch (error) {
             console.error('STL export failed:', error);
             elements.statusText.textContent = 'Failed to export STL.';
