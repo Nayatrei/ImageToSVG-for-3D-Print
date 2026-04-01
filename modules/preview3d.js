@@ -288,25 +288,40 @@ export function createObjPreview({
 
     function fitView() {
         const preview = state.objPreview;
-        if (!preview.group || !preview.viewGroup || !window.THREE) return;
+        if (!preview.viewGroup || !window.THREE) return;
+
+        // Reset pan/zoom immediately so the next render uses a fresh frame.
+        preview.panX = 0;
+        preview.panY = 0;
+        if (preview.viewGroup) preview.viewGroup.position.set(0, 0, 0);
+        setZoom(1);
+
+        // If a scale slider is present, reset it to 100% and let the dispatched
+        // 'input' event drive updateFilteredPreview() → render().  Nulling target
+        // first means render() will auto-set the camera to the freshly-computed
+        // fitTarget for the newly-scaled model — no need to call renderFrame() here.
+        if (elements.objScaleSlider) {
+            elements.objScaleSlider.value = '100';
+            if (elements.objScaleValue) elements.objScaleValue.textContent = '100';
+            preview.target = null;  // force render() to auto-fit
+            elements.objScaleSlider.dispatchEvent(new Event('input', { bubbles: true }));
+            return;
+        }
+
+        // Fallback for contexts without a scale slider: fit based on current geometry.
+        if (!preview.group) return;
         const THREERef = window.THREE;
         const bbox = new THREERef.Box3().setFromObject(preview.group);
         const size = new THREERef.Vector3();
         bbox.getSize(size);
         const thicknessValue = elements.objThicknessSlider ? parseFloat(elements.objThicknessSlider.value) : 4;
         const thickness = Number.isFinite(thicknessValue) ? thicknessValue : 4;
-        // Use footprint-based frame (same XY-only logic as render) for a consistent fit.
         const frameMaxDim = preview.frameMaxDim || Math.max(size.x, size.y, 120);
         const lift = Math.max(size.z * 0.65, thickness * 2, 10);
         const distance = frameMaxDim * 1.1 + lift * 2.2;
         preview.fitTarget = new THREERef.Vector3(0, -distance * 0.82, distance * 1.08 + lift);
         preview.target = preview.fitTarget.clone();
-        // Stable look-at after an explicit fit: anchored 5mm above bed.
         preview.lookAtTarget = new THREERef.Vector3(0, 0, 5);
-        preview.panX = 0;
-        preview.panY = 0;
-        preview.viewGroup.position.set(0, 0, 0);
-        setZoom(1);
         renderFrame();
     }
 

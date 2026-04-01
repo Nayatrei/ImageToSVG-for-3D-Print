@@ -56,13 +56,19 @@ export function createLogoTabController({
         addMergeRuleBtn: elements.logoAddMergeRuleBtn,
         useBaseLayerCheckbox: elements.logoUseBaseLayerCheckbox,
         baseLayerSelect: elements.logoBaseLayerSelect,
-        exportLayersBtn: elements.logoExportLayersBtn,
-        downloadSilhouetteBtn: elements.logoDownloadSilhouetteBtn,
+        exportLayersBtn: null,
+        downloadSilhouetteBtn: null,
         combineAndDownloadBtn: null,
-        downloadCombinedLayersBtn: elements.logoDownloadCombinedLayersBtn,
+        downloadCombinedLayersBtn: null,
         exportObjBtn: elements.logoExportObjBtn,
         export3mfBtn: elements.logoExport3mfBtn,
         exportStlBtn: elements.logoExportStlBtn,
+        objScaleSlider: elements.logoObjScaleSlider,
+        objScaleValue: elements.logoObjScaleValue,
+        objThicknessSlider: elements.logoObjThicknessSlider,
+        objThicknessValue: elements.logoObjThicknessValue,
+        objMarginInput: elements.logoObjMarginInput,
+        objSizeReadout: elements.logoObjSizeReadout,
         originalResolution: elements.logoOriginalResolution,
         htmlSourceImg: elements.logoHtmlSourceImg,
         htmlInput: elements.logoHtmlInput,
@@ -445,15 +451,14 @@ export function createLogoTabController({
                         ));
                     }
 
-                    // Background-layer cleanup: applies to both HTML and image modes.
-                    // Detect the background as the layer with the largest single outer-path
-                    // bounding-box area, then strip hole paths from that layer only.
-                    // Holes on all other layers (e.g. letter counters: A, B, D, O, P, Q, R…)
-                    // are preserved exactly as traced.
-                    {
+                    // Background-layer cleanup: HTML mode only.
+                    // In PNG mode the "hole" paths are the text/shape cutouts — removing them
+                    // would make text invisible. HTML mode renders flat colours, so hole paths
+                    // on the background are artifacts (anti-alias fringe) that should be stripped.
+                    if (ls.htmlModeActive) {
+                        // Detect background = layer with the largest single outer-path bbox area
                         const maxArea = tracedata.layers.map(layer => {
                             if (!Array.isArray(layer) || !layer.length) return 0;
-                            // Consider only outer (non-hole) paths when computing area
                             return Math.max(...layer.map(p => {
                                 if (p.isholepath) return 0;
                                 const bb = p.boundingbox;
@@ -462,18 +467,17 @@ export function createLogoTabController({
                         });
                         const bgIdx = maxArea.indexOf(Math.max(...maxArea));
 
-                        // Strip holes only from the background layer
+                        // Strip holes from background only; preserve holes on all other layers
+                        // (letter counters: A, B, D, O, P, Q, R…)
                         tracedata.layers = tracedata.layers.map((layer, i) => {
                             if (i !== bgIdx || !Array.isArray(layer)) return layer;
                             return layer.filter(p => !p.isholepath).map(p => ({ ...p, holechildren: [] }));
                         });
 
-                        // In HTML mode only: additionally sort so background is L0
-                        if (ls.htmlModeActive) {
-                            const order = maxArea.map((_, i) => i).sort((a, b) => maxArea[b] - maxArea[a]);
-                            tracedata.layers = order.map(i => tracedata.layers[i]);
-                            tracedata.palette = order.map(i => tracedata.palette[i]);
-                        }
+                        // Sort so background is L0
+                        const order = maxArea.map((_, i) => i).sort((a, b) => maxArea[b] - maxArea[a]);
+                        tracedata.layers = order.map(i => tracedata.layers[i]);
+                        tracedata.palette = order.map(i => tracedata.palette[i]);
                     }
 
                     ls.tracedata = tracedata;
@@ -583,10 +587,6 @@ export function createLogoTabController({
 
     function disableDownloadButtons() {
         [
-            le.exportLayersBtn,
-            le.downloadSilhouetteBtn,
-            le.combineAndDownloadBtn,
-            le.downloadCombinedLayersBtn,
             le.exportObjBtn,
             le.export3mfBtn,
             le.exportStlBtn
@@ -595,14 +595,10 @@ export function createLogoTabController({
 
     function enableDownloadButtons() {
         [
-            le.exportLayersBtn,
-            le.downloadSilhouetteBtn,
             le.exportObjBtn,
             le.export3mfBtn,
             le.exportStlBtn
         ].forEach(btn => { if (btn) btn.disabled = false; });
-        if (le.combineAndDownloadBtn) le.combineAndDownloadBtn.disabled = ls.mergeRules.length === 0;
-        if (le.downloadCombinedLayersBtn) le.downloadCombinedLayersBtn.disabled = false;
     }
 
     // ── Palette manager ────────────────────────────────────────────────────────
