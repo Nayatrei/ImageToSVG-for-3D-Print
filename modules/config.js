@@ -3,8 +3,7 @@ export const SLIDER_TOOLTIPS = {
     'corner-sharpness': 'Higher values create crisper, more defined corners.',
     'curve-straightness': 'Higher values make curved lines more straight.',
     'color-precision': 'Higher values find more distinct color layers.',
-    'max-colors': 'Caps the maximum number of colors created.',
-    'obj-detail': 'Lower values reduce OBJ size by simplifying curved edges.'
+    'max-colors': 'Caps the maximum number of colors created.'
 };
 
 export const TRANSPARENT_ALPHA_CUTOFF = 10;

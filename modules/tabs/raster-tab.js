@@ -300,15 +300,6 @@ export function createRasterTabController({
             });
         }
 
-        if (elements.preserveAlphaCheckbox) {
-            elements.preserveAlphaCheckbox.checked = state.preserveAlpha;
-            elements.preserveAlphaCheckbox.addEventListener('change', () => {
-                state.preserveAlpha = elements.preserveAlphaCheckbox.checked;
-                if (preserveAlphaPng) preserveAlphaPng.checked = state.preserveAlpha;
-                if (preserveAlphaTga) preserveAlphaTga.checked = state.preserveAlpha;
-                updateExportScaleDisplay();
-            });
-        }
     }
 
     return {

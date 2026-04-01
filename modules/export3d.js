@@ -41,8 +41,7 @@ function buildLayerGeometries({
 
     if (!SVGLoader || !THREERef || !bufferUtils) return null;
 
-    const detailValue = elements.objDetailSlider ? parseInt(elements.objDetailSlider.value, 10) : 6;
-    const curveSegments = Number.isFinite(detailValue) ? Math.max(1, detailValue) : 6;
+    const curveSegments = 6;
     const bedKey = elements.objBedSelect?.value || 'x1';
     const marginValue = elements.objMarginInput ? parseFloat(elements.objMarginInput.value) : 5;
     const margin = Number.isFinite(marginValue) ? Math.max(0, marginValue) : 5;

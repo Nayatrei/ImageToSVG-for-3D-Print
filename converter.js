@@ -283,12 +283,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         } else if (target === 'logo' && hasSingleImageLoaded()) {
             logoTab.onTabActivated();
         } else if (target === 'raster' && hasSingleImageLoaded()) {
-            svgTab.setAvailableLayersVisible(false);
-            svgTab.setFinalPaletteVisible(false);
             rasterTab.onTabActivated();
         } else {
-            svgTab.setAvailableLayersVisible(false);
-            svgTab.setFinalPaletteVisible(false);
             bulkTab.onTabActivated();
         }
     }

@@ -1,7 +1,6 @@
 import { SLIDER_TOOLTIPS, TRANSPARENT_ALPHA_CUTOFF } from '../config.js';
 import { createObjPreview } from '../preview3d.js';
 import { createObjExporter } from '../export3d.js';
-import { drawImageToCanvas } from '../raster-utils.js';
 import { hasTransparentPixels, markTransparentPixels, stripTransparentPalette } from '../shared/image-utils.js';
 import { debounce, layerHasPaths, buildTracedataSubset, createMergedTracedata, createSolidSilhouette, assess3DPrintQuality } from '../shared/trace-utils.js';
 import { saveInitialSliderValues, updateAllSliderDisplays, resetSlidersToInitial } from '../shared/slider-manager.js';
@@ -33,8 +32,6 @@ export function createLogoTabController({
         ...elements,
         svgSourceMirror: elements.logoSvgSourceMirror,
         svgPreview: elements.logoSvgPreview,
-        svgPreviewFiltered: null,
-        selectedLayerText: null,
         objPreviewCanvas: elements.logoObjPreviewCanvas,
         objPreviewPlaceholder: elements.logoObjPreviewPlaceholder,
         objBuildPlateToggle: elements.logoObjBuildPlateToggle,
@@ -56,10 +53,6 @@ export function createLogoTabController({
         addMergeRuleBtn: elements.logoAddMergeRuleBtn,
         useBaseLayerCheckbox: elements.logoUseBaseLayerCheckbox,
         baseLayerSelect: elements.logoBaseLayerSelect,
-        exportLayersBtn: null,
-        downloadSilhouetteBtn: null,
-        combineAndDownloadBtn: null,
-        downloadCombinedLayersBtn: null,
         exportObjBtn: elements.logoExportObjBtn,
         export3mfBtn: elements.logoExport3mfBtn,
         exportStlBtn: elements.logoExportStlBtn,
@@ -81,28 +74,6 @@ export function createLogoTabController({
     // Returns the active source image (HTML-rendered or imported)
     function getLogoSourceImage() {
         return ls.htmlModeActive && le.htmlSourceImg ? le.htmlSourceImg : le.sourceImage;
-    }
-
-    // ── Layer visibility ───────────────────────────────────────────────────────
-
-    function setAvailableLayersVisible(show) {
-        ls.showAvailableLayers = show;
-        if (le.availableLayersContent) {
-            le.availableLayersContent.style.display = show ? 'block' : 'none';
-        }
-        if (le.toggleAvailableLayersBtn) {
-            le.toggleAvailableLayersBtn.textContent = show ? 'Hide' : 'Show';
-        }
-    }
-
-    function setFinalPaletteVisible(show) {
-        ls.showFinalPalette = show;
-        if (le.finalPaletteContent) {
-            le.finalPaletteContent.style.display = show ? 'block' : 'none';
-        }
-        if (le.toggleFinalPaletteBtn) {
-            le.toggleFinalPaletteBtn.textContent = show ? 'Hide' : 'Show';
-        }
     }
 
     // ── Debounced re-trace ─────────────────────────────────────────────────────
@@ -533,54 +504,8 @@ export function createLogoTabController({
         }
     }
 
-    async function updateFilteredPreview() {
+    function updateFilteredPreview() {
         objPreview.render();
-        if (!ls.tracedata || !le.svgPreviewFiltered) return;
-
-        let dataToShow = ls.tracedata;
-        let indicesToRender = [];
-
-        if (ls.mergeRules.length > 0) {
-            const visibleIndices = getVisibleLayerIndices();
-            dataToShow = createMergedTracedata(ls.tracedata, visibleIndices, ls.mergeRules);
-
-            if (ls.selectedFinalLayerIndices.size > 0) {
-                indicesToRender = Array.from(ls.selectedFinalLayerIndices);
-                if (le.selectedLayerText) {
-                    le.selectedLayerText.textContent = `Final Preview (${indicesToRender.length} layer(s))`;
-                }
-            } else {
-                indicesToRender = Array.from(ls.selectedLayerIndices);
-                if (le.selectedLayerText) {
-                    le.selectedLayerText.textContent = ls.selectedLayerIndices.size > 0
-                        ? `Previewing ${indicesToRender.length} original layer(s)`
-                        : 'Select final layers to preview';
-                }
-            }
-        } else {
-            indicesToRender = Array.from(ls.selectedLayerIndices);
-            if (le.selectedLayerText) {
-                le.selectedLayerText.textContent = ls.selectedLayerIndices.size > 0
-                    ? `Previewing ${indicesToRender.length} layer(s)`
-                    : 'Select layers to preview';
-            }
-        }
-
-        if (indicesToRender.length === 0) {
-            le.svgPreviewFiltered.style.display = 'none';
-            return;
-        }
-
-        try {
-            const filteredData = buildTracedataSubset(dataToShow, indicesToRender);
-            const svgString = tracer.getsvgstring(filteredData, ls.lastOptions);
-            const pngDataUrl = await svgToPng(svgString, null, null, false, le.previewResolution);
-            le.svgPreviewFiltered.src = pngDataUrl;
-            le.svgPreviewFiltered.style.display = 'block';
-        } catch (error) {
-            console.error('Filtered preview rendering failed:', error);
-            le.svgPreviewFiltered.style.display = 'none';
-        }
     }
 
     // ── Download buttons ───────────────────────────────────────────────────────
@@ -612,40 +537,6 @@ export function createLogoTabController({
 
     // ── Original image saves ───────────────────────────────────────────────────
 
-    function saveOriginalAsPNG() {
-        if (!le.sourceImage?.src) return;
-        const canvas = drawImageToCanvas(le.sourceImage);
-        canvas.toBlob((blob) => {
-            if (!blob) return;
-            downloadBlob(blob, `${getImageBaseName()}.png`);
-            le.statusText.textContent = 'Saved original as PNG.';
-        }, 'image/png');
-    }
-
-    function saveOriginalAsJPG() {
-        if (!le.sourceImage?.src) return;
-        const canvas = drawImageToCanvas(le.sourceImage);
-        canvas.toBlob((blob) => {
-            if (!blob) return;
-            downloadBlob(blob, `${getImageBaseName()}.jpg`);
-            le.statusText.textContent = 'Saved original as JPG.';
-        }, 'image/jpeg', 0.92);
-    }
-
-    function saveOriginalAsSVG() {
-        if (!le.sourceImage?.src) return;
-        const w = le.sourceImage.naturalWidth || 0;
-        const h = le.sourceImage.naturalHeight || 0;
-        if (!w || !h) return;
-        const href = le.sourceImage.src;
-        const svg = `<?xml version="1.0" encoding="UTF-8"?>\n` +
-            `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">` +
-            `<image x="0" y="0" width="${w}" height="${h}" href="${href}" xlink:href="${href}"/>` +
-            `</svg>`;
-        downloadSVG(svg, `${getImageBaseName()}`);
-        le.statusText.textContent = 'Saved original as SVG (raw).';
-    }
-
     // ── Lifecycle ──────────────────────────────────────────────────────────────
 
     function onSourceImageLoaded() {
@@ -664,10 +555,6 @@ export function createLogoTabController({
         const w = le.sourceImage.naturalWidth;
         const h = le.sourceImage.naturalHeight;
         le.originalResolution.textContent = `${w}×${h} px`;
-
-        if (le.savePngBtn) le.savePngBtn.disabled = false;
-        if (le.saveJpgBtn) le.saveJpgBtn.disabled = false;
-        if (le.saveSvgBtn) le.saveSvgBtn.disabled = false;
 
         onRasterImageLoaded();
 
@@ -696,9 +583,6 @@ export function createLogoTabController({
     }
 
     function onTabActivated() {
-        setAvailableLayersVisible(true);
-        setFinalPaletteVisible(true);
-
         if (ls.htmlModeActive) {
             if (!ls.colorsAnalyzed && le.htmlInput?.value.trim()) {
                 htmlEditor.triggerHtmlRender();
@@ -753,13 +637,7 @@ export function createLogoTabController({
                 updateFilteredPreview();
             });
         }
-        if (le.objDetailSlider && le.objDetailValue) {
-            le.objDetailValue.textContent = le.objDetailSlider.value;
-            le.objDetailSlider.addEventListener('input', () => {
-                le.objDetailValue.textContent = le.objDetailSlider.value;
-                updateFilteredPreview();
-            });
-        }
+
         if (le.objScaleSlider && le.objScaleValue) {
             le.objScaleValue.textContent = le.objScaleSlider.value;
             le.objScaleSlider.addEventListener('input', () => {
@@ -814,7 +692,7 @@ export function createLogoTabController({
         document.querySelectorAll('.control-panel input[type="range"]').forEach((slider) => {
             slider.addEventListener('input', (e) => {
                 if (state.activeTab !== 'logo') return;
-                if (e.target.id === 'obj-thickness' || e.target.id === 'obj-detail' || e.target.id === 'obj-scale') return;
+                if (e.target.id === 'obj-thickness' || e.target.id === 'obj-scale') return;
                 if (!ls.isDirty) {
                     ls.isDirty = true;
                     le.resetBtn.style.display = 'inline';
@@ -841,54 +719,6 @@ export function createLogoTabController({
             });
         });
 
-        if (le.savePngBtn) le.savePngBtn.addEventListener('click', saveOriginalAsPNG);
-        if (le.saveJpgBtn) le.saveJpgBtn.addEventListener('click', saveOriginalAsJPG);
-        if (le.saveSvgBtn) le.saveSvgBtn.addEventListener('click', saveOriginalAsSVG);
-
-        if (le.exportLayersBtn) {
-            le.exportLayersBtn.addEventListener('click', () => {
-                if (!ls.tracedata) return;
-                const visibleIndices = getVisibleLayerIndices();
-                if (!visibleIndices.length) return;
-                const imageName = getImageBaseName();
-
-                if (ls.mergeRules?.length > 0) {
-                    const mergedData = createMergedTracedata(ls.tracedata, visibleIndices, ls.mergeRules);
-                    const layerIndices = [];
-                    for (let i = 0; i < mergedData.layers.length; i++) {
-                        if (layerHasPaths(mergedData.layers[i])) layerIndices.push(i);
-                    }
-                    layerIndices.forEach((idx) => {
-                        downloadSVG(tracer.getsvgstring(buildTracedataSubset(mergedData, [idx]), ls.lastOptions), `${imageName}_final_layer_${idx}`);
-                    });
-                } else {
-                    visibleIndices.forEach((idx) => {
-                        downloadSVG(tracer.getsvgstring(buildTracedataSubset(ls.tracedata, [idx]), ls.lastOptions), `${imageName}_layer_${idx}`);
-                    });
-                }
-            });
-        }
-
-        if (le.downloadSilhouetteBtn) {
-            le.downloadSilhouetteBtn.addEventListener('click', () => {
-                if (!ls.silhouetteTracedata) return;
-                downloadSVG(tracer.getsvgstring(ls.silhouetteTracedata, ls.lastOptions), `${getImageBaseName()}_silhouette`);
-            });
-        }
-
-        if (le.downloadCombinedLayersBtn) {
-            le.downloadCombinedLayersBtn.addEventListener('click', () => {
-                if (!ls.tracedata) return;
-                const visibleIndices = getVisibleLayerIndices();
-                if (!visibleIndices.length) return;
-                const dataToExport = ls.mergeRules?.length > 0
-                    ? createMergedTracedata(ls.tracedata, visibleIndices, ls.mergeRules)
-                    : buildTracedataSubset(ls.tracedata, visibleIndices);
-                if (!dataToExport) return;
-                downloadSVG(tracer.getsvgstring(dataToExport, ls.lastOptions), `${getImageBaseName()}_combined_layers`);
-            });
-        }
-
         if (le.addMergeRuleBtn) {
             le.addMergeRuleBtn.addEventListener('click', () => {
                 const ruleIndex = ls.mergeRules.length;
@@ -913,7 +743,6 @@ export function createLogoTabController({
                 row.querySelector('select[data-type="target"]').value = '1';
                 le.mergeRulesContainer.appendChild(row);
                 palette.updateMergeRuleSwatches(row, defaultRule, visibleIndices);
-                if (le.combineAndDownloadBtn) le.combineAndDownloadBtn.disabled = false;
                 palette.updateFinalPalette();
                 updateFilteredPreview();
             });
@@ -940,27 +769,9 @@ export function createLogoTabController({
                     document.querySelectorAll('#logo-merge-rules-container > div').forEach((row, i) => {
                         row.querySelectorAll('[data-rule-index]').forEach(el => { el.dataset.ruleIndex = i; });
                     });
-                    if (ls.mergeRules.length === 0 && le.combineAndDownloadBtn) {
-                        le.combineAndDownloadBtn.disabled = true;
-                    }
                     palette.updateFinalPalette();
                     updateFilteredPreview();
                 }
-            });
-        }
-
-        if (le.combineAndDownloadBtn) {
-            le.combineAndDownloadBtn.addEventListener('click', () => {
-                const visibleIndices = getVisibleLayerIndices();
-                const mergedData = createMergedTracedata(ls.tracedata, visibleIndices, ls.mergeRules);
-                if (!mergedData) return;
-                const finalIndices = [];
-                for (let i = 0; i < mergedData.layers.length; i++) {
-                    if (layerHasPaths(mergedData.layers[i])) finalIndices.push(i);
-                }
-                finalIndices.forEach((idx, ord) => {
-                    downloadSVG(tracer.getsvgstring(buildTracedataSubset(mergedData, [idx]), ls.lastOptions), `${getImageBaseName()}_final_layer_${ord + 1}`);
-                });
             });
         }
 
@@ -1013,8 +824,6 @@ export function createLogoTabController({
         bindEvents,
         onTabActivated,
         onSourceImageLoaded,
-        setAvailableLayersVisible,
-        setFinalPaletteVisible,
         setHighFidelity,
         updateColorCountNotice,
         renderPreviews,

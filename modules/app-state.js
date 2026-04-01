@@ -51,8 +51,7 @@ export function createState() {
         baseLayerIndex: 0,
         exportScale: 100,
         preserveAlpha: true,
-        showAvailableLayers: true,
-        showFinalPalette: true,
+
         highFidelity: false,
 
         // ── Bulk tab state ─────────────────────────────────────────────────────

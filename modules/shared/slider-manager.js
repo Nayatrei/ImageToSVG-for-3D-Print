@@ -30,9 +30,6 @@ export function updateAllSliderDisplays(el) {
     if (el.objThicknessValue && el.objThicknessSlider) {
         el.objThicknessValue.textContent = el.objThicknessSlider.value;
     }
-    if (el.objDetailValue && el.objDetailSlider) {
-        el.objDetailValue.textContent = el.objDetailSlider.value;
-    }
     if (el.objScaleValue && el.objScaleSlider) {
         el.objScaleValue.textContent = el.objScaleSlider.value;
     }

@@ -640,8 +640,7 @@ export function createObjPreview({
 
             const defaultThickness = elements.objThicknessSlider ? parseFloat(elements.objThicknessSlider.value) : 4;
             const thickness = Number.isFinite(defaultThickness) ? defaultThickness : 4;
-            const detailValue = elements.objDetailSlider ? parseInt(elements.objDetailSlider.value, 10) : 6;
-            const curveSegments = Number.isFinite(detailValue) ? Math.max(1, detailValue) : 6;
+            const curveSegments = 6;
             const bedKey = getSelectedBedKey();
             const bed = BED_PRESETS[bedKey] || BED_PRESETS.x1;
             const marginValue = elements.objMarginInput ? parseFloat(elements.objMarginInput.value) : 5;

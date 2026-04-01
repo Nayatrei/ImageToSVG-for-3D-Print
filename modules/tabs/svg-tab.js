@@ -1,7 +1,6 @@
 import { SLIDER_TOOLTIPS, TRANSPARENT_ALPHA_CUTOFF } from '../config.js';
 import { createObjPreview } from '../preview3d.js';
 import { createObjExporter } from '../export3d.js';
-import { drawImageToCanvas } from '../raster-utils.js';
 import { hasTransparentPixels, markTransparentPixels, stripTransparentPalette } from '../shared/image-utils.js';
 import { debounce, layerHasPaths, buildTracedataSubset, createMergedTracedata, createSolidSilhouette, assess3DPrintQuality } from '../shared/trace-utils.js';
 import { saveInitialSliderValues, updateAllSliderDisplays, resetSlidersToInitial } from '../shared/slider-manager.js';
@@ -23,28 +22,6 @@ export function createSvgTabController({
     onRasterExportStateChanged
 }) {
     const tracer = window.ImageTracer;
-
-    // ── Layer visibility ───────────────────────────────────────────────────────
-
-    function setAvailableLayersVisible(show) {
-        state.showAvailableLayers = show;
-        if (elements.availableLayersContent) {
-            elements.availableLayersContent.style.display = show ? 'block' : 'none';
-        }
-        if (elements.toggleAvailableLayersBtn) {
-            elements.toggleAvailableLayersBtn.textContent = show ? 'Hide' : 'Show';
-        }
-    }
-
-    function setFinalPaletteVisible(show) {
-        state.showFinalPalette = show;
-        if (elements.finalPaletteContent) {
-            elements.finalPaletteContent.style.display = show ? 'block' : 'none';
-        }
-        if (elements.toggleFinalPaletteBtn) {
-            elements.toggleFinalPaletteBtn.textContent = show ? 'Hide' : 'Show';
-        }
-    }
 
     // ── Debounced re-trace ─────────────────────────────────────────────────────
 
@@ -477,40 +454,6 @@ export function createSvgTabController({
 
     // ── Original image saves ───────────────────────────────────────────────────
 
-    function saveOriginalAsPNG() {
-        if (!elements.sourceImage?.src) return;
-        const canvas = drawImageToCanvas(elements.sourceImage);
-        canvas.toBlob((blob) => {
-            if (!blob) return;
-            downloadBlob(blob, `${getImageBaseName()}.png`);
-            elements.statusText.textContent = 'Saved original as PNG.';
-        }, 'image/png');
-    }
-
-    function saveOriginalAsJPG() {
-        if (!elements.sourceImage?.src) return;
-        const canvas = drawImageToCanvas(elements.sourceImage);
-        canvas.toBlob((blob) => {
-            if (!blob) return;
-            downloadBlob(blob, `${getImageBaseName()}.jpg`);
-            elements.statusText.textContent = 'Saved original as JPG.';
-        }, 'image/jpeg', 0.92);
-    }
-
-    function saveOriginalAsSVG() {
-        if (!elements.sourceImage?.src) return;
-        const w = elements.sourceImage.naturalWidth || 0;
-        const h = elements.sourceImage.naturalHeight || 0;
-        if (!w || !h) return;
-        const href = elements.sourceImage.src;
-        const svg = `<?xml version="1.0" encoding="UTF-8"?>\n` +
-            `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">` +
-            `<image x="0" y="0" width="${w}" height="${h}" href="${href}" xlink:href="${href}"/>` +
-            `</svg>`;
-        downloadSVG(svg, `${getImageBaseName()}`);
-        elements.statusText.textContent = 'Saved original as SVG (raw).';
-    }
-
     // ── Lifecycle ──────────────────────────────────────────────────────────────
 
     function onSourceImageLoaded() {
@@ -520,10 +463,6 @@ export function createSvgTabController({
         const w = elements.sourceImage.naturalWidth;
         const h = elements.sourceImage.naturalHeight;
         elements.originalResolution.textContent = `${w}×${h} px`;
-
-        if (elements.savePngBtn) elements.savePngBtn.disabled = false;
-        if (elements.saveJpgBtn) elements.saveJpgBtn.disabled = false;
-        if (elements.saveSvgBtn) elements.saveSvgBtn.disabled = false;
 
         onRasterImageLoaded();
 
@@ -543,9 +482,6 @@ export function createSvgTabController({
 
         if (state.activeTab === 'svg') {
             onTabActivated();
-        } else {
-            setAvailableLayersVisible(false);
-            setFinalPaletteVisible(false);
         }
 
         showLoader(false);
@@ -553,8 +489,6 @@ export function createSvgTabController({
 
     function onTabActivated() {
         if (!hasSingleImageLoaded()) return;
-        setAvailableLayersVisible(true);
-        setFinalPaletteVisible(true);
         objPreview.render();
     }
 
@@ -585,13 +519,6 @@ export function createSvgTabController({
             elements.objThicknessValue.textContent = elements.objThicknessSlider.value;
             elements.objThicknessSlider.addEventListener('input', () => {
                 elements.objThicknessValue.textContent = elements.objThicknessSlider.value;
-                updateFilteredPreview();
-            });
-        }
-        if (elements.objDetailSlider && elements.objDetailValue) {
-            elements.objDetailValue.textContent = elements.objDetailSlider.value;
-            elements.objDetailSlider.addEventListener('input', () => {
-                elements.objDetailValue.textContent = elements.objDetailSlider.value;
                 updateFilteredPreview();
             });
         }
@@ -648,7 +575,7 @@ export function createSvgTabController({
 
         document.querySelectorAll('.control-panel input[type="range"]').forEach((slider) => {
             slider.addEventListener('input', (e) => {
-                if (e.target.id === 'obj-thickness' || e.target.id === 'obj-detail' || e.target.id === 'obj-scale') return;
+                if (e.target.id === 'obj-thickness' || e.target.id === 'obj-scale') return;
                 if (!state.isDirty) {
                     state.isDirty = true;
                     elements.resetBtn.style.display = 'inline';
@@ -674,10 +601,6 @@ export function createSvgTabController({
                 }
             });
         });
-
-        if (elements.savePngBtn) elements.savePngBtn.addEventListener('click', saveOriginalAsPNG);
-        if (elements.saveJpgBtn) elements.saveJpgBtn.addEventListener('click', saveOriginalAsJPG);
-        if (elements.saveSvgBtn) elements.saveSvgBtn.addEventListener('click', saveOriginalAsSVG);
 
         if (elements.exportLayersBtn) {
             elements.exportLayersBtn.addEventListener('click', () => {
@@ -822,8 +745,6 @@ export function createSvgTabController({
         bindEvents,
         onTabActivated,
         onSourceImageLoaded,
-        setAvailableLayersVisible,
-        setFinalPaletteVisible,
         setHighFidelity,
         updateColorCountNotice,
         renderPreviews,
