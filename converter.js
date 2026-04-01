@@ -26,6 +26,11 @@ async function loadTabPartials() {
         if (panel && panelSlot) panelSlot.outerHTML = panel.outerHTML;
         if (footer && footerSlot) footerSlot.outerHTML = footer.outerHTML;
     }));
+
+    const brandRes = await fetch('modules/partials/footer-brand.html');
+    const brandHtml = await brandRes.text();
+    const brandSlot = document.getElementById('footer-brand-slot');
+    if (brandSlot) brandSlot.outerHTML = brandHtml;
 }
 
 document.addEventListener('DOMContentLoaded', async () => {

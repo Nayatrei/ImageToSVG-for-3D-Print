@@ -2591,3 +2591,118 @@ body,
         color: #6b7280;
     }
 }
+
+/* ─── Brand Footer ────────────────────────────────────────────────────── */
+.brand-footer {
+    background-color: #111827;
+    border-top: 1px solid #1f2937;
+    padding: 3rem 0;
+    flex-shrink: 0;
+}
+
+.brand-footer-inner {
+    max-width: 72rem;
+    margin: 0 auto;
+    padding: 0 1.5rem;
+}
+
+.brand-footer-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 2rem;
+}
+
+@media (min-width: 768px) {
+    .brand-footer-grid {
+        grid-template-columns: 2fr 1fr 1fr;
+    }
+}
+
+.brand-footer-logo {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+}
+
+.brand-footer-icon {
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 0.5rem;
+    object-fit: contain;
+}
+
+.brand-footer-title {
+    font-size: 1.125rem;
+    font-weight: 700;
+    color: #f9fafb;
+}
+
+.brand-footer-desc {
+    color: #9ca3af;
+    font-size: 0.875rem;
+    line-height: 1.6;
+    max-width: 28rem;
+}
+
+.brand-footer-heading {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: #f9fafb;
+    margin-bottom: 1rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.brand-footer-links {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.brand-footer-link {
+    color: #9ca3af;
+    text-decoration: none;
+    font-size: 0.875rem;
+    transition: color 200ms;
+}
+
+.brand-footer-link:hover {
+    color: #f9fafb;
+}
+
+.brand-footer-bottom {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    border-top: 1px solid #1f2937;
+    margin-top: 2rem;
+    padding-top: 2rem;
+}
+
+@media (min-width: 768px) {
+    .brand-footer-bottom {
+        flex-direction: row;
+    }
+}
+
+.brand-footer-copy {
+    color: #9ca3af;
+    font-size: 0.875rem;
+}
+
+.brand-footer-coffee {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.brand-footer-coffee-note {
+    color: #6b7280;
+    font-size: 0.8125rem;
+}
