@@ -440,13 +440,37 @@
                                                 <option value="a1mini">A1 mini · 180×180</option>
                                             </select>
                                         </label>
-                                        <button id="logo-obj-recenter" class="hidden" aria-hidden="true"></button>
-                                        <button id="logo-obj-target-lock" class="hidden" aria-hidden="true"></button>
+                                        <button id="logo-obj-fit-view" class="btn-secondary text-xs px-2 py-1 rounded-md" title="Center on plate at 100% scale">Fit</button>
+                                        <button id="logo-obj-recenter" class="btn-secondary text-xs px-2 py-1 rounded-md" title="Recenter view">Recenter</button>
+                                        <button id="logo-obj-target-lock" class="btn-secondary text-xs px-2 py-1 rounded-md" title="Lock camera target">Lock</button>
                                     </div>
                                 </div>
                                 <div class="preview-container preview-container-flexible bg-grid rounded-md overflow-hidden relative obj-preview-stage">
                                     <canvas id="logo-obj-preview-canvas" class="obj-preview-canvas"></canvas>
                                     <div id="logo-obj-preview-placeholder" class="preview-placeholder">3D preview will appear after analysis.</div>
+                                </div>
+                                <!-- OBJ export controls live here so they stay with the 3D view -->
+                                <div class="output-card-content" style="padding-top:0.5rem; border-top: 1px solid #374151;">
+                                    <div class="flex items-center gap-3 flex-wrap">
+                                        <!-- Scale -->
+                                        <div class="flex items-center gap-1 flex-1 min-w-[140px]">
+                                            <label for="logo-obj-scale" class="text-xs text-gray-400 whitespace-nowrap">Scale %</label>
+                                            <input type="range" id="logo-obj-scale" min="25" max="200" value="100" step="5" class="flex-1">
+                                            <span id="logo-obj-scale-value" class="text-xs font-mono bg-gray-700 border border-gray-600 rounded px-1.5 py-0.5 w-10 text-center text-gray-200">100</span>
+                                        </div>
+                                        <!-- Layer thickness -->
+                                        <div class="flex items-center gap-1 flex-1 min-w-[140px]">
+                                            <label for="logo-obj-thickness" class="text-xs text-gray-400 whitespace-nowrap">Thickness</label>
+                                            <input type="range" id="logo-obj-thickness" min="0.4" max="20" value="4" step="0.4" class="flex-1">
+                                            <span id="logo-obj-thickness-value" class="text-xs font-mono bg-gray-700 border border-gray-600 rounded px-1.5 py-0.5 w-10 text-center text-gray-200">4</span>
+                                        </div>
+                                        <!-- Margin -->
+                                        <div class="flex items-center gap-1">
+                                            <label for="logo-obj-margin" class="text-xs text-gray-400 whitespace-nowrap">Margin mm</label>
+                                            <input id="logo-obj-margin" type="number" min="0" max="20" value="5" class="w-14 text-xs p-1 rounded border border-gray-600 bg-gray-900 text-white">
+                                        </div>
+                                    </div>
+                                    <p id="logo-obj-size-readout" class="text-xs text-gray-500 mt-1">Footprint: —</p>
                                 </div>
                             </div>
 
@@ -462,7 +486,7 @@
                                     <div class="layer-stack-options">
                                         <label class="layer-stack-option">
                                             <input type="checkbox" id="logo-use-base-layer" class="layer-stack-checkbox">
-                                            <span>Base layer</span>
+                                            <span>Backing plate</span>
                                         </label>
                                         <select id="logo-base-layer-select" class="layer-stack-select" disabled>
                                             <option value="0">L0</option>
@@ -715,7 +739,7 @@
                 </div><!-- Close output-section -->
 
                 <!-- SVG Export Footer (Fixed at bottom) -->
-                <footer id="svg-export-footer" class="p-4 border-t border-gray-700 bg-gray-800 flex-shrink-0">
+                <footer id="svg-export-footer" data-tab-footer="svg" class="p-4 border-t border-gray-700 bg-gray-800 flex-shrink-0">
                     <div class="footer-action-stack footer-action-stack-six">
                         <div class="footer-action-card">
                             <button id="export-layers-btn" class="btn-primary font-semibold py-3 px-4 rounded-md text-sm disabled:bg-gray-600 disabled:cursor-not-allowed" disabled>
@@ -757,37 +781,25 @@
                 </footer>
 
                 <!-- Logo Export Footer -->
-                <footer id="logo-export-footer" class="hidden p-4 border-t border-gray-700 bg-gray-800 flex-shrink-0">
-                    <div class="footer-action-stack footer-action-stack-six">
+                <footer id="logo-export-footer" data-tab-footer="logo" class="hidden p-4 border-t border-gray-700 bg-gray-800 flex-shrink-0">
+                    <div class="footer-action-stack footer-action-stack-three">
                         <div class="footer-action-card">
-                            <button id="logo-export-layers-btn" class="btn-primary font-semibold py-3 px-4 rounded-md text-sm disabled:bg-gray-600 disabled:cursor-not-allowed" disabled>Export Layers</button>
-                            <div class="footer-action-meta">Separate files (original or merged)</div>
+                            <button id="logo-export-obj-btn" class="btn-primary font-semibold py-3 px-4 rounded-md text-sm disabled:bg-gray-600 disabled:cursor-not-allowed" disabled>Export OBJ</button>
+                            <div class="footer-action-meta">OBJ + MTL · multi-colour for Bambu</div>
                         </div>
                         <div class="footer-action-card">
-                            <button id="logo-download-silhouette-btn" class="btn-secondary font-semibold py-3 px-4 rounded-md text-sm disabled:bg-gray-600 disabled:cursor-not-allowed" disabled>Silhouette</button>
-                            <div class="footer-action-meta">Outline only</div>
+                            <button id="logo-export-3mf-btn" class="btn-secondary font-semibold py-3 px-4 rounded-md text-sm disabled:bg-gray-600 disabled:cursor-not-allowed" disabled>Export 3MF</button>
+                            <div class="footer-action-meta">Native Bambu Studio project</div>
                         </div>
                         <div class="footer-action-card">
-                            <button id="logo-download-combined-layers-btn" class="btn-secondary font-semibold py-3 px-4 rounded-md text-sm disabled:bg-gray-600 disabled:cursor-not-allowed" disabled>Combined</button>
-                            <div class="footer-action-meta">Single file (original or merged)</div>
-                        </div>
-                        <div class="footer-action-card">
-                            <button id="logo-export-obj-btn" class="btn-secondary font-semibold py-3 px-4 rounded-md text-sm disabled:bg-gray-600 disabled:cursor-not-allowed" disabled>OBJ + MTL</button>
-                            <div class="footer-action-meta">3D with materials</div>
-                        </div>
-                        <div class="footer-action-card">
-                            <button id="logo-export-3mf-btn" class="btn-secondary font-semibold py-3 px-4 rounded-md text-sm disabled:bg-gray-600 disabled:cursor-not-allowed" disabled>3MF</button>
-                            <div class="footer-action-meta">Bambu Studio</div>
-                        </div>
-                        <div class="footer-action-card">
-                            <button id="logo-export-stl-btn" class="btn-secondary font-semibold py-3 px-4 rounded-md text-sm disabled:bg-gray-600 disabled:cursor-not-allowed" disabled>STL</button>
-                            <div class="footer-action-meta">Per-layer files</div>
+                            <button id="logo-export-stl-btn" class="btn-secondary font-semibold py-3 px-4 rounded-md text-sm disabled:bg-gray-600 disabled:cursor-not-allowed" disabled>Export STL</button>
+                            <div class="footer-action-meta">Per-layer STL files (ZIP)</div>
                         </div>
                     </div>
                 </footer>
 
                 <!-- Raster Download Footer (Fixed at bottom) -->
-                <footer id="download-footer" class="hidden p-4 border-t border-gray-700 bg-gray-800 flex-shrink-0">
+                <footer id="download-footer" data-tab-footer="raster" class="hidden p-4 border-t border-gray-700 bg-gray-800 flex-shrink-0">
                     <div class="footer-action-stack footer-action-stack-three">
                         <div class="footer-action-card">
                             <button id="save-resized-jpg-btn" class="btn-secondary font-semibold py-3 px-4 rounded-md text-sm disabled:bg-gray-600 disabled:cursor-not-allowed" disabled>
@@ -822,7 +834,7 @@
                     </div>
                 </footer>
 
-                <footer id="bulk-download-footer" class="hidden p-4 border-t border-gray-700 bg-gray-800 flex-shrink-0"></footer>
+                <footer id="bulk-download-footer" data-tab-footer="bulk" class="hidden p-4 border-t border-gray-700 bg-gray-800 flex-shrink-0"></footer>
             </div><!-- Close main-content -->
         </main>
     </div>
