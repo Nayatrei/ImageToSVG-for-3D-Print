@@ -346,6 +346,33 @@
                     <!-- Logo Tab Content -->
                     <div id="tab-logo" class="export-panel hidden">
 
+                        <!-- HTML Logo/Label Editor (Primary Flow) -->
+                        <div class="output-card" style="margin-bottom:1.25rem;">
+                            <div class="output-card-header">
+                                <h3 class="output-card-title">HTML Logo / Label Editor</h3>
+                                <button id="logo-html-mode-toggle" class="btn-secondary text-xs px-3 py-1 rounded-md" type="button">Switch to Image Mode</button>
+                            </div>
+                            <div id="logo-html-editor-body" class="output-card-content">
+                                <div class="flex flex-wrap items-center gap-2 mb-3">
+                                    <span class="text-xs text-gray-400 flex-shrink-0">Templates:</span>
+                                    <button class="logo-html-preset btn-secondary text-xs px-3 py-1 rounded-md" data-preset="pill" type="button">Pill Badge</button>
+                                    <button class="logo-html-preset btn-secondary text-xs px-3 py-1 rounded-md" data-preset="badge" type="button">Icon Badge</button>
+                                    <button class="logo-html-preset btn-secondary text-xs px-3 py-1 rounded-md" data-preset="cta" type="button">CTA Button</button>
+                                </div>
+                                <textarea
+                                    id="logo-html-input"
+                                    class="w-full font-mono text-xs bg-gray-900 border border-gray-600 rounded-md p-3 text-gray-200 resize-y"
+                                    rows="6"
+                                    placeholder="Paste or type HTML here — inline styles only, system fonts, no external resources…"
+                                    spellcheck="false"
+                                ></textarea>
+                                <div class="flex items-center mt-2">
+                                    <span id="logo-html-status" class="text-xs text-gray-400"></span>
+                                </div>
+                                <img id="logo-html-source-img" style="display:none;" alt="">
+                            </div>
+                        </div>
+
                         <!-- Row 1: Original | SVG Preview -->
                         <div class="svg-compare-grid">
                             <div class="svg-compare-col">

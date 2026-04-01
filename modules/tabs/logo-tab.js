@@ -2,6 +2,13 @@ import { SLIDER_TOOLTIPS, TRANSPARENT_ALPHA_CUTOFF } from '../config.js';
 import { createObjPreview } from '../preview3d.js';
 import { createObjExporter } from '../export3d.js';
 import { drawImageToCanvas } from '../raster-utils.js';
+import { hasTransparentPixels, markTransparentPixels, stripTransparentPalette } from '../shared/image-utils.js';
+import { debounce, layerHasPaths, buildTracedataSubset, createMergedTracedata, createSolidSilhouette, assess3DPrintQuality } from '../shared/trace-utils.js';
+import { saveInitialSliderValues, updateAllSliderDisplays, resetSlidersToInitial } from '../shared/slider-manager.js';
+import { createZoomPanController } from '../shared/zoom-pan.js';
+import { svgToPng } from '../shared/svg-renderer.js';
+import { createPaletteManager } from '../shared/palette-manager.js';
+import { HTML_PRESETS, createHtmlEditor } from './logo/html-editor.js';
 
 export function createLogoTabController({
     state,
@@ -19,6 +26,9 @@ export function createLogoTabController({
 }) {
     const tracer = window.ImageTracer;
 
+    // ── Logo-local element aliases ─────────────────────────────────────────────
+    // `le` remaps logo-prefixed DOM elements to the same property names used by
+    // shared utilities, so shared code receives a consistent element interface.
     const le = {
         ...elements,
         svgSourceMirror: elements.logoSvgSourceMirror,
@@ -54,7 +64,6 @@ export function createLogoTabController({
         export3mfBtn: elements.logoExport3mfBtn,
         exportStlBtn: elements.logoExportStlBtn,
         originalResolution: elements.logoOriginalResolution,
-        // HTML editor elements
         htmlSourceImg: elements.logoHtmlSourceImg,
         htmlInput: elements.logoHtmlInput,
         htmlStatus: elements.logoHtmlStatus,
@@ -67,36 +76,7 @@ export function createLogoTabController({
         return ls.htmlModeActive && le.htmlSourceImg ? le.htmlSourceImg : le.sourceImage;
     }
 
-    function saveInitialSliderValues() {
-        ls.initialSliderValues = {
-            pathSimplification: le.pathSimplificationSlider.value,
-            cornerSharpness: le.cornerSharpnessSlider.value,
-            curveStraightness: le.curveStraightnessSlider.value,
-            colorPrecision: le.colorPrecisionSlider.value,
-            maxColors: le.maxColorsSlider ? le.maxColorsSlider.value : '4'
-        };
-        ls.isDirty = false;
-        le.resetBtn.style.display = 'none';
-    }
-
-    function updateAllSliderDisplays() {
-        le.pathSimplificationValue.textContent = le.pathSimplificationSlider.value;
-        le.cornerSharpnessValue.textContent = le.cornerSharpnessSlider.value;
-        le.curveStraightnessValue.textContent = le.curveStraightnessSlider.value;
-        le.colorPrecisionValue.textContent = le.colorPrecisionSlider.value;
-        if (le.maxColorsValue && le.maxColorsSlider) {
-            le.maxColorsValue.textContent = le.maxColorsSlider.value;
-        }
-        if (le.objThicknessValue && le.objThicknessSlider) {
-            le.objThicknessValue.textContent = le.objThicknessSlider.value;
-        }
-        if (le.objDetailValue && le.objDetailSlider) {
-            le.objDetailValue.textContent = le.objDetailSlider.value;
-        }
-        if (le.objScaleValue && le.objScaleSlider) {
-            le.objScaleValue.textContent = le.objScaleSlider.value;
-        }
-    }
+    // ── Layer visibility ───────────────────────────────────────────────────────
 
     function setAvailableLayersVisible(show) {
         ls.showAvailableLayers = show;
@@ -118,112 +98,13 @@ export function createLogoTabController({
         }
     }
 
-    function resetSlidersToInitial() {
-        if (!ls.initialSliderValues) return;
-
-        le.pathSimplificationSlider.value = ls.initialSliderValues.pathSimplification;
-        le.cornerSharpnessSlider.value = ls.initialSliderValues.cornerSharpness;
-        le.curveStraightnessSlider.value = ls.initialSliderValues.curveStraightness;
-        le.colorPrecisionSlider.value = ls.initialSliderValues.colorPrecision;
-        if (le.maxColorsSlider) {
-            le.maxColorsSlider.value = ls.initialSliderValues.maxColors;
-        }
-
-        updateAllSliderDisplays();
-
-        if (le.sourceImage.src) {
-            ls.colorsAnalyzed = false;
-            if (le.optimizePathsBtn) le.optimizePathsBtn.disabled = true;
-            le.analyzeColorsBtn.click();
-        }
-
-        ls.isDirty = false;
-        le.resetBtn.style.display = 'none';
-    }
-
-    const debounce = (fn, ms = 250) => {
-        let timeout;
-        return (...args) => {
-            clearTimeout(timeout);
-            timeout = setTimeout(() => fn(...args), ms);
-        };
-    };
+    // ── Debounced re-trace ─────────────────────────────────────────────────────
 
     const debounceOptimizePaths = debounce(() => {
-        if (ls.colorsAnalyzed) {
-            optimizePathsClick();
-        }
+        if (ls.colorsAnalyzed) optimizePathsClick();
     });
 
-    function hasTransparentPixels(imageData) {
-        const data = imageData.data;
-        for (let i = 3; i < data.length; i += 4) {
-            if (data[i] <= TRANSPARENT_ALPHA_CUTOFF) return true;
-        }
-        return false;
-    }
-
-    function markTransparentPixels(quantizedData, imageData) {
-        const width = imageData.width;
-        const height = imageData.height;
-        const data = imageData.data;
-
-        for (let y = 0; y < height; y++) {
-            for (let x = 0; x < width; x++) {
-                const idx = (y * width + x) * 4;
-                const alpha = data[idx + 3];
-                if (alpha <= TRANSPARENT_ALPHA_CUTOFF) {
-                    quantizedData.array[y + 1][x + 1] = -1;
-                }
-            }
-        }
-    }
-
-    function stripTransparentPalette(quantizedData) {
-        if (!quantizedData || !Array.isArray(quantizedData.palette) || !Array.isArray(quantizedData.array)) {
-            return false;
-        }
-
-        const mapping = new Array(quantizedData.palette.length).fill(-1);
-        const newPalette = [];
-
-        quantizedData.palette.forEach((color, index) => {
-            const alpha = Number.isFinite(color.a) ? color.a : 255;
-            if (alpha <= TRANSPARENT_ALPHA_CUTOFF) {
-                mapping[index] = -1;
-            } else {
-                mapping[index] = newPalette.length;
-                newPalette.push({ r: color.r, g: color.g, b: color.b, a: 255 });
-            }
-        });
-
-        if (newPalette.length === quantizedData.palette.length) return false;
-
-        for (let y = 0; y < quantizedData.array.length; y++) {
-            const row = quantizedData.array[y];
-            for (let x = 0; x < row.length; x++) {
-                const idx = row[x];
-                if (idx >= 0) {
-                    row[x] = mapping[idx];
-                }
-            }
-        }
-
-        quantizedData.palette = newPalette;
-        return true;
-    }
-
-    async function analyzeColorsClick() {
-        ls.layerThicknesses = null;
-        await analyzeColors();
-        ls.colorsAnalyzed = true;
-        await optimizePathsClick();
-    }
-
-    async function optimizePathsClick() {
-        if (!ls.quantizedData) return;
-        await traceVectorPaths();
-    }
+    // ── Fidelity ───────────────────────────────────────────────────────────────
 
     function setHighFidelity(enabled) {
         ls.highFidelity = !!enabled;
@@ -238,9 +119,11 @@ export function createLogoTabController({
                 ls.isDirty = true;
                 le.resetBtn.style.display = 'inline';
             }
-            updateAllSliderDisplays();
+            updateAllSliderDisplays(le);
         }
     }
+
+    // ── Tracing options ────────────────────────────────────────────────────────
 
     function buildOptimizedOptions() {
         const P = parseInt(le.pathSimplificationSlider.value, 10);
@@ -288,235 +171,7 @@ export function createLogoTabController({
         return options;
     }
 
-    async function analyzeColors() {
-        showLoader(true);
-        le.statusText.textContent = 'Analyzing colors...';
-        disableDownloadButtons();
-
-        return new Promise((resolve, reject) => {
-            setTimeout(async () => {
-                try {
-                    const srcImg = getLogoSourceImage();
-                    const width = srcImg.naturalWidth;
-                    const height = srcImg.naturalHeight;
-                    if (!width || !height) throw new Error('Invalid image dimensions');
-
-                    const canvas = document.createElement('canvas');
-                    canvas.width = width;
-                    canvas.height = height;
-                    const ctx = canvas.getContext('2d');
-                    ctx.drawImage(srcImg, 0, 0, width, height);
-                    const imageData = ctx.getImageData(0, 0, width, height);
-
-                    const options = buildOptimizedOptions();
-                    const MC = le.maxColorsSlider ? parseInt(le.maxColorsSlider.value, 10) : 4;
-                    const dominantColorCount = estimateDominantColors(imageData);
-                    if (dominantColorCount && dominantColorCount > MC) {
-                        options.numberofcolors = Math.min(options.numberofcolors, dominantColorCount);
-                    }
-                    options.numberofcolors = Math.max(MC, options.numberofcolors);
-                    ls.lastOptions = options;
-
-                    ls.quantizedData = tracer.colorquantization(imageData, options);
-
-                    if (!ls.quantizedData || !ls.quantizedData.palette) {
-                        throw new Error('Color analysis failed.');
-                    }
-
-                    if (hasTransparentPixels(imageData)) {
-                        markTransparentPixels(ls.quantizedData, imageData);
-                        stripTransparentPalette(ls.quantizedData);
-                    } else {
-                        ls.quantizedData.palette.forEach((color) => {
-                            color.a = 255;
-                        });
-                    }
-
-                    if (!ls.quantizedData.palette.length) {
-                        throw new Error('No opaque pixels found.');
-                    }
-
-                    resolve();
-                } catch (error) {
-                    console.error('Color analysis error:', error);
-                    le.statusText.textContent = `Error: ${error.message}`;
-                    reject(error);
-                } finally {
-                    showLoader(false);
-                }
-            }, 50);
-        });
-    }
-
-    // ── HTML Logo Editor ───────────────────────────────────────────────────────
-
-    const HTML_PRESETS = {
-        pill: `<div style="
-  display:inline-flex; align-items:center; justify-content:center;
-  padding:18px 48px; border-radius:999px;
-  background:linear-gradient(135deg,#6366f1,#8b5cf6);
-  font-family:system-ui,sans-serif; font-size:28px; font-weight:700;
-  color:#fff; letter-spacing:0.01em; white-space:nowrap;">
-  My Brand
-</div>`,
-        badge: `<div style="
-  display:inline-flex; flex-direction:column; align-items:center; justify-content:center;
-  width:200px; height:200px; border-radius:24px;
-  background:#1e293b; border:3px solid #6366f1;
-  font-family:system-ui,sans-serif; gap:8px;">
-  <span style="font-size:64px;">🚀</span>
-  <span style="font-size:20px; font-weight:700; color:#e2e8f0;">LAUNCH</span>
-</div>`,
-        cta: `<div style="
-  display:inline-flex; align-items:center; justify-content:center;
-  padding:20px 52px; border-radius:12px;
-  background:#f59e0b; box-shadow:0 4px 24px rgba(245,158,11,0.5);
-  font-family:system-ui,sans-serif; font-size:26px; font-weight:800;
-  color:#1c1917; letter-spacing:0.02em; white-space:nowrap;">
-  GET STARTED →
-</div>`
-    };
-
-    function sanitizeHtml(raw) {
-        const parser = new DOMParser();
-        const doc = parser.parseFromString(raw, 'text/html');
-        // Remove script elements
-        doc.querySelectorAll('script').forEach(el => el.remove());
-        // Remove dangerous attributes
-        const FORBIDDEN_ATTRS = /^on|^srcdoc$/i;
-        const JS_PROTO = /^\s*javascript\s*:/i;
-        doc.querySelectorAll('*').forEach(el => {
-            [...el.attributes].forEach(attr => {
-                if (FORBIDDEN_ATTRS.test(attr.name)) {
-                    el.removeAttribute(attr.name);
-                } else if ((attr.name === 'href' || attr.name === 'src' || attr.name === 'action') && JS_PROTO.test(attr.value)) {
-                    el.removeAttribute(attr.name);
-                }
-            });
-        });
-        return doc.body.innerHTML;
-    }
-
-    function renderHtmlToDataUrl(html) {
-        return new Promise((resolve, reject) => {
-            const SIZE = 1024;
-            const clean = sanitizeHtml(html);
-
-            // Use SVG foreignObject with a single XHTML div root (correct spec)
-            const containerStyle = [
-                `width:${SIZE}px`, `height:${SIZE}px`, `margin:0`, `padding:0`,
-                `display:flex`, `align-items:center`, `justify-content:center`,
-                `background:white`, `overflow:hidden`, `box-sizing:border-box`
-            ].join(';');
-
-            const svgMarkup = `<?xml version="1.0" encoding="UTF-8"?>` +
-                `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xhtml="http://www.w3.org/1999/xhtml" width="${SIZE}" height="${SIZE}">` +
-                `<foreignObject x="0" y="0" width="${SIZE}" height="${SIZE}">` +
-                `<div xmlns="http://www.w3.org/1999/xhtml" style="${containerStyle}">` +
-                `${clean}` +
-                `</div>` +
-                `</foreignObject>` +
-                `</svg>`;
-
-            // Must use a data URI (not blob URL) — SVG with foreignObject taints canvas
-            // when loaded via blob URL, but data URIs bypass that restriction.
-            const blob = new Blob([svgMarkup], { type: 'image/svg+xml;charset=utf-8' });
-            const reader = new FileReader();
-            const timeout = setTimeout(() => reject(new Error('Render timeout')), 8000);
-            reader.onload = (ev) => {
-                const dataUri = ev.target.result;
-                const img = new Image();
-                img.onload = () => {
-                    clearTimeout(timeout);
-                    try {
-                        const canvas = document.createElement('canvas');
-                        canvas.width = SIZE;
-                        canvas.height = SIZE;
-                        const ctx = canvas.getContext('2d');
-                        ctx.fillStyle = '#ffffff';
-                        ctx.fillRect(0, 0, SIZE, SIZE);
-                        ctx.drawImage(img, 0, 0, SIZE, SIZE);
-                        resolve(canvas.toDataURL('image/png'));
-                    } catch (err) {
-                        reject(err);
-                    }
-                };
-                img.onerror = () => {
-                    clearTimeout(timeout);
-                    reject(new Error('Render failed'));
-                };
-                img.src = dataUri;
-            };
-            reader.onerror = () => { clearTimeout(timeout); reject(new Error('Read failed')); };
-            reader.readAsDataURL(blob);
-        });
-    }
-
-    function setHtmlStatus(text, isError = false) {
-        if (!le.htmlStatus) return;
-        le.htmlStatus.textContent = text;
-        le.htmlStatus.style.color = isError ? '#f87171' : '#9ca3af';
-    }
-
-    async function triggerHtmlRender() {
-        const html = le.htmlInput ? le.htmlInput.value.trim() : '';
-        if (!html) {
-            setHtmlStatus('');
-            return;
-        }
-        setHtmlStatus('Rendering…');
-        try {
-            const dataUrl = await renderHtmlToDataUrl(html);
-            await onHtmlRendered(dataUrl);
-            setHtmlStatus('Ready');
-        } catch (err) {
-            setHtmlStatus('Render failed', true);
-            console.warn('HTML logo render error:', err);
-        }
-    }
-
-    function scheduleHtmlRender() {
-        clearTimeout(ls.htmlRenderTimer);
-        ls.htmlRenderTimer = setTimeout(triggerHtmlRender, 400);
-    }
-
-    async function onHtmlRendered(dataUrl) {
-        if (!le.htmlSourceImg) return;
-        await new Promise((resolve, reject) => {
-            le.htmlSourceImg.onload = resolve;
-            le.htmlSourceImg.onerror = reject;
-            le.htmlSourceImg.src = dataUrl;
-        });
-        ls.htmlModeActive = true;
-        // Update source mirror to show rendered HTML
-        if (le.svgSourceMirror) {
-            le.svgSourceMirror.src = dataUrl;
-            le.svgSourceMirror.style.display = '';
-        }
-        const w = le.htmlSourceImg.naturalWidth;
-        const h = le.htmlSourceImg.naturalHeight;
-        if (le.originalResolution) le.originalResolution.textContent = `${w}×${h} px`;
-        ls.colorsAnalyzed = false;
-        ls.layerThicknesses = null;
-        await analyzeColorsClick();
-    }
-
-    function setHtmlMode(active) {
-        ls.htmlModeActive = active;
-        if (le.htmlEditorBody) le.htmlEditorBody.classList.toggle('hidden', !active);
-        if (le.htmlModeToggle) {
-            le.htmlModeToggle.textContent = active ? 'Switch to Image Mode' : 'Switch to HTML Mode';
-        }
-        if (!active) {
-            // Return to normal image source
-            if (elements.sourceImage && elements.sourceImage.src) {
-                if (le.svgSourceMirror) le.svgSourceMirror.src = elements.sourceImage.src;
-            }
-        }
-        syncWorkspaceView();
-    }
-
-    // ── End HTML Logo Editor ───────────────────────────────────────────────────
+    // ── Color analysis ─────────────────────────────────────────────────────────
 
     function estimateDominantColors(imageData) {
         const width = imageData.width;
@@ -565,9 +220,7 @@ export function createLogoTabController({
     }
 
     function updateColorCountNotice() {
-        if (!le.colorCountNotice || !le.sourceImage.src) {
-            return;
-        }
+        if (!le.colorCountNotice || !le.sourceImage.src) return;
 
         const maxColors = le.maxColorsSlider ? parseInt(le.maxColorsSlider.value, 10) : 4;
         const canvas = document.createElement('canvas');
@@ -597,127 +250,110 @@ export function createLogoTabController({
         }
     }
 
+    async function analyzeColors() {
+        showLoader(true);
+        le.statusText.textContent = 'Analyzing colors...';
+        disableDownloadButtons();
+
+        return new Promise((resolve, reject) => {
+            setTimeout(async () => {
+                try {
+                    const srcImg = getLogoSourceImage();
+                    const width = srcImg.naturalWidth;
+                    const height = srcImg.naturalHeight;
+                    if (!width || !height) throw new Error('Invalid image dimensions');
+
+                    const canvas = document.createElement('canvas');
+                    canvas.width = width;
+                    canvas.height = height;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(srcImg, 0, 0, width, height);
+                    const imageData = ctx.getImageData(0, 0, width, height);
+
+                    const options = buildOptimizedOptions();
+                    const MC = le.maxColorsSlider ? parseInt(le.maxColorsSlider.value, 10) : 4;
+                    const dominantColorCount = estimateDominantColors(imageData);
+                    if (dominantColorCount && dominantColorCount > MC) {
+                        options.numberofcolors = Math.min(options.numberofcolors, dominantColorCount);
+                    }
+                    options.numberofcolors = Math.max(MC, options.numberofcolors);
+                    ls.lastOptions = options;
+
+                    ls.quantizedData = tracer.colorquantization(imageData, options);
+                    if (!ls.quantizedData?.palette) throw new Error('Color analysis failed.');
+
+                    if (hasTransparentPixels(imageData)) {
+                        markTransparentPixels(ls.quantizedData, imageData);
+                        stripTransparentPalette(ls.quantizedData);
+                    } else {
+                        ls.quantizedData.palette.forEach(c => { c.a = 255; });
+                    }
+
+                    if (!ls.quantizedData.palette.length) throw new Error('No opaque pixels found.');
+                    resolve();
+                } catch (error) {
+                    console.error('Color analysis error:', error);
+                    le.statusText.textContent = `Error: ${error.message}`;
+                    reject(error);
+                } finally {
+                    showLoader(false);
+                }
+            }, 50);
+        });
+    }
+
+    async function analyzeColorsClick() {
+        ls.layerThicknesses = null;
+        await analyzeColors();
+        ls.colorsAnalyzed = true;
+        await optimizePathsClick();
+    }
+
+    async function optimizePathsClick() {
+        if (!ls.quantizedData) return;
+        await traceVectorPaths();
+    }
+
+    // ── HTML editor ────────────────────────────────────────────────────────────
+
+    const htmlEditor = createHtmlEditor({
+        ls,
+        le,
+        elements,
+        syncWorkspaceView,
+        analyzeColorsClick
+    });
+
+    // ── Layer helpers ──────────────────────────────────────────────────────────
+
     function getVisibleLayerIndices() {
         if (!ls.tracedata) return [];
-
         const indices = [];
         for (let i = 0; i < ls.tracedata.layers.length; i++) {
-            if (layerHasPaths(ls.tracedata.layers[i])) {
-                indices.push(i);
-            }
+            if (layerHasPaths(ls.tracedata.layers[i])) indices.push(i);
         }
         return indices;
-    }
-
-    function layerHasPaths(layer) {
-        return Array.isArray(layer) && layer.length > 0;
-    }
-
-    function buildTracedataSubset(source, indices) {
-        if (!source) return null;
-        const layers = [];
-        const palette = [];
-        indices.forEach((idx) => {
-            if (source.layers[idx] && source.palette[idx]) {
-                layers.push(JSON.parse(JSON.stringify(source.layers[idx])));
-                palette.push(source.palette[idx]);
-            }
-        });
-        return { ...source, layers, palette };
-    }
-
-    function createMergedTracedata(sourceData, visibleIndices, rules) {
-        if (!sourceData || !visibleIndices || !rules) return sourceData;
-
-        const finalTargets = {};
-        visibleIndices.forEach((_, ruleIndex) => {
-            finalTargets[ruleIndex] = ruleIndex;
-        });
-
-        rules.forEach((rule) => {
-            let ultimateTarget = rule.target;
-            while (finalTargets[ultimateTarget] !== ultimateTarget) {
-                ultimateTarget = finalTargets[ultimateTarget];
-            }
-            finalTargets[rule.source] = ultimateTarget;
-        });
-
-        Object.keys(finalTargets).forEach((key) => {
-            let current = parseInt(key, 10);
-            while (finalTargets[current] !== current) {
-                current = finalTargets[current];
-            }
-            finalTargets[key] = current;
-        });
-
-        const groups = {};
-        visibleIndices.forEach((originalIndex, ruleIndex) => {
-            const finalTargetRuleIndex = finalTargets[ruleIndex];
-            if (!groups[finalTargetRuleIndex]) {
-                groups[finalTargetRuleIndex] = [];
-            }
-            groups[finalTargetRuleIndex].push(originalIndex);
-        });
-
-        const newPalette = [];
-        const newLayers = [];
-        Object.keys(groups).map(Number).sort((a, b) => a - b).forEach((targetRuleIndex) => {
-            const originalIndicesInGroup = groups[targetRuleIndex];
-            const representativeOriginalIndex = visibleIndices[targetRuleIndex];
-
-            newPalette.push(sourceData.palette[representativeOriginalIndex]);
-
-            let mergedPaths = [];
-            originalIndicesInGroup.forEach((originalIndex) => {
-                if (sourceData.layers[originalIndex]) {
-                    mergedPaths = mergedPaths.concat(sourceData.layers[originalIndex]);
-                }
-            });
-            newLayers.push(mergedPaths);
-        });
-
-        return { ...sourceData, palette: newPalette, layers: newLayers };
     }
 
     function getDataToExport() {
         if (!ls.tracedata) return null;
         const visibleIndices = getVisibleLayerIndices();
         if (!visibleIndices.length) return null;
-        if (ls.mergeRules && ls.mergeRules.length > 0) {
+        if (ls.mergeRules?.length > 0) {
             return createMergedTracedata(ls.tracedata, visibleIndices, ls.mergeRules);
         }
         return buildTracedataSubset(ls.tracedata, visibleIndices);
     }
 
-    function createSolidSilhouette(tracedata) {
-        if (!tracedata) return null;
-        const visibleIndices = getVisibleLayerIndices();
-        if (!visibleIndices.length) return null;
-        const subset = buildTracedataSubset(tracedata, visibleIndices);
-        let mergedPaths = [];
-        subset.layers.forEach((layer) => {
-            if (Array.isArray(layer)) mergedPaths = mergedPaths.concat(layer);
-        });
-        return {
-            width: subset.width,
-            height: subset.height,
-            layers: [mergedPaths],
-            palette: [{ r: 0, g: 0, b: 0, a: 255 }]
-        };
-    }
-
-    function assess3DPrintQuality(tracedata) {
-        if (!tracedata) return { pathCount: 0, colorCount: 0 };
-        const totalPaths = tracedata.layers.reduce((sum, layer) => sum + (Array.isArray(layer) ? layer.length : 0), 0);
-        const visibleColors = getVisibleLayerIndices().length;
-        return { pathCount: totalPaths, colorCount: visibleColors };
-    }
+    // ── Quality display ────────────────────────────────────────────────────────
 
     function updateQualityDisplay(quality) {
         if (le.qualityIndicator) {
             le.qualityIndicator.textContent = `${quality.pathCount} paths, ${quality.colorCount} colors`;
         }
     }
+
+    // ── 3D preview / exporter ──────────────────────────────────────────────────
 
     const objPreview = createObjPreview({
         state: ls,
@@ -736,6 +372,8 @@ export function createLogoTabController({
         downloadBlob,
         getImageBaseName
     });
+
+    // ── Tracing ────────────────────────────────────────────────────────────────
 
     async function traceVectorPaths() {
         if (!ls.quantizedData) return;
@@ -758,25 +396,20 @@ export function createLogoTabController({
                     };
 
                     for (let colornum = 0; colornum < ii.palette.length; colornum++) {
-                        const tracedlayer = tracer.batchtracepaths(
+                        tracedata.layers.push(tracer.batchtracepaths(
                             tracer.internodes(
-                                tracer.pathscan(
-                                    tracer.layeringstep(ii, colornum),
-                                    options.pathomit
-                                ),
+                                tracer.pathscan(tracer.layeringstep(ii, colornum), options.pathomit),
                                 options
                             ),
-                            options.ltres,
-                            options.qtres
-                        );
-                        tracedata.layers.push(tracedlayer);
+                            options.ltres, options.qtres
+                        ));
                     }
 
                     ls.tracedata = tracedata;
-                    ls.silhouetteTracedata = createSolidSilhouette(ls.tracedata);
+                    ls.silhouetteTracedata = createSolidSilhouette(ls.tracedata, getVisibleLayerIndices);
 
-                    displayPalette();
-                    prepareMergeUIAfterGeneration();
+                    palette.displayPalette();
+                    palette.prepareMergeUIAfterGeneration();
 
                     le.outputSection.style.display = 'flex';
                     setTimeout(() => updateSegmentedControlIndicator(), 100);
@@ -784,8 +417,7 @@ export function createLogoTabController({
                     await renderPreviews();
                     await updateFilteredPreview();
 
-                    const quality = assess3DPrintQuality(ls.tracedata);
-                    updateQualityDisplay(quality);
+                    updateQualityDisplay(assess3DPrintQuality(ls.tracedata, getVisibleLayerIndices));
                     le.statusText.textContent = 'Preview generated!';
                     enableDownloadButtons();
                     onRasterExportStateChanged();
@@ -802,236 +434,22 @@ export function createLogoTabController({
         });
     }
 
-    function setupZoomControls() {
-        const zoomInAll = document.getElementById('logo-zoom-in-all');
-        const zoomOutAll = document.getElementById('logo-zoom-out-all');
-        const zoomResetAll = document.getElementById('logo-zoom-reset-all');
+    // ── Zoom / pan ─────────────────────────────────────────────────────────────
 
-        if (zoomInAll) zoomInAll.addEventListener('click', () => zoomPreview('all', 1.25));
-        if (zoomOutAll) zoomOutAll.addEventListener('click', () => zoomPreview('all', 0.8));
-        if (zoomResetAll) zoomResetAll.addEventListener('click', () => resetZoom('all'));
+    const { setupZoomControls } = createZoomPanController({
+        st: ls,
+        idPrefix: 'logo-'
+    });
 
-        setupPanControls('all');
-        updateZoomDisplay('all');
-    }
-
-    function zoomPreview(type, factor) {
-        const zoomState = ls.zoom?.[type];
-        if (!zoomState) return;
-        const newScale = Math.max(0.1, Math.min(5, zoomState.scale * factor));
-        zoomState.scale = newScale;
-        updatePreviewTransform(type);
-        updateZoomDisplay(type);
-    }
-
-    function resetZoom(type) {
-        const zoomState = ls.zoom?.[type];
-        if (!zoomState) return;
-        zoomState.scale = 1;
-        zoomState.x = 0;
-        zoomState.y = 0;
-        updatePreviewTransform(type);
-        updateZoomDisplay(type);
-    }
-
-    function updatePreviewTransform(type) {
-        const container = document.querySelector(`[data-preview="logo-${type}"]`);
-        if (!container) return;
-        const content = container.querySelector('.preview-content');
-        if (!content) return;
-        const zoomState = ls.zoom?.[type];
-        if (!zoomState) return;
-
-        content.style.transform = `translate(${zoomState.x}px, ${zoomState.y}px) scale(${zoomState.scale})`;
-
-        if (zoomState.scale > 1) {
-            container.classList.add('zoomed');
-        } else {
-            container.classList.remove('zoomed');
-        }
-    }
-
-    function updateZoomDisplay(type) {
-        const zoomState = ls.zoom?.[type];
-        if (!zoomState) return;
-        const zoomLevel = Math.round(zoomState.scale * 100);
-        const resetButton = document.getElementById(`logo-zoom-reset-${type}`);
-        if (resetButton) {
-            resetButton.textContent = `${zoomLevel}%`;
-        }
-
-        const zoomInBtn = document.getElementById(`logo-zoom-in-${type}`);
-        const zoomOutBtn = document.getElementById(`logo-zoom-out-${type}`);
-
-        if (zoomInBtn) zoomInBtn.disabled = zoomState.scale >= 5;
-        if (zoomOutBtn) zoomOutBtn.disabled = zoomState.scale <= 0.1;
-    }
-
-    function setupPanControls(type) {
-        const container = document.querySelector(`[data-preview="logo-${type}"]`);
-        if (!container) return;
-        const content = container.querySelector('.preview-content');
-        if (!content) return;
-        const zoomState = ls.zoom?.[type];
-        if (!zoomState) return;
-        let startX;
-        let startY;
-        let initialX;
-        let initialY;
-
-        content.addEventListener('mousedown', (e) => {
-            if (zoomState.scale <= 1) return;
-
-            e.preventDefault();
-            zoomState.isDragging = true;
-            container.classList.add('dragging');
-
-            startX = e.clientX;
-            startY = e.clientY;
-            initialX = zoomState.x;
-            initialY = zoomState.y;
-        });
-
-        document.addEventListener('mousemove', (e) => {
-            if (!zoomState.isDragging) return;
-
-            e.preventDefault();
-            const deltaX = e.clientX - startX;
-            const deltaY = e.clientY - startY;
-            zoomState.x = initialX + deltaX;
-            zoomState.y = initialY + deltaY;
-            updatePreviewTransform(type);
-        });
-
-        document.addEventListener('mouseup', () => {
-            if (zoomState.isDragging) {
-                zoomState.isDragging = false;
-                container.classList.remove('dragging');
-            }
-        });
-
-        content.addEventListener('touchstart', (e) => {
-            if (zoomState.scale <= 1) return;
-
-            e.preventDefault();
-            zoomState.isDragging = true;
-            container.classList.add('dragging');
-
-            const touch = e.touches[0];
-            startX = touch.clientX;
-            startY = touch.clientY;
-            initialX = zoomState.x;
-            initialY = zoomState.y;
-        }, { passive: false });
-
-        document.addEventListener('touchmove', (e) => {
-            if (!zoomState.isDragging) return;
-
-            e.preventDefault();
-            const touch = e.touches[0];
-            const deltaX = touch.clientX - startX;
-            const deltaY = touch.clientY - startY;
-            zoomState.x = initialX + deltaX;
-            zoomState.y = initialY + deltaY;
-            updatePreviewTransform(type);
-        }, { passive: false });
-
-        document.addEventListener('touchend', () => {
-            if (zoomState.isDragging) {
-                zoomState.isDragging = false;
-                container.classList.remove('dragging');
-            }
-        });
-
-        container.addEventListener('wheel', (e) => {
-            e.preventDefault();
-            const factor = e.deltaY > 0 ? 0.9 : 1.1;
-            zoomPreview(type, factor);
-        });
-    }
-
-    function svgToPng(svgString, maxSize = null, fixedSize = null, preserveAlpha = false) {
-        return new Promise((resolve, reject) => {
-            const selectedRes = maxSize || parseInt(le.previewResolution?.value || '512', 10);
-            const maxWidth = selectedRes;
-            const maxHeight = selectedRes;
-
-            const svgBlob = new Blob([svgString], { type: 'image/svg+xml' });
-            const url = URL.createObjectURL(svgBlob);
-            const img = new Image();
-
-            img.onload = () => {
-                try {
-                    let width;
-                    let height;
-                    if (fixedSize && fixedSize.width && fixedSize.height) {
-                        width = fixedSize.width;
-                        height = fixedSize.height;
-                    } else {
-                        width = img.width || img.naturalWidth;
-                        height = img.height || img.naturalHeight;
-                        const aspectRatio = width / height;
-
-                        if (width > height) {
-                            if (width < maxWidth) {
-                                width = maxWidth;
-                                height = width / aspectRatio;
-                            }
-                            if (width > maxWidth) {
-                                width = maxWidth;
-                                height = width / aspectRatio;
-                            }
-                        } else {
-                            if (height < maxHeight) {
-                                height = maxHeight;
-                                width = height * aspectRatio;
-                            }
-                            if (height > maxHeight) {
-                                height = maxHeight;
-                                width = height * aspectRatio;
-                            }
-                        }
-                    }
-
-                    const canvas = document.createElement('canvas');
-                    canvas.width = width;
-                    canvas.height = height;
-
-                    const ctx = canvas.getContext('2d', { alpha: true });
-                    if (!preserveAlpha) {
-                        ctx.fillStyle = 'white';
-                        ctx.fillRect(0, 0, width, height);
-                    } else {
-                        ctx.clearRect(0, 0, width, height);
-                    }
-                    ctx.drawImage(img, 0, 0, width, height);
-
-                    const pngDataUrl = canvas.toDataURL('image/png');
-                    URL.revokeObjectURL(url);
-                    resolve(pngDataUrl);
-                } catch (error) {
-                    URL.revokeObjectURL(url);
-                    reject(error);
-                }
-            };
-
-            img.onerror = () => {
-                URL.revokeObjectURL(url);
-                reject(new Error('Failed to load SVG'));
-            };
-
-            img.src = url;
-        });
-    }
+    // ── SVG preview rendering ──────────────────────────────────────────────────
 
     async function renderPreviews() {
         if (!ls.tracedata || !le.svgPreview) return;
-
         try {
             const visibleIndices = getVisibleLayerIndices();
             const previewData = buildTracedataSubset(ls.tracedata, visibleIndices);
             const svgString = tracer.getsvgstring(previewData, ls.lastOptions);
-            const pngDataUrl = await svgToPng(svgString, null, null, true);
+            const pngDataUrl = await svgToPng(svgString, null, null, true, le.previewResolution);
             le.svgPreview.src = pngDataUrl;
             le.svgPreview.style.display = 'block';
         } catch (error) {
@@ -1081,7 +499,7 @@ export function createLogoTabController({
         try {
             const filteredData = buildTracedataSubset(dataToShow, indicesToRender);
             const svgString = tracer.getsvgstring(filteredData, ls.lastOptions);
-            const pngDataUrl = await svgToPng(svgString);
+            const pngDataUrl = await svgToPng(svgString, null, null, false, le.previewResolution);
             le.svgPreviewFiltered.src = pngDataUrl;
             le.svgPreviewFiltered.style.display = 'block';
         } catch (error) {
@@ -1089,6 +507,8 @@ export function createLogoTabController({
             le.svgPreviewFiltered.style.display = 'none';
         }
     }
+
+    // ── Download buttons ───────────────────────────────────────────────────────
 
     function disableDownloadButtons() {
         [
@@ -1099,9 +519,7 @@ export function createLogoTabController({
             le.exportObjBtn,
             le.export3mfBtn,
             le.exportStlBtn
-        ].forEach((btn) => {
-            if (btn) btn.disabled = true;
-        });
+        ].forEach(btn => { if (btn) btn.disabled = true; });
     }
 
     function enableDownloadButtons() {
@@ -1111,185 +529,21 @@ export function createLogoTabController({
             le.exportObjBtn,
             le.export3mfBtn,
             le.exportStlBtn
-        ].forEach((btn) => {
-            if (btn) btn.disabled = false;
-        });
+        ].forEach(btn => { if (btn) btn.disabled = false; });
         if (le.combineAndDownloadBtn) le.combineAndDownloadBtn.disabled = ls.mergeRules.length === 0;
         if (le.downloadCombinedLayersBtn) le.downloadCombinedLayersBtn.disabled = false;
     }
 
-    function displayPalette() {
-        if (!ls.tracedata) return;
+    // ── Palette manager ────────────────────────────────────────────────────────
 
-        le.paletteContainer.innerHTML = '';
-        ls.selectedLayerIndices.clear();
-        const visibleIndices = getVisibleLayerIndices();
+    const palette = createPaletteManager({
+        st: ls,
+        el: le,
+        getVisibleLayerIndices,
+        updateFilteredPreview
+    });
 
-        if (visibleIndices.length === 0) {
-            le.paletteRow.style.display = 'none';
-            return;
-        }
-
-        visibleIndices.forEach((index) => {
-            const color = ls.tracedata.palette[index];
-            const container = document.createElement('div');
-            container.className = 'flex flex-col items-center gap-1';
-
-            const swatch = document.createElement('div');
-            swatch.className = 'w-8 h-8 rounded border-2 border-gray-700 ring-1 ring-gray-500 cursor-pointer transition-all';
-            swatch.style.backgroundColor = `rgb(${color.r},${color.g},${color.b})`;
-            swatch.title = `Layer ${index}`;
-
-            const label = document.createElement('div');
-            label.className = 'text-xs text-gray-400 opacity-0 transition-opacity';
-            label.textContent = `Layer ${index}`;
-
-            swatch.dataset.index = index;
-            swatch.addEventListener('click', () => {
-                if (ls.selectedLayerIndices.has(index)) {
-                    ls.selectedLayerIndices.delete(index);
-                    swatch.classList.remove('ring-2', 'ring-offset-2', 'ring-blue-500', 'border-white');
-                    label.classList.add('opacity-0');
-                } else {
-                    ls.selectedLayerIndices.add(index);
-                    swatch.classList.add('ring-2', 'ring-offset-2', 'ring-blue-500', 'border-white');
-                    label.classList.remove('opacity-0');
-                }
-                updateFilteredPreview();
-            });
-
-            container.appendChild(swatch);
-            container.appendChild(label);
-            le.paletteContainer.appendChild(container);
-        });
-        le.paletteRow.style.display = 'block';
-    }
-
-    function prepareMergeUIAfterGeneration() {
-        ls.mergeRules = [];
-        ls.selectedFinalLayerIndices.clear();
-        if (le.mergeRulesContainer) le.mergeRulesContainer.innerHTML = '';
-        const visibleIndices = getVisibleLayerIndices();
-        if (visibleIndices.length >= 2) {
-            if (le.layerMergingSection) le.layerMergingSection.style.display = 'block';
-            if (le.addMergeRuleBtn) le.addMergeRuleBtn.disabled = false;
-        } else {
-            if (le.layerMergingSection) le.layerMergingSection.style.display = 'none';
-        }
-        if (le.combineAndDownloadBtn) le.combineAndDownloadBtn.disabled = true;
-        updateFinalPalette();
-    }
-
-    function updateMergeRuleSwatches(row, rule, allVisibleIndices) {
-        const sourceIndex = allVisibleIndices[rule.source];
-        const targetIndex = allVisibleIndices[rule.target];
-        const sourceColor = ls.tracedata.palette[sourceIndex];
-        const targetColor = ls.tracedata.palette[targetIndex];
-        row.querySelector('[data-swatch="source"]').style.backgroundColor = `rgb(${sourceColor.r},${sourceColor.g},${sourceColor.b})`;
-        row.querySelector('[data-swatch="target"]').style.backgroundColor = `rgb(${targetColor.r},${targetColor.g},${targetColor.b})`;
-    }
-
-    function updateFinalPalette() {
-        le.finalPaletteContainer.innerHTML = '';
-        ls.selectedFinalLayerIndices.clear();
-        if (!ls.tracedata) return;
-
-        const visibleIndices = getVisibleLayerIndices();
-        let palette;
-
-        if (ls.mergeRules.length > 0) {
-            const data = createMergedTracedata(ls.tracedata, visibleIndices, ls.mergeRules);
-            palette = data.palette;
-        } else {
-            palette = visibleIndices.map(i => ls.tracedata.palette[i]);
-        }
-
-        if (palette.length > 0) {
-            palette.forEach((color, i) => {
-                const container = document.createElement('div');
-                container.className = 'flex flex-col items-center gap-1';
-
-                const swatch = document.createElement('div');
-                swatch.className = 'w-8 h-8 rounded border-2 border-gray-700 ring-1 ring-gray-500 cursor-pointer transition-all';
-                swatch.style.backgroundColor = `rgb(${color.r},${color.g},${color.b})`;
-
-                const label = document.createElement('div');
-                label.className = 'text-xs text-gray-400 opacity-0 transition-opacity';
-
-                if (ls.mergeRules.length > 0) {
-                    const visible = getVisibleLayerIndices();
-                    const finalTargets = {};
-                    visible.forEach((_, ruleIndex) => {
-                        finalTargets[ruleIndex] = ruleIndex;
-                    });
-
-                    ls.mergeRules.forEach((rule) => {
-                        let ultimateTarget = rule.target;
-                        while (finalTargets[ultimateTarget] !== ultimateTarget) {
-                            ultimateTarget = finalTargets[ultimateTarget];
-                        }
-                        finalTargets[rule.source] = ultimateTarget;
-                    });
-
-                    Object.keys(finalTargets).forEach((key) => {
-                        let current = parseInt(key, 10);
-                        while (finalTargets[current] !== current) {
-                            current = finalTargets[current];
-                        }
-                        finalTargets[key] = current;
-                    });
-
-                    const groups = {};
-                    visible.forEach((originalIndex, ruleIndex) => {
-                        const finalTargetRuleIndex = finalTargets[ruleIndex];
-                        if (!groups[finalTargetRuleIndex]) {
-                            groups[finalTargetRuleIndex] = [];
-                        }
-                        groups[finalTargetRuleIndex].push(originalIndex);
-                    });
-
-                    const sortedTargets = Object.keys(groups).map(Number).sort((a, b) => a - b);
-                    if (i < sortedTargets.length) {
-                        const targetRuleIndex = sortedTargets[i];
-                        const originalIndices = groups[targetRuleIndex];
-                        const representativeIndex = visible[targetRuleIndex];
-
-                        if (originalIndices.length > 1) {
-                            label.textContent = `Merged (${originalIndices.join('+')})`;
-                        } else {
-                            label.textContent = `Layer ${representativeIndex}`;
-                        }
-
-                        swatch.title = originalIndices.length > 1
-                            ? `Merged layers: ${originalIndices.join(', ')}`
-                            : `Layer ${representativeIndex}`;
-                    }
-                } else {
-                    const originalIndex = visibleIndices[i];
-                    label.textContent = `Layer ${originalIndex}`;
-                    swatch.title = `Layer ${originalIndex}`;
-                }
-
-                swatch.dataset.index = i;
-                swatch.addEventListener('click', () => {
-                    if (ls.selectedFinalLayerIndices.has(i)) {
-                        ls.selectedFinalLayerIndices.delete(i);
-                        swatch.classList.remove('ring-2', 'ring-offset-2', 'ring-blue-500', 'border-white');
-                        label.classList.add('opacity-0');
-                    } else {
-                        ls.selectedFinalLayerIndices.add(i);
-                        swatch.classList.add('ring-2', 'ring-offset-2', 'ring-blue-500', 'border-white');
-                        label.classList.remove('opacity-0');
-                    }
-                    updateFilteredPreview();
-                });
-
-                container.appendChild(swatch);
-                container.appendChild(label);
-                le.finalPaletteContainer.appendChild(container);
-            });
-        }
-    }
+    // ── Original image saves ───────────────────────────────────────────────────
 
     function saveOriginalAsPNG() {
         if (!le.sourceImage?.src) return;
@@ -1325,8 +579,14 @@ export function createLogoTabController({
         le.statusText.textContent = 'Saved original as SVG (raw).';
     }
 
+    // ── Lifecycle ──────────────────────────────────────────────────────────────
+
     function onSourceImageLoaded() {
-        // Sync the logo source mirror with the loaded image
+        // Importing an image auto-switches to image mode so the pipeline traces it
+        if (ls.htmlModeActive) {
+            htmlEditor.setHtmlMode(false);
+        }
+
         if (elements.logoSvgSourceMirror && elements.sourceImage.src) {
             elements.logoSvgSourceMirror.src = elements.sourceImage.src;
         }
@@ -1355,13 +615,12 @@ export function createLogoTabController({
 
         ls.colorsAnalyzed = false;
         if (le.optimizePathsBtn) le.optimizePathsBtn.disabled = true;
-        saveInitialSliderValues();
+        saveInitialSliderValues(ls, le);
         le.analyzeColorsBtn.click();
 
         if (state.activeTab === 'logo') {
             onTabActivated();
         } else {
-            // Logo tab not active, don't auto-analyze
             ls.colorsAnalyzed = false;
             if (le.optimizePathsBtn) le.optimizePathsBtn.disabled = true;
         }
@@ -1370,11 +629,27 @@ export function createLogoTabController({
     }
 
     function onTabActivated() {
-        if (!hasSingleImageLoaded()) return;
         setAvailableLayersVisible(true);
         setFinalPaletteVisible(true);
-        objPreview.render();
+
+        if (ls.htmlModeActive) {
+            if (!ls.colorsAnalyzed && le.htmlInput?.value.trim()) {
+                htmlEditor.triggerHtmlRender();
+            } else if (ls.colorsAnalyzed) {
+                objPreview.render();
+            }
+            return;
+        }
+
+        if (!hasSingleImageLoaded()) return;
+        if (!ls.colorsAnalyzed) {
+            analyzeColorsClick();
+        } else {
+            objPreview.render();
+        }
     }
+
+    // ── Event binding ──────────────────────────────────────────────────────────
 
     function bindEvents() {
         if (le.analyzeColorsBtn) {
@@ -1390,7 +665,7 @@ export function createLogoTabController({
             });
         }
         if (le.resetBtn) {
-            le.resetBtn.addEventListener('click', resetSlidersToInitial);
+            le.resetBtn.addEventListener('click', () => resetSlidersToInitial(ls, le));
         }
         if (le.toggleFidelityBtn) {
             le.toggleFidelityBtn.addEventListener('click', () => {
@@ -1441,7 +716,7 @@ export function createLogoTabController({
             le.exportStlBtn.addEventListener('click', () => objExporter.exportAsSTL());
         }
 
-        setupZoomControls();
+        setupZoomControls(['all']);
         objPreview.bindControls();
 
         if (le.useBaseLayerCheckbox) {
@@ -1472,24 +747,19 @@ export function createLogoTabController({
         document.querySelectorAll('.control-panel input[type="range"]').forEach((slider) => {
             slider.addEventListener('input', (e) => {
                 if (state.activeTab !== 'logo') return;
-                if (e.target.id === 'obj-thickness' || e.target.id === 'obj-detail' || e.target.id === 'obj-scale') {
-                    return;
-                }
+                if (e.target.id === 'obj-thickness' || e.target.id === 'obj-detail' || e.target.id === 'obj-scale') return;
                 if (!ls.isDirty) {
                     ls.isDirty = true;
                     le.resetBtn.style.display = 'inline';
                 }
-                updateAllSliderDisplays();
+                updateAllSliderDisplays(le);
 
-                const tooltipId = `${e.target.id}-tooltip`;
-                const tooltipEl = document.getElementById(tooltipId);
+                const tooltipEl = document.getElementById(`${e.target.id}-tooltip`);
                 if (tooltipEl) {
                     tooltipEl.textContent = SLIDER_TOOLTIPS[e.target.id];
                     tooltipEl.style.opacity = '1';
                     clearTimeout(state.tooltipTimeout);
-                    state.tooltipTimeout = setTimeout(() => {
-                        tooltipEl.style.opacity = '0';
-                    }, 2000);
+                    state.tooltipTimeout = setTimeout(() => { tooltipEl.style.opacity = '0'; }, 2000);
                 }
 
                 if (e.target.id === 'color-precision' || e.target.id === 'max-colors') {
@@ -1497,9 +767,7 @@ export function createLogoTabController({
                         ls.colorsAnalyzed = false;
                         if (le.optimizePathsBtn) le.optimizePathsBtn.disabled = true;
                     }
-                    if (e.target.id === 'max-colors') {
-                        updateColorCountNotice();
-                    }
+                    if (e.target.id === 'max-colors') updateColorCountNotice();
                 } else if (ls.colorsAnalyzed) {
                     debounceOptimizePaths();
                 }
@@ -1515,26 +783,20 @@ export function createLogoTabController({
                 if (!ls.tracedata) return;
                 const visibleIndices = getVisibleLayerIndices();
                 if (!visibleIndices.length) return;
-
                 const imageName = getImageBaseName();
 
-                if (ls.mergeRules && ls.mergeRules.length > 0) {
+                if (ls.mergeRules?.length > 0) {
                     const mergedData = createMergedTracedata(ls.tracedata, visibleIndices, ls.mergeRules);
                     const layerIndices = [];
                     for (let i = 0; i < mergedData.layers.length; i++) {
-                        if (layerHasPaths(mergedData.layers[i])) {
-                            layerIndices.push(i);
-                        }
+                        if (layerHasPaths(mergedData.layers[i])) layerIndices.push(i);
                     }
-
                     layerIndices.forEach((idx) => {
-                        const singleLayer = buildTracedataSubset(mergedData, [idx]);
-                        downloadSVG(tracer.getsvgstring(singleLayer, ls.lastOptions), `${imageName}_final_layer_${idx}`);
+                        downloadSVG(tracer.getsvgstring(buildTracedataSubset(mergedData, [idx]), ls.lastOptions), `${imageName}_final_layer_${idx}`);
                     });
                 } else {
                     visibleIndices.forEach((idx) => {
-                        const singleLayer = buildTracedataSubset(ls.tracedata, [idx]);
-                        downloadSVG(tracer.getsvgstring(singleLayer, ls.lastOptions), `${imageName}_layer_${idx}`);
+                        downloadSVG(tracer.getsvgstring(buildTracedataSubset(ls.tracedata, [idx]), ls.lastOptions), `${imageName}_layer_${idx}`);
                     });
                 }
             });
@@ -1552,11 +814,9 @@ export function createLogoTabController({
                 if (!ls.tracedata) return;
                 const visibleIndices = getVisibleLayerIndices();
                 if (!visibleIndices.length) return;
-
-                const dataToExport = ls.mergeRules && ls.mergeRules.length > 0
+                const dataToExport = ls.mergeRules?.length > 0
                     ? createMergedTracedata(ls.tracedata, visibleIndices, ls.mergeRules)
                     : buildTracedataSubset(ls.tracedata, visibleIndices);
-
                 if (!dataToExport) return;
                 downloadSVG(tracer.getsvgstring(dataToExport, ls.lastOptions), `${getImageBaseName()}_combined_layers`);
             });
@@ -1574,7 +834,6 @@ export function createLogoTabController({
                 const row = document.createElement('div');
                 row.className = 'flex items-center gap-2 text-sm';
                 const optionsHTML = visibleIndices.map((idx, ord) => `<option value="${ord}">Layer ${idx}</option>`).join('');
-
                 row.innerHTML = `
                     <span>Merge</span>
                     <span class="w-4 h-4 rounded border border-gray-500" data-swatch="source"></span>
@@ -1584,12 +843,11 @@ export function createLogoTabController({
                     <select data-rule-index="${ruleIndex}" data-type="target" class="border rounded-md p-1 bg-gray-700 border-gray-600 text-white">${optionsHTML}</select>
                     <button data-rule-index="${ruleIndex}" class="text-red-500 hover:text-red-400 font-bold text-lg">&times;</button>
                 `;
-
                 row.querySelector('select[data-type="target"]').value = '1';
                 le.mergeRulesContainer.appendChild(row);
-                updateMergeRuleSwatches(row, defaultRule, visibleIndices);
+                palette.updateMergeRuleSwatches(row, defaultRule, visibleIndices);
                 if (le.combineAndDownloadBtn) le.combineAndDownloadBtn.disabled = false;
-                updateFinalPalette();
+                palette.updateFinalPalette();
                 updateFilteredPreview();
             });
         }
@@ -1601,8 +859,8 @@ export function createLogoTabController({
                     const type = e.target.dataset.type;
                     ls.mergeRules[ruleIndex][type] = parseInt(e.target.value, 10);
                     const visibleIndices = getVisibleLayerIndices();
-                    updateMergeRuleSwatches(e.target.parentElement, ls.mergeRules[ruleIndex], visibleIndices);
-                    updateFinalPalette();
+                    palette.updateMergeRuleSwatches(e.target.parentElement, ls.mergeRules[ruleIndex], visibleIndices);
+                    palette.updateFinalPalette();
                     updateFilteredPreview();
                 }
             });
@@ -1612,16 +870,13 @@ export function createLogoTabController({
                     const ruleIndex = parseInt(e.target.dataset.ruleIndex, 10);
                     ls.mergeRules.splice(ruleIndex, 1);
                     e.target.parentElement.remove();
-
                     document.querySelectorAll('#logo-merge-rules-container > div').forEach((row, i) => {
-                        row.querySelectorAll('[data-rule-index]').forEach(el => {
-                            el.dataset.ruleIndex = i;
-                        });
+                        row.querySelectorAll('[data-rule-index]').forEach(el => { el.dataset.ruleIndex = i; });
                     });
                     if (ls.mergeRules.length === 0 && le.combineAndDownloadBtn) {
                         le.combineAndDownloadBtn.disabled = true;
                     }
-                    updateFinalPalette();
+                    palette.updateFinalPalette();
                     updateFilteredPreview();
                 }
             });
@@ -1632,17 +887,12 @@ export function createLogoTabController({
                 const visibleIndices = getVisibleLayerIndices();
                 const mergedData = createMergedTracedata(ls.tracedata, visibleIndices, ls.mergeRules);
                 if (!mergedData) return;
-
                 const finalIndices = [];
                 for (let i = 0; i < mergedData.layers.length; i++) {
-                    if (layerHasPaths(mergedData.layers[i])) {
-                        finalIndices.push(i);
-                    }
+                    if (layerHasPaths(mergedData.layers[i])) finalIndices.push(i);
                 }
-
                 finalIndices.forEach((idx, ord) => {
-                    const singleLayer = buildTracedataSubset(mergedData, [idx]);
-                    downloadSVG(tracer.getsvgstring(singleLayer, ls.lastOptions), `${getImageBaseName()}_final_layer_${ord + 1}`);
+                    downloadSVG(tracer.getsvgstring(buildTracedataSubset(mergedData, [idx]), ls.lastOptions), `${getImageBaseName()}_final_layer_${ord + 1}`);
                 });
             });
         }
@@ -1666,29 +916,28 @@ export function createLogoTabController({
 
         elements.sourceImage.addEventListener('load', onSourceImageLoaded);
 
-        // HTML editor bindings
+        // ── HTML editor bindings ───────────────────────────────────────────────
         if (le.htmlModeToggle) {
             le.htmlModeToggle.addEventListener('click', () => {
-                setHtmlMode(!ls.htmlModeActive);
-                if (ls.htmlModeActive && le.htmlInput && le.htmlInput.value.trim()) {
-                    scheduleHtmlRender();
+                htmlEditor.setHtmlMode(!ls.htmlModeActive);
+                if (ls.htmlModeActive && le.htmlInput?.value.trim()) {
+                    htmlEditor.scheduleHtmlRender();
                 }
             });
         }
 
         if (le.htmlInput) {
             le.htmlInput.addEventListener('input', () => {
-                if (ls.htmlModeActive) scheduleHtmlRender();
+                if (ls.htmlModeActive) htmlEditor.scheduleHtmlRender();
             });
         }
 
-        const presetBtns = document.querySelectorAll('#tab-logo .logo-html-preset');
-        presetBtns.forEach(btn => {
+        document.querySelectorAll('#tab-logo .logo-html-preset').forEach(btn => {
             btn.addEventListener('click', () => {
                 const preset = HTML_PRESETS[btn.dataset.preset];
                 if (!preset || !le.htmlInput) return;
                 le.htmlInput.value = preset;
-                if (ls.htmlModeActive) scheduleHtmlRender();
+                if (ls.htmlModeActive) htmlEditor.scheduleHtmlRender();
             });
         });
     }
