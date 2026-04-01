@@ -8,7 +8,7 @@ import { saveInitialSliderValues, updateAllSliderDisplays, resetSlidersToInitial
 import { createZoomPanController } from '../shared/zoom-pan.js';
 import { svgToPng } from '../shared/svg-renderer.js';
 import { createPaletteManager } from '../shared/palette-manager.js';
-import { HTML_PRESETS, createHtmlEditor } from './logo/html-editor.js';
+import { HTML_PRESETS, createHtmlEditor } from './logo/html-editor.js?v=2';
 
 export function createLogoTabController({
     state,
@@ -69,6 +69,7 @@ export function createLogoTabController({
         htmlStatus: elements.logoHtmlStatus,
         htmlModeToggle: elements.logoHtmlModeToggle,
         htmlEditorBody: elements.logoHtmlEditorBody,
+        htmlFontSelect: elements.logoHtmlFontSelect,
     };
 
     // Returns the active source image (HTML-rendered or imported)
@@ -125,7 +126,44 @@ export function createLogoTabController({
 
     // ── Tracing options ────────────────────────────────────────────────────────
 
+    // Count distinct CSS colors declared in HTML inline styles.
+    // Forces the quantizer to use exactly that many colors, absorbing antialiasing artifacts.
+    function countHtmlCssColors(html) {
+        try {
+            const doc = new DOMParser().parseFromString(html, 'text/html');
+            const seen = new Set();
+            doc.querySelectorAll('[style]').forEach(el => {
+                ['color', 'backgroundColor', 'fill', 'stroke', 'borderColor', 'outlineColor'].forEach(prop => {
+                    const val = el.style[prop];
+                    if (val) seen.add(val);
+                });
+            });
+            return Math.max(2, seen.size);
+        } catch (_) { return 3; }
+    }
+
     function buildOptimizedOptions() {
+        // HTML mode: flat-color content — derive color count from declared CSS colors,
+        // use precision tracing settings, bypass slider values entirely
+        if (ls.htmlModeActive) {
+            const htmlText = le.htmlInput?.value || '';
+            const colorCount = countHtmlCssColors(htmlText);
+            return Object.assign({}, tracer.optionpresets.default, {
+                viewbox: true,
+                strokewidth: 0,
+                numberofcolors: colorCount + 1, // +1 for the transparent background bucket
+                colorsampling: 2,
+                colorquantcycles: 5,
+                pathomit: 0,
+                ltres: 0.1,
+                qtres: 0.1,
+                blurradius: 0,
+                roundcoords: 1,
+                rightangleenhance: true,
+                mincolorratio: 0,
+            });
+        }
+
         const P = parseInt(le.pathSimplificationSlider.value, 10);
         const C = parseInt(le.cornerSharpnessSlider.value, 10);
         const S = parseInt(le.curveStraightnessSlider.value, 10);
@@ -271,12 +309,14 @@ export function createLogoTabController({
                     const imageData = ctx.getImageData(0, 0, width, height);
 
                     const options = buildOptimizedOptions();
-                    const MC = le.maxColorsSlider ? parseInt(le.maxColorsSlider.value, 10) : 4;
-                    const dominantColorCount = estimateDominantColors(imageData);
-                    if (dominantColorCount && dominantColorCount > MC) {
-                        options.numberofcolors = Math.min(options.numberofcolors, dominantColorCount);
+                    if (!ls.htmlModeActive) {
+                        const MC = le.maxColorsSlider ? parseInt(le.maxColorsSlider.value, 10) : 4;
+                        const dominantColorCount = estimateDominantColors(imageData);
+                        if (dominantColorCount && dominantColorCount > MC) {
+                            options.numberofcolors = Math.min(options.numberofcolors, dominantColorCount);
+                        }
+                        options.numberofcolors = Math.max(MC, options.numberofcolors);
                     }
-                    options.numberofcolors = Math.max(MC, options.numberofcolors);
                     ls.lastOptions = options;
 
                     ls.quantizedData = tracer.colorquantization(imageData, options);
@@ -403,6 +443,32 @@ export function createLogoTabController({
                             ),
                             options.ltres, options.qtres
                         ));
+                    }
+
+                    // In HTML mode, sort layers so background (largest path area) is L0,
+                    // and fill holes only in the background layer for a solid 3D base plate.
+                    // Text-layer holes (letter counters: A, R, D…) are preserved.
+                    if (ls.htmlModeActive) {
+                        // Identify background layer by largest single-path bounding-box area
+                        const maxArea = tracedata.layers.map(layer => {
+                            if (!Array.isArray(layer) || !layer.length) return 0;
+                            return Math.max(...layer.map(p => {
+                                const bb = p.boundingbox;
+                                return bb ? (bb[2] - bb[0]) * (bb[3] - bb[1]) : 0;
+                            }));
+                        });
+                        const bgIdx = maxArea.indexOf(Math.max(...maxArea));
+
+                        // Strip holes only from the background layer; keep letter counters intact
+                        const processedLayers = tracedata.layers.map((layer, i) => {
+                            if (i !== bgIdx || !Array.isArray(layer)) return layer;
+                            return layer.filter(p => !p.isholepath).map(p => ({ ...p, holechildren: [] }));
+                        });
+
+                        // Sort: background first (L0), everything else after
+                        const order = maxArea.map((_, i) => i).sort((a, b) => maxArea[b] - maxArea[a]);
+                        tracedata.layers = order.map(i => processedLayers[i]);
+                        tracedata.palette = order.map(i => tracedata.palette[i]);
                     }
 
                     ls.tracedata = tracedata;

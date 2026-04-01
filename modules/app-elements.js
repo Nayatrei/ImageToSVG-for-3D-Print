@@ -213,6 +213,7 @@ export function createElements() {
         logoHtmlInput: document.getElementById('logo-html-input'),
         logoHtmlStatus: document.getElementById('logo-html-status'),
         logoHtmlModeToggle: document.getElementById('logo-html-mode-toggle'),
-        logoHtmlEditorBody: document.getElementById('logo-html-editor-body')
+        logoHtmlEditorBody: document.getElementById('logo-html-editor-body'),
+        logoHtmlFontSelect: document.getElementById('logo-html-font-select')
     };
 }

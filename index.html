@@ -18,7 +18,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="imagetracer_v1.2.6.js?v=20260328a"></script>
     <script type="module" src="three-setup.js?v=20260328a"></script>
-    <script type="module" src="converter.js?v=20260328a"></script>
+    <script type="module" src="converter.js?v=20260406"></script>
     <link rel="stylesheet" href="style.css?v=20260328a">
 </head>
 <body class="app-body antialiased">
@@ -350,7 +350,12 @@
                         <div class="output-card" style="margin-bottom:1.25rem;">
                             <div class="output-card-header">
                                 <h3 class="output-card-title">HTML Logo / Label Editor</h3>
-                                <button id="logo-html-mode-toggle" class="btn-secondary text-xs px-3 py-1 rounded-md" type="button">Switch to Image Mode</button>
+                                <div class="flex items-center gap-2">
+                                    <select id="logo-html-font-select" class="text-xs bg-gray-800 border border-gray-600 rounded px-2 py-1 text-white" title="Font family" style="max-width:160px;">
+                                        <option value="">Default Font</option>
+                                    </select>
+                                    <button id="logo-html-mode-toggle" class="btn-secondary text-xs px-3 py-1 rounded-md" type="button">Switch to Image Mode</button>
+                                </div>
                             </div>
                             <div id="logo-html-editor-body" class="output-card-content">
                                 <div class="flex flex-wrap items-center gap-2 mb-3">

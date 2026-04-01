@@ -1,7 +1,7 @@
 import { createBulkTabController } from './modules/tabs/bulk-tab.js';
 import { createRasterTabController } from './modules/tabs/raster-tab.js';
 import { createSvgTabController } from './modules/tabs/svg-tab.js';
-import { createLogoTabController } from './modules/tabs/logo-tab.js';
+import { createLogoTabController } from './modules/tabs/logo-tab.js?v=7';
 import {
     getDataUrlSize,
     getImageFormat,
@@ -119,6 +119,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function syncImportPanel() {
         const isBulk = state.activeTab === 'bulk';
+        const isLogo = state.activeTab === 'logo';
 
         if (elements.importPanelTitle) {
             elements.importPanelTitle.textContent = isBulk ? '1. Load Folder' : '1. Load Image';
@@ -134,11 +135,12 @@ document.addEventListener('DOMContentLoaded', () => {
         if (elements.importUrlShell) {
             elements.importUrlShell.classList.toggle('hidden', isBulk);
         }
+        // Logo tab: hide conversion sliders and manual action buttons — all settings are automated
         if (elements.sidebarAdjustSection) {
-            elements.sidebarAdjustSection.classList.toggle('hidden', isBulk);
+            elements.sidebarAdjustSection.classList.toggle('hidden', isBulk || isLogo);
         }
         if (elements.sidebarPrimaryFooter) {
-            elements.sidebarPrimaryFooter.classList.toggle('hidden', isBulk);
+            elements.sidebarPrimaryFooter.classList.toggle('hidden', isBulk || isLogo);
         }
         if (elements.resolutionNotice && isBulk) {
             elements.resolutionNotice.classList.add('hidden');

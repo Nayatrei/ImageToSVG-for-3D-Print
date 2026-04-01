@@ -797,9 +797,13 @@ export function createObjPreview({
             const distance = frameMaxDim * 1.1 + lift * 2.2;
             preview.frameMaxDim = frameMaxDim;
             preview.panScale = frameMaxDim > 0 ? frameMaxDim / 320 : 1;
-            preview.lookAtTarget = new THREERef.Vector3(0, 0, preview.showBuildPlate === false ? Math.max(finalSize.z * 0.5, 2) : Math.max(finalSize.z * 0.35, 5));
             preview.fitTarget = new THREERef.Vector3(0, -distance * 0.82, distance * 1.08 + lift);
-            if (!preview.target) preview.target = preview.fitTarget.clone();
+            // Only set camera target and look-at on first render — prevents jumping when
+            // layer heights change while the user has already positioned the camera.
+            if (!preview.target) {
+                preview.target = preview.fitTarget.clone();
+                preview.lookAtTarget = new THREERef.Vector3(0, 0, preview.showBuildPlate === false ? Math.max(finalSize.z * 0.5, 2) : Math.max(finalSize.z * 0.35, 5));
+            }
 
             setPlaceholder('', false);
             updateLayerStackPreview(dataToExport, thickness, selectionSet);

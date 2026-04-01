@@ -85,16 +85,70 @@ function findContentBounds(imageData) {
 }
 
 /**
+ * Populates a <select> with system fonts via the Font Access API,
+ * falling back silently to a curated cross-platform list.
+ * @param {HTMLSelectElement} selectEl
+ */
+async function loadSystemFonts(selectEl) {
+    if (!selectEl) return;
+
+    const FALLBACK = [
+        'Arial', 'Arial Black', 'Arial Narrow', 'Calibri', 'Cambria',
+        'Candara', 'Comic Sans MS', 'Constantia', 'Corbel', 'Courier New',
+        'Franklin Gothic Medium', 'Futura', 'Georgia', 'Gill Sans',
+        'Helvetica', 'Helvetica Neue', 'Impact', 'Optima', 'Palatino',
+        'Segoe UI', 'Tahoma', 'Times New Roman', 'Trebuchet MS', 'Verdana'
+    ];
+
+    const populate = (families) => {
+        // Clear all options except the first placeholder
+        while (selectEl.options.length > 1) selectEl.remove(1);
+        families.forEach(family => {
+            const opt = document.createElement('option');
+            opt.value = family;
+            opt.textContent = family;
+            selectEl.appendChild(opt);
+        });
+    };
+
+    // Populate with fallback immediately so the dropdown is usable right away
+    populate(FALLBACK);
+
+    // Attempt to upgrade to the full system font list via Font Access API
+    try {
+        if (typeof window.queryLocalFonts === 'function') {
+            const fonts = await window.queryLocalFonts();
+            const families = [...new Set(fonts.map(f => f.family))].sort();
+            if (families.length > 0) populate(families);
+        }
+    } catch (_) { /* permission denied or unsupported — fallback stays */ }
+}
+
+/**
  * Renders an HTML snippet to a content-bounds-cropped transparent PNG data URL
  * using SVG foreignObject. Uses a FileReader data URI to avoid canvas taint.
  * @param {string} html
+ * @param {string} [font] - optional font-family override applied to all elements
  * @returns {Promise<string>} PNG data URL
  */
-export function renderHtmlToDataUrl(html) {
+export function renderHtmlToDataUrl(html, font = '') {
     return new Promise((resolve, reject) => {
         const CANVAS_SIZE = 2048;
         const PADDING = 24;
         const clean = sanitizeHtml(html);
+
+        // Strip visual effects (shadows, filters) that produce gradient artifacts in tracing.
+        // Font override is applied on top.
+        const safeFontName = font.replace(/['"]/g, '');
+        const safeCss = [
+            'box-shadow:none!important',
+            'text-shadow:none!important',
+            'filter:none!important',
+            'backdrop-filter:none!important',
+            '-webkit-filter:none!important',
+            ...(safeFontName ? [`font-family:"${safeFontName}",system-ui,sans-serif!important`] : [])
+        ].join(';');
+        const fontPrefix = `<style xmlns="http://www.w3.org/1999/xhtml">*,*::before,*::after{${safeCss}}</style>`;
 
         // Transparent, large container — content renders top-left, we crop after
         const containerStyle = [
@@ -109,7 +163,7 @@ export function renderHtmlToDataUrl(html) {
             `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xhtml="http://www.w3.org/1999/xhtml" width="${CANVAS_SIZE}" height="${CANVAS_SIZE}">` +
             `<foreignObject x="0" y="0" width="${CANVAS_SIZE}" height="${CANVAS_SIZE}">` +
             `<div xmlns="http://www.w3.org/1999/xhtml" style="${containerStyle}">` +
-            `${clean}` +
+            `${fontPrefix}${clean}` +
             `</div>` +
             `</foreignObject>` +
             `</svg>`;
@@ -197,7 +251,8 @@ export function createHtmlEditor({ ls, le, elements, syncWorkspaceView, analyzeC
         }
         setHtmlStatus('Rendering…');
         try {
-            const dataUrl = await renderHtmlToDataUrl(html);
+            const font = le.htmlFontSelect ? le.htmlFontSelect.value : '';
+            const dataUrl = await renderHtmlToDataUrl(html, font);
             await onHtmlRendered(dataUrl);
             setHtmlStatus('Ready');
         } catch (err) {
@@ -213,6 +268,7 @@ export function createHtmlEditor({ ls, le, elements, syncWorkspaceView, analyzeC
 
     async function onHtmlRendered(dataUrl) {
         if (!le.htmlSourceImg) return;
+
         await new Promise((resolve, reject) => {
             le.htmlSourceImg.onload = resolve;
             le.htmlSourceImg.onerror = reject;
@@ -229,6 +285,9 @@ export function createHtmlEditor({ ls, le, elements, syncWorkspaceView, analyzeC
         ls.colorsAnalyzed = false;
         ls.layerThicknesses = null;
         await analyzeColorsClick();
+
+        // Scroll the compare panels into view so the result is visible without manual scrolling
+        le.svgSourceMirror?.closest('.svg-compare-grid')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
 
     function setHtmlMode(active) {
@@ -240,6 +299,16 @@ export function createHtmlEditor({ ls, le, elements, syncWorkspaceView, analyzeC
             if (le.svgSourceMirror) le.svgSourceMirror.src = elements.sourceImage.src;
         }
         syncWorkspaceView();
+    }
+
+    // Load system fonts into the dropdown
+    loadSystemFonts(le.htmlFontSelect);
+
+    // Re-render when font changes
+    if (le.htmlFontSelect) {
+        le.htmlFontSelect.addEventListener('change', () => {
+            if (le.htmlInput?.value.trim()) scheduleHtmlRender();
+        });
     }
 
     return { setHtmlStatus, triggerHtmlRender, scheduleHtmlRender, onHtmlRendered, setHtmlMode };
