@@ -445,30 +445,35 @@ export function createLogoTabController({
                         ));
                     }
 
-                    // In HTML mode, sort layers so background (largest path area) is L0,
-                    // and fill holes only in the background layer for a solid 3D base plate.
-                    // Text-layer holes (letter counters: A, R, D…) are preserved.
-                    if (ls.htmlModeActive) {
-                        // Identify background layer by largest single-path bounding-box area
+                    // Background-layer cleanup: applies to both HTML and image modes.
+                    // Detect the background as the layer with the largest single outer-path
+                    // bounding-box area, then strip hole paths from that layer only.
+                    // Holes on all other layers (e.g. letter counters: A, B, D, O, P, Q, R…)
+                    // are preserved exactly as traced.
+                    {
                         const maxArea = tracedata.layers.map(layer => {
                             if (!Array.isArray(layer) || !layer.length) return 0;
+                            // Consider only outer (non-hole) paths when computing area
                             return Math.max(...layer.map(p => {
+                                if (p.isholepath) return 0;
                                 const bb = p.boundingbox;
                                 return bb ? (bb[2] - bb[0]) * (bb[3] - bb[1]) : 0;
                             }));
                         });
                         const bgIdx = maxArea.indexOf(Math.max(...maxArea));
 
-                        // Strip holes only from the background layer; keep letter counters intact
-                        const processedLayers = tracedata.layers.map((layer, i) => {
+                        // Strip holes only from the background layer
+                        tracedata.layers = tracedata.layers.map((layer, i) => {
                             if (i !== bgIdx || !Array.isArray(layer)) return layer;
                             return layer.filter(p => !p.isholepath).map(p => ({ ...p, holechildren: [] }));
                         });
 
-                        // Sort: background first (L0), everything else after
-                        const order = maxArea.map((_, i) => i).sort((a, b) => maxArea[b] - maxArea[a]);
-                        tracedata.layers = order.map(i => processedLayers[i]);
-                        tracedata.palette = order.map(i => tracedata.palette[i]);
+                        // In HTML mode only: additionally sort so background is L0
+                        if (ls.htmlModeActive) {
+                            const order = maxArea.map((_, i) => i).sort((a, b) => maxArea[b] - maxArea[a]);
+                            tracedata.layers = order.map(i => tracedata.layers[i]);
+                            tracedata.palette = order.map(i => tracedata.palette[i]);
+                        }
                     }
 
                     ls.tracedata = tracedata;

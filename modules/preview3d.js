@@ -295,11 +295,14 @@ export function createObjPreview({
         bbox.getSize(size);
         const thicknessValue = elements.objThicknessSlider ? parseFloat(elements.objThicknessSlider.value) : 4;
         const thickness = Number.isFinite(thicknessValue) ? thicknessValue : 4;
-        const frameMaxDim = preview.frameMaxDim || Math.max(size.x, size.y, size.z, thickness);
+        // Use footprint-based frame (same XY-only logic as render) for a consistent fit.
+        const frameMaxDim = preview.frameMaxDim || Math.max(size.x, size.y, 120);
         const lift = Math.max(size.z * 0.65, thickness * 2, 10);
         const distance = frameMaxDim * 1.1 + lift * 2.2;
         preview.fitTarget = new THREERef.Vector3(0, -distance * 0.82, distance * 1.08 + lift);
         preview.target = preview.fitTarget.clone();
+        // Stable look-at after an explicit fit: anchored 5mm above bed.
+        preview.lookAtTarget = new THREERef.Vector3(0, 0, 5);
         preview.panX = 0;
         preview.panY = 0;
         preview.viewGroup.position.set(0, 0, 0);
@@ -737,13 +740,13 @@ export function createObjPreview({
                 preview.viewGroup.rotation.set(preview.rotationX, preview.rotationY, 0);
 
                 const frameMaxDim = preview.showBuildPlate === false
-                    ? Math.max(120, thickness * 20)
+                    ? 120
                     : Math.max(bed.width, bed.depth, 120);
                 const lift = Math.max(thickness * 2, 10);
                 const distance = frameMaxDim * 1.1 + lift * 2.2;
                 preview.frameMaxDim = frameMaxDim;
                 preview.panScale = frameMaxDim / 320;
-                preview.lookAtTarget = new THREERef.Vector3(0, 0, preview.showBuildPlate === false ? 10 : 0);
+                preview.lookAtTarget = new THREERef.Vector3(0, 0, 5);
                 preview.fitTarget = new THREERef.Vector3(0, -distance * 0.82, distance * 1.08 + lift);
                 preview.target = preview.fitTarget.clone();
 
@@ -769,14 +772,19 @@ export function createObjPreview({
             updateSizeReadout(scalePlan);
 
             const centeredBox = new THREERef.Box3().setFromObject(preview.group);
-            const center = new THREERef.Vector3();
-            centeredBox.getCenter(center);
             const finalSize = new THREERef.Vector3();
             centeredBox.getSize(finalSize);
-            const zOffset = preview.showBuildPlate === false
-                ? -center.z
-                : (BED_TOP_Z + BED_CONTACT_EPSILON) - centeredBox.min.z;
-            preview.basePosition = new THREERef.Vector3(-center.x, -center.y, zOffset);
+
+            // Stable XY anchor: use the SVG footprint centre (not the 3D mesh centroid,
+            // which shifts when a backing-plate rect is added or layer heights change).
+            const svgCenterX = (svgMinX + svgMaxX) / 2 * scalePlan.scale;
+            const svgCenterY = (svgMinY + svgMaxY) / 2 * scalePlan.scale;
+
+            // Stable Z anchor: always seat the bottom of the model at the bed surface.
+            // Do not vary this formula by showBuildPlate — toggling the plate must not
+            // shift the model in Z.
+            const zOffset = (BED_TOP_Z + BED_CONTACT_EPSILON) - centeredBox.min.z;
+            preview.basePosition = new THREERef.Vector3(-svgCenterX, -svgCenterY, zOffset);
             if (preview.panX === undefined) preview.panX = 0;
             if (preview.panY === undefined) preview.panY = 0;
             preview.group.position.copy(preview.basePosition);
@@ -785,13 +793,13 @@ export function createObjPreview({
 
             buildBuildPlate(THREERef, bed);
 
+            // frameMaxDim is based on XY footprint only — excluding model height and
+            // raw thickness — so that panScale stays stable when layer depths change.
             const frameMaxDim = Math.max(
                 finalSize.x,
                 finalSize.y,
-                finalSize.z,
-                thickness,
-                preview.showBuildPlate === false ? 0 : bed.width * 0.95,
-                preview.showBuildPlate === false ? 0 : bed.depth * 0.95
+                preview.showBuildPlate === false ? 120 : bed.width * 0.95,
+                preview.showBuildPlate === false ? 120 : bed.depth * 0.95
             );
             const lift = Math.max(finalSize.z * 0.65, thickness * 2, 10);
             const distance = frameMaxDim * 1.1 + lift * 2.2;
@@ -799,10 +807,13 @@ export function createObjPreview({
             preview.panScale = frameMaxDim > 0 ? frameMaxDim / 320 : 1;
             preview.fitTarget = new THREERef.Vector3(0, -distance * 0.82, distance * 1.08 + lift);
             // Only set camera target and look-at on first render — prevents jumping when
-            // layer heights change while the user has already positioned the camera.
+            // layer heights, scale, margin, bed, or backing change while the user has
+            // already positioned the camera.  The Fit button provides explicit reframing.
             if (!preview.target) {
                 preview.target = preview.fitTarget.clone();
-                preview.lookAtTarget = new THREERef.Vector3(0, 0, preview.showBuildPlate === false ? Math.max(finalSize.z * 0.5, 2) : Math.max(finalSize.z * 0.35, 5));
+                // Stable look-at: fixed height above the bed surface (world Z=5).
+                // Does not depend on model height so it never drifts when layers change.
+                preview.lookAtTarget = new THREERef.Vector3(0, 0, 5);
             }
 
             setPlaceholder('', false);
