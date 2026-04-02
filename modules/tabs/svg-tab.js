@@ -365,9 +365,11 @@ export function createSvgTabController({
             const pngDataUrl = await svgToPng(svgString, null, null, true, elements.previewResolution);
             elements.svgPreview.src = pngDataUrl;
             elements.svgPreview.style.display = 'block';
+            if (elements.svgPreviewImportOverlay) elements.svgPreviewImportOverlay.classList.add('hidden');
         } catch (error) {
             console.error('Preview rendering failed:', error);
             elements.svgPreview.style.display = 'none';
+            if (elements.svgPreviewImportOverlay) elements.svgPreviewImportOverlay.classList.remove('hidden');
         }
     }
 

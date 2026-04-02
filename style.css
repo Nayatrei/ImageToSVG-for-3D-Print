@@ -2886,3 +2886,162 @@ body,
     font-weight: 600;
     white-space: nowrap;
 }
+
+/* ─── Workspace Drop Zone (Welcome Screen) ────────────────────────────── */
+.workspace-dropzone {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    max-width: 28rem;
+    border: 2px dashed #374151;
+    border-radius: 1rem;
+    padding: 3rem 2rem;
+    cursor: pointer;
+    transition: border-color 200ms ease, background 200ms ease;
+    background: rgba(31, 41, 55, 0.35);
+    user-select: none;
+}
+
+.workspace-dropzone:hover {
+    border-color: #3b82f6;
+    background: rgba(59, 130, 246, 0.05);
+}
+
+.workspace-dropzone.drag-over {
+    border-color: #60a5fa;
+    background: rgba(59, 130, 246, 0.1);
+}
+
+.workspace-dropzone-inner {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    pointer-events: none;
+}
+
+.workspace-dropzone-icon {
+    width: 4rem;
+    height: 4rem;
+    color: #4b5563;
+    margin-bottom: 0.5rem;
+    transition: color 200ms ease;
+}
+
+.workspace-dropzone:hover .workspace-dropzone-icon {
+    color: #6b7280;
+}
+
+.workspace-dropzone-title {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: #6b7280;
+}
+
+.workspace-dropzone-sub {
+    font-size: 0.75rem;
+    color: #4b5563;
+    margin-top: 0.15rem;
+}
+
+.workspace-dropzone-divider {
+    display: flex;
+    align-items: center;
+    width: 8rem;
+    gap: 0.75rem;
+    margin: 0.75rem 0 0.5rem;
+    color: #4b5563;
+    font-size: 0.75rem;
+}
+
+.workspace-dropzone-divider::before,
+.workspace-dropzone-divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: #374151;
+}
+
+.workspace-dropzone-btn {
+    pointer-events: all;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.55rem 1.25rem;
+    border-radius: 0.5rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    border: none;
+    cursor: pointer;
+    transition: background-color 200ms ease;
+    margin-top: 0.25rem;
+}
+
+.workspace-dropzone-btn svg {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+}
+
+/* ─── SVG Preview Import Overlay ──────────────────────────────────────── */
+.preview-import-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(17, 24, 39, 0.55);
+    backdrop-filter: blur(2px);
+    -webkit-backdrop-filter: blur(2px);
+    border-radius: inherit;
+    transition: opacity 200ms ease;
+    z-index: 2;
+}
+
+.preview-import-overlay.hidden {
+    display: none;
+}
+
+.preview-import-inner {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    text-align: center;
+    padding: 1.5rem;
+}
+
+.preview-import-icon {
+    width: 3rem;
+    height: 3rem;
+    color: #4b5563;
+    margin-bottom: 0.25rem;
+}
+
+.preview-import-hint {
+    font-size: 0.8125rem;
+    color: #6b7280;
+    font-weight: 500;
+}
+
+.preview-import-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.5rem 1.1rem;
+    border-radius: 0.5rem;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    border: none;
+    cursor: pointer;
+    margin-top: 0.25rem;
+    transition: background-color 200ms ease;
+}
+
+.preview-import-btn svg {
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+}

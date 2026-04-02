@@ -115,6 +115,7 @@ export function createElements() {
 
         // ── SVG tab previews ───────────────────────────────────────────────────
         svgPreview: document.getElementById('svg-preview'),
+        svgPreviewImportOverlay: document.getElementById('svg-preview-import-overlay'),
         svgPreviewFiltered: document.getElementById('svg-preview-filtered'),
         outputSection: document.getElementById('output-section'),
         previewResolution: document.getElementById('preview-resolution'),
