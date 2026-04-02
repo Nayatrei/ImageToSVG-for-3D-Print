@@ -48,111 +48,199 @@
                 </div>
             </header>
 
-            <div class="flex-grow p-6 overflow-y-auto">
-                <div id="sidebar-import-section" class="mb-6">
-                    <h2 id="import-panel-title" class="text-lg font-semibold mb-3 text-gray-200">1. Load Image</h2>
-                    <div class="p-4 bg-gray-800 rounded-lg border border-dashed border-gray-600 text-center">
-                        <button id="import-btn" class="w-full btn-primary font-semibold py-2 px-4 rounded-md mb-2">
-                            <span id="import-btn-label">Import From Device</span>
-                        </button>
-                        <input type="file" id="file-input" accept="image/*" class="hidden">
-                        <input type="file" id="bulk-folder-input" class="hidden" webkitdirectory directory multiple accept="image/*,.png,.jpg,.jpeg,.jfif,.webp,.gif,.bmp,.avif,.svg,.ico,.tif,.tiff">
-                        <p id="import-mode-copy" class="text-xs text-gray-400 mt-2">Choose a single image from your device or paste a direct image URL. Supported imports: PNG, JPG, JPEG, WEBP, GIF, BMP, AVIF, SVG, ICO, TIFF, and other browser-compatible image files.</p>
-                        <div id="import-url-shell">
-                            <p id="import-url-divider" class="text-xs text-gray-500 my-2">OR</p>
-                            <div class="flex">
-                                <input type="text" id="url-input" placeholder="Paste image URL" class="flex-grow text-sm p-2 border bg-gray-900 border-gray-600 rounded-l-md outline-none text-white">
-                                <button id="load-url-btn" class="bg-gray-600 text-gray-200 font-semibold px-3 rounded-r-md border border-l-0 border-gray-600 hover:bg-gray-500">Load</button>
+            <div class="flex-grow p-4 overflow-y-auto sidebar-scroll">
+
+                <!-- 1. Load Image -->
+                <div id="sidebar-import-section" class="sidebar-accordion">
+                    <button class="sidebar-accordion-header expanded" onclick="toggleSidebarAccordion(this, 'sidebar-import-content')">
+                        <span class="sidebar-accordion-label">
+                            <svg class="sidebar-accordion-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/>
+                            </svg>
+                            <h2 id="import-panel-title" class="sidebar-accordion-title">1. Load Image</h2>
+                        </span>
+                        <svg class="sidebar-accordion-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M19 9l-7 7-7-7"/>
+                        </svg>
+                    </button>
+                    <div id="sidebar-import-content" class="sidebar-accordion-body">
+                        <div class="sidebar-accordion-body-inner">
+                        <div class="p-4 bg-gray-800 rounded-lg border border-dashed border-gray-600 text-center">
+                            <button id="import-btn" class="w-full btn-primary font-semibold py-2 px-4 rounded-md mb-2">
+                                <span id="import-btn-label">Import From Device</span>
+                            </button>
+                            <input type="file" id="file-input" accept="image/*" class="hidden">
+                            <input type="file" id="bulk-folder-input" class="hidden" webkitdirectory directory multiple accept="image/*,.png,.jpg,.jpeg,.jfif,.webp,.gif,.bmp,.avif,.svg,.ico,.tif,.tiff">
+                            <p id="import-mode-copy" class="text-xs text-gray-400 mt-2">Choose a single image from your device or paste a direct image URL. Supported imports: PNG, JPG, JPEG, WEBP, GIF, BMP, AVIF, SVG, ICO, TIFF, and other browser-compatible image files.</p>
+                            <div id="import-url-shell">
+                                <p id="import-url-divider" class="text-xs text-gray-500 my-2">OR</p>
+                                <div class="flex">
+                                    <input type="text" id="url-input" placeholder="Paste image URL" class="flex-grow text-sm p-2 border bg-gray-900 border-gray-600 rounded-l-md outline-none text-white">
+                                    <button id="load-url-btn" class="bg-gray-600 text-gray-200 font-semibold px-3 rounded-r-md border border-l-0 border-gray-600 hover:bg-gray-500">Load</button>
+                                </div>
                             </div>
+                            <div id="resolution-notice" class="text-xs text-amber-400 mt-3 text-left hidden"></div>
                         </div>
-                        <div id="resolution-notice" class="text-xs text-amber-400 mt-3 text-left hidden"></div>
+                        </div><!-- end sidebar-accordion-body-inner -->
                     </div>
                 </div>
 
-                <div id="sidebar-adjust-section">
-                    <div class="flex justify-between items-center mb-3">
-                        <h2 class="text-lg font-semibold text-gray-200">2. Adjust Conversion</h2>
-                        <button id="reset-btn" class="hidden text-xs font-semibold text-blue-400 hover:text-blue-300">Reset to Initial</button>
+                <!-- 2. Adjust Conversion -->
+                <div id="sidebar-adjust-section" class="sidebar-accordion">
+                    <div class="sidebar-accordion-header expanded" role="button" tabindex="0" onclick="toggleSidebarAccordion(this, 'sidebar-adjust-content')" onkeydown="if(event.key==='Enter'||event.key===' ')toggleSidebarAccordion(this,'sidebar-adjust-content')">
+                        <span class="sidebar-accordion-label">
+                            <svg class="sidebar-accordion-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M12 20h9M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/>
+                            </svg>
+                            <h2 class="sidebar-accordion-title">2. Adjust Conversion</h2>
+                        </span>
+                        <div class="flex items-center gap-2">
+                            <button id="reset-btn" class="hidden text-xs font-semibold text-blue-400 hover:text-blue-300" onclick="event.stopPropagation()">Reset to Initial</button>
+                            <svg class="sidebar-accordion-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                <path d="M19 9l-7 7-7-7"/>
+                            </svg>
+                        </div>
                     </div>
-                    <div class="space-y-4 p-4 bg-gray-800 rounded-lg border border-gray-700">
-                        <fieldset id="color-controls">
-                            <h3 class="text-md font-semibold text-gray-300 mb-2">Color Settings</h3>
-                            <div>
-                                <label for="color-precision" class="text-sm font-medium text-gray-300">Color Precision</label>
-                                <div class="flex items-center space-x-2">
-                                    <input type="range" id="color-precision" min="0" max="100" value="75" step="1">
-                                    <span id="color-precision-value" class="text-sm font-mono bg-gray-700 border border-gray-600 rounded-md px-2 py-0.5 w-12 text-center text-gray-200">75</span>
-                                </div>
-                                 <p id="color-precision-tooltip" class="slider-tooltip text-xs text-gray-400 mt-1 h-4 opacity-0"></p>
-                            </div>
-                            <div>
-                                <label for="max-colors" class="text-sm font-medium text-gray-300">Max Colors</label>
-                                <div class="flex items-center space-x-2">
-                                    <input type="range" id="max-colors" min="2" max="8" value="4" step="1">
-                                    <span id="max-colors-value" class="text-sm font-mono bg-gray-700 border border-gray-600 rounded-md px-2 py-0.5 w-12 text-center text-gray-200">4</span>
-                                </div>
-                                 <p id="max-colors-tooltip" class="slider-tooltip text-xs text-gray-400 mt-1 h-4 opacity-0"></p>
-                            </div>
-                            <div class="mt-2">
-                                <button id="toggle-fidelity-btn" class="btn-secondary w-full text-xs font-semibold py-2 px-3 rounded-md">Mode: Logo</button>
-                                <p class="text-xs text-gray-400 mt-1">Logo mode simplifies; High Fidelity preserves small details.</p>
-                            </div>
-                        </fieldset>
-                        <fieldset id="path-controls" class="pt-4 border-t border-gray-700" disabled>
-                            <h3 class="text-md font-semibold text-gray-300 mb-2">Path & Curve Settings</h3>
-                            <div>
-                                <label for="path-simplification" class="text-sm font-medium text-gray-300">Path Simplification</label>
-                                <div class="flex items-center space-x-2">
-                                    <input type="range" id="path-simplification" min="0" max="100" value="40" step="1">
-                                    <span id="path-simplification-value" class="text-sm font-mono bg-gray-700 border border-gray-600 rounded-md px-2 py-0.5 w-12 text-center text-gray-200">40</span>
-                                </div>
-                                <p id="path-simplification-tooltip" class="slider-tooltip text-xs text-gray-400 mt-1 h-4 opacity-0"></p>
-                            </div>
-                            <div>
-                                <label for="corner-sharpness" class="text-sm font-medium text-gray-300">Corner Sharpness</label>
-                                <div class="flex items-center space-x-2">
-                                    <input type="range" id="corner-sharpness" min="0" max="100" value="60" step="1">
-                                    <span id="corner-sharpness-value" class="text-sm font-mono bg-gray-700 border border-gray-600 rounded-md px-2 py-0.5 w-12 text-center text-gray-200">60</span>
-                                </div>
-                                <p id="corner-sharpness-tooltip" class="slider-tooltip text-xs text-gray-400 mt-1 h-4 opacity-0"></p>
-                            </div>
-                            <div>
-                                <label for="curve-straightness" class="text-sm font-medium text-gray-300">Curve Straightness</label>
-                                <div class="flex items-center space-x-2">
-                                    <input type="range" id="curve-straightness" min="0" max="100" value="40" step="1">
-                                    <span id="curve-straightness-value" class="text-sm font-mono bg-gray-700 border border-gray-600 rounded-md px-2 py-0.5 w-12 text-center text-gray-200">40</span>
-                                </div>
-                                 <p id="curve-straightness-tooltip" class="slider-tooltip text-xs text-gray-400 mt-1 h-4 opacity-0"></p>
-                            </div>
-                        </fieldset>
-                        <fieldset id="obj-controls" class="pt-4 border-t border-gray-700">
-                            <h3 class="text-md font-semibold text-gray-300 mb-2">OBJ Export Settings</h3>
-                            <div>
-                                <label for="obj-scale" class="text-sm font-medium text-gray-300">OBJ Scale (%)</label>
-                                <div class="flex items-center space-x-2">
-                                    <input type="range" id="obj-scale" min="25" max="200" value="100" step="5">
-                                    <span id="obj-scale-value" class="text-sm font-mono bg-gray-700 border border-gray-600 rounded-md px-2 py-0.5 w-12 text-center text-gray-200">100</span>
-                                </div>
-                                <p id="obj-size-readout" class="text-xs text-gray-400 mt-1">Footprint: —</p>
-                                <p id="obj-structure-warning" class="text-xs text-yellow-300 mt-1 hidden"></p>
-                            </div>
-                            <div class="grid grid-cols-2 gap-2">
-                                <div>
-                                    <label for="obj-bed" class="text-sm font-medium text-gray-300">Printer Bed</label>
-                                    <select id="obj-bed" class="text-xs bg-gray-800 border border-gray-600 rounded px-2 py-2 text-white w-full">
-                                        <option value="x1" selected>Bambu X1/X1C (256×256)</option>
-                                        <option value="a1mini">Bambu A1 mini (180×180)</option>
-                                        <option value="h2d">Bambu H2D (325×320, single nozzle)</option>
-                                    </select>
-                                </div>
-                                <div>
-                                    <label for="obj-margin" class="text-sm font-medium text-gray-300">Margin (mm)</label>
-                                    <input id="obj-margin" type="number" min="0" max="20" value="5" class="w-full text-xs p-2 rounded border border-gray-600 bg-gray-900 text-white">
+                    <div id="sidebar-adjust-content" class="sidebar-accordion-body">
+                        <div class="sidebar-accordion-body-inner">
+                        <div class="sidebar-sub-sections">
+
+                            <!-- Color Settings -->
+                            <div class="sidebar-sub-accordion">
+                                <button class="sidebar-sub-header expanded" onclick="toggleSidebarAccordion(this, 'color-controls-body')">
+                                    <span class="sidebar-sub-label">
+                                        <svg class="sidebar-sub-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                            <circle cx="12" cy="12" r="10"/><path d="M12 2a10 10 0 010 20"/>
+                                            <path d="M2 12h20"/>
+                                        </svg>
+                                        Color Settings
+                                    </span>
+                                    <svg class="sidebar-sub-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M19 9l-7 7-7-7"/>
+                                    </svg>
+                                </button>
+                                <div id="color-controls-body" class="sidebar-sub-body">
+                                    <div class="sidebar-sub-body-inner">
+                                    <fieldset id="color-controls">
+                                        <div>
+                                            <label for="color-precision" class="text-sm font-medium text-gray-300">Color Precision</label>
+                                            <div class="flex items-center space-x-2">
+                                                <input type="range" id="color-precision" min="0" max="100" value="75" step="1">
+                                                <span id="color-precision-value" class="text-sm font-mono bg-gray-700 border border-gray-600 rounded-md px-2 py-0.5 w-12 text-center text-gray-200">75</span>
+                                            </div>
+                                            <p id="color-precision-tooltip" class="slider-tooltip text-xs text-gray-400 mt-1 h-4 opacity-0"></p>
+                                        </div>
+                                        <div>
+                                            <label for="max-colors" class="text-sm font-medium text-gray-300">Max Colors</label>
+                                            <div class="flex items-center space-x-2">
+                                                <input type="range" id="max-colors" min="2" max="8" value="4" step="1">
+                                                <span id="max-colors-value" class="text-sm font-mono bg-gray-700 border border-gray-600 rounded-md px-2 py-0.5 w-12 text-center text-gray-200">4</span>
+                                            </div>
+                                            <p id="max-colors-tooltip" class="slider-tooltip text-xs text-gray-400 mt-1 h-4 opacity-0"></p>
+                                        </div>
+                                        <div class="mt-2">
+                                            <button id="toggle-fidelity-btn" class="btn-secondary w-full text-xs font-semibold py-2 px-3 rounded-md">Mode: Logo</button>
+                                            <p class="text-xs text-gray-400 mt-1">Logo mode simplifies; High Fidelity preserves small details.</p>
+                                        </div>
+                                    </fieldset>
+                                    </div><!-- end sidebar-sub-body-inner -->
                                 </div>
                             </div>
-                        </fieldset>
+
+                            <!-- Path & Curve Settings -->
+                            <div class="sidebar-sub-accordion">
+                                <button class="sidebar-sub-header expanded" onclick="toggleSidebarAccordion(this, 'path-controls-body')">
+                                    <span class="sidebar-sub-label">
+                                        <svg class="sidebar-sub-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                            <path d="M3 3c0 0 4 0 7 3s3 7 3 7 0-4 3-7 7-3 7-3"/>
+                                        </svg>
+                                        Path &amp; Curve Settings
+                                    </span>
+                                    <svg class="sidebar-sub-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M19 9l-7 7-7-7"/>
+                                    </svg>
+                                </button>
+                                <div id="path-controls-body" class="sidebar-sub-body">
+                                    <div class="sidebar-sub-body-inner">
+                                    <fieldset id="path-controls" disabled>
+                                        <div>
+                                            <label for="path-simplification" class="text-sm font-medium text-gray-300">Path Simplification</label>
+                                            <div class="flex items-center space-x-2">
+                                                <input type="range" id="path-simplification" min="0" max="100" value="40" step="1">
+                                                <span id="path-simplification-value" class="text-sm font-mono bg-gray-700 border border-gray-600 rounded-md px-2 py-0.5 w-12 text-center text-gray-200">40</span>
+                                            </div>
+                                            <p id="path-simplification-tooltip" class="slider-tooltip text-xs text-gray-400 mt-1 h-4 opacity-0"></p>
+                                        </div>
+                                        <div>
+                                            <label for="corner-sharpness" class="text-sm font-medium text-gray-300">Corner Sharpness</label>
+                                            <div class="flex items-center space-x-2">
+                                                <input type="range" id="corner-sharpness" min="0" max="100" value="60" step="1">
+                                                <span id="corner-sharpness-value" class="text-sm font-mono bg-gray-700 border border-gray-600 rounded-md px-2 py-0.5 w-12 text-center text-gray-200">60</span>
+                                            </div>
+                                            <p id="corner-sharpness-tooltip" class="slider-tooltip text-xs text-gray-400 mt-1 h-4 opacity-0"></p>
+                                        </div>
+                                        <div>
+                                            <label for="curve-straightness" class="text-sm font-medium text-gray-300">Curve Straightness</label>
+                                            <div class="flex items-center space-x-2">
+                                                <input type="range" id="curve-straightness" min="0" max="100" value="40" step="1">
+                                                <span id="curve-straightness-value" class="text-sm font-mono bg-gray-700 border border-gray-600 rounded-md px-2 py-0.5 w-12 text-center text-gray-200">40</span>
+                                            </div>
+                                            <p id="curve-straightness-tooltip" class="slider-tooltip text-xs text-gray-400 mt-1 h-4 opacity-0"></p>
+                                        </div>
+                                    </fieldset>
+                                    </div><!-- end sidebar-sub-body-inner -->
+                                </div>
+                            </div>
+
+                            <!-- OBJ Export Settings -->
+                            <div class="sidebar-sub-accordion">
+                                <button class="sidebar-sub-header expanded" onclick="toggleSidebarAccordion(this, 'obj-controls-body')">
+                                    <span class="sidebar-sub-label">
+                                        <svg class="sidebar-sub-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                            <path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/>
+                                        </svg>
+                                        OBJ Export Settings
+                                    </span>
+                                    <svg class="sidebar-sub-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <path d="M19 9l-7 7-7-7"/>
+                                    </svg>
+                                </button>
+                                <div id="obj-controls-body" class="sidebar-sub-body">
+                                    <div class="sidebar-sub-body-inner">
+                                    <fieldset id="obj-controls">
+                                        <div>
+                                            <label for="obj-scale" class="text-sm font-medium text-gray-300">OBJ Scale (%)</label>
+                                            <div class="flex items-center space-x-2">
+                                                <input type="range" id="obj-scale" min="25" max="200" value="100" step="5">
+                                                <span id="obj-scale-value" class="text-sm font-mono bg-gray-700 border border-gray-600 rounded-md px-2 py-0.5 w-12 text-center text-gray-200">100</span>
+                                            </div>
+                                            <p id="obj-size-readout" class="text-xs text-gray-400 mt-1">Footprint: —</p>
+                                            <p id="obj-structure-warning" class="text-xs text-yellow-300 mt-1 hidden"></p>
+                                        </div>
+                                        <div class="grid grid-cols-2 gap-2">
+                                            <div>
+                                                <label for="obj-bed" class="text-sm font-medium text-gray-300">Printer Bed</label>
+                                                <select id="obj-bed" class="text-xs bg-gray-800 border border-gray-600 rounded px-2 py-2 text-white w-full">
+                                                    <option value="x1" selected>Bambu X1/X1C (256×256)</option>
+                                                    <option value="a1mini">Bambu A1 mini (180×180)</option>
+                                                    <option value="h2d">Bambu H2D (325×320, single nozzle)</option>
+                                                </select>
+                                            </div>
+                                            <div>
+                                                <label for="obj-margin" class="text-sm font-medium text-gray-300">Margin (mm)</label>
+                                                <input id="obj-margin" type="number" min="0" max="20" value="5" class="w-full text-xs p-2 rounded border border-gray-600 bg-gray-900 text-white">
+                                            </div>
+                                        </div>
+                                    </fieldset>
+                                    </div><!-- end sidebar-sub-body-inner -->
+                                </div>
+                            </div>
+
+                        </div><!-- end sidebar-sub-sections -->
+                        </div><!-- end sidebar-accordion-body-inner -->
                     </div>
                 </div>
+
             </div>
 
             <footer id="sidebar-primary-footer" class="p-6 border-t border-gray-700 space-y-3">
@@ -237,6 +325,26 @@
     </div>
 
     <div id="footer-brand-slot"></div>
+
+    <script>
+        function toggleSidebarAccordion(btn, contentId) {
+            const content = document.getElementById(contentId);
+            if (!content) return;
+            const isExpanded = btn.classList.contains('expanded');
+            if (isExpanded) {
+                btn.classList.remove('expanded');
+                content.style.maxHeight = content.scrollHeight + 'px';
+                requestAnimationFrame(() => { content.style.maxHeight = '0'; });
+            } else {
+                btn.classList.add('expanded');
+                content.style.maxHeight = content.scrollHeight + 'px';
+                content.addEventListener('transitionend', function handler() {
+                    content.style.maxHeight = 'none';
+                    content.removeEventListener('transitionend', handler);
+                });
+            }
+        }
+    </script>
 
 </body>
 </html>

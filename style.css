@@ -2693,3 +2693,196 @@ body,
     color: #6b7280;
     font-size: 0.8125rem;
 }
+
+/* ─── Sidebar Accordion Sections ──────────────────────────────────────── */
+.sidebar-scroll {
+    scrollbar-width: thin;
+    scrollbar-color: #374151 transparent;
+}
+
+.sidebar-accordion {
+    margin-bottom: 0.5rem;
+    border: 1px solid #374151;
+    border-radius: 0.5rem;
+    overflow: hidden;
+    background-color: #1a2233;
+}
+
+.sidebar-accordion-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding: 0.65rem 0.875rem;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    text-align: left;
+    transition: background 150ms ease;
+    color: #e5e7eb;
+    gap: 0.5rem;
+}
+
+.sidebar-accordion-header:hover {
+    background: rgba(59, 130, 246, 0.06);
+}
+
+.sidebar-accordion-label {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex: 1;
+    min-width: 0;
+}
+
+.sidebar-accordion-icon {
+    width: 15px;
+    height: 15px;
+    flex-shrink: 0;
+    color: #60a5fa;
+    opacity: 0.85;
+}
+
+.sidebar-accordion-title {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: #e5e7eb;
+    line-height: 1.25;
+}
+
+.sidebar-accordion-chevron {
+    width: 14px;
+    height: 14px;
+    flex-shrink: 0;
+    color: #6b7280;
+    transition: transform 250ms ease;
+}
+
+.sidebar-accordion-header.expanded .sidebar-accordion-chevron {
+    transform: rotate(180deg);
+}
+
+.sidebar-accordion-body {
+    max-height: 9999px;
+    overflow: hidden;
+    transition: max-height 300ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.sidebar-accordion-body-inner {
+    padding: 0 0.75rem 0.75rem;
+}
+
+/* Sub-sections inside Adjust Conversion */
+.sidebar-sub-sections {
+    display: flex;
+    flex-direction: column;
+    gap: 0.375rem;
+}
+
+.sidebar-sub-accordion {
+    border: 1px solid #2d3748;
+    border-radius: 0.375rem;
+    overflow: hidden;
+    background: #111827;
+}
+
+.sidebar-sub-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    padding: 0.5rem 0.75rem;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    text-align: left;
+    color: #d1d5db;
+    transition: background 150ms ease;
+    gap: 0.5rem;
+}
+
+.sidebar-sub-header:hover {
+    background: rgba(255,255,255,0.04);
+}
+
+.sidebar-sub-label {
+    display: flex;
+    align-items: center;
+    gap: 0.425rem;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: #d1d5db;
+    flex: 1;
+}
+
+.sidebar-sub-icon {
+    width: 13px;
+    height: 13px;
+    flex-shrink: 0;
+    color: #9ca3af;
+}
+
+.sidebar-sub-chevron {
+    width: 12px;
+    height: 12px;
+    flex-shrink: 0;
+    color: #6b7280;
+    transition: transform 250ms ease;
+}
+
+.sidebar-sub-header.expanded .sidebar-sub-chevron {
+    transform: rotate(180deg);
+}
+
+.sidebar-sub-body {
+    max-height: 9999px;
+    overflow: hidden;
+    transition: max-height 300ms cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.sidebar-sub-body-inner {
+    padding: 0.5rem 0.75rem 0.75rem;
+}
+
+.sidebar-sub-body fieldset {
+    border: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+/* ─── Export Icon Buttons ─────────────────────────────────────────────── */
+.export-icon-btn {
+    display: flex !important;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.45rem;
+    padding-top: 0.875rem !important;
+    padding-bottom: 0.875rem !important;
+    line-height: 1.2;
+}
+
+.export-btn-icon {
+    width: 28px;
+    height: 28px;
+    flex-shrink: 0;
+    opacity: 0.9;
+    transition: opacity 150ms ease;
+}
+
+.export-icon-btn:hover:not(:disabled) .export-btn-icon {
+    opacity: 1;
+}
+
+.export-icon-btn:disabled .export-btn-icon {
+    opacity: 0.4;
+}
+
+.export-icon-btn span {
+    font-size: 0.75rem;
+    font-weight: 600;
+    white-space: nowrap;
+}
