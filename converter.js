@@ -1,7 +1,7 @@
 import { createBulkTabController } from './modules/tabs/bulk-tab.js';
 import { createRasterTabController } from './modules/tabs/raster-tab.js';
 import { createSvgTabController } from './modules/tabs/svg-tab.js';
-import { createLogoTabController } from './modules/tabs/logo-tab.js?v=8';
+import { createLogoTabController } from './modules/tabs/logo-tab.js?v=9';
 import {
     getDataUrlSize,
     getImageFormat,
@@ -158,12 +158,15 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (elements.importUrlShell) {
             elements.importUrlShell.classList.toggle('hidden', isBulk);
         }
-        // Logo tab: hide conversion sliders and manual action buttons — all settings are automated
+        // Bulk mode is the only workflow that does not use the shared conversion controls.
         if (elements.sidebarAdjustSection) {
-            elements.sidebarAdjustSection.classList.toggle('hidden', isBulk || isLogo);
+            elements.sidebarAdjustSection.classList.toggle('hidden', isBulk);
+        }
+        if (elements.objControlsSection) {
+            elements.objControlsSection.classList.toggle('hidden', isBulk || isLogo);
         }
         if (elements.sidebarPrimaryFooter) {
-            elements.sidebarPrimaryFooter.classList.toggle('hidden', isBulk || isLogo);
+            elements.sidebarPrimaryFooter.classList.toggle('hidden', isBulk);
         }
         if (elements.resolutionNotice && isBulk) {
             elements.resolutionNotice.classList.add('hidden');

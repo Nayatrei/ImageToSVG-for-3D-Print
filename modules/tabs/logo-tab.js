@@ -7,7 +7,7 @@ import { saveInitialSliderValues, updateAllSliderDisplays, resetSlidersToInitial
 import { createZoomPanController } from '../shared/zoom-pan.js';
 import { svgToPng } from '../shared/svg-renderer.js';
 import { createPaletteManager } from '../shared/palette-manager.js';
-import { HTML_PRESETS, createHtmlEditor, extractDeclaredHtmlColors } from './logo/html-editor.js?v=3';
+import { HTML_PRESETS, createHtmlEditor, extractDeclaredHtmlColors } from './logo/html-editor.js?v=4';
 
 export function createLogoTabController({
     state,
@@ -78,6 +78,11 @@ export function createLogoTabController({
         return ls.htmlModeActive && le.htmlSourceImg ? le.htmlSourceImg : le.sourceImage;
     }
 
+    function hasLogoSourceLoaded() {
+        const source = getLogoSourceImage();
+        return Boolean(source?.src && source.naturalWidth && source.naturalHeight);
+    }
+
     // ── Debounced re-trace ─────────────────────────────────────────────────────
 
     const debounceOptimizePaths = debounce(() => {
@@ -123,27 +128,6 @@ export function createLogoTabController({
     }
 
     function buildOptimizedOptions({ htmlDeclaredColors = null } = {}) {
-        // HTML mode: flat-color content — derive color count from declared CSS colors,
-        // use precision tracing settings, bypass slider values entirely
-        if (ls.htmlModeActive) {
-            const declaredColors = getDeclaredHtmlColors(htmlDeclaredColors);
-            const colorCount = Math.max(2, declaredColors.length || 3);
-            return Object.assign({}, tracer.optionpresets.default, {
-                viewbox: true,
-                strokewidth: 0,
-                numberofcolors: colorCount,
-                colorsampling: 2,
-                colorquantcycles: 5,
-                pathomit: 0,
-                ltres: 0.1,
-                qtres: 0.1,
-                blurradius: 0,
-                roundcoords: 1,
-                rightangleenhance: true,
-                mincolorratio: 0,
-            });
-        }
-
         const P = parseInt(le.pathSimplificationSlider.value, 10);
         const C = parseInt(le.cornerSharpnessSlider.value, 10);
         const S = parseInt(le.curveStraightnessSlider.value, 10);
@@ -152,6 +136,32 @@ export function createLogoTabController({
 
         const map = (t, a, b) => (a + (b - a) * (t / 100));
         const mapInv = (t, a, b) => (a + (b - a) * (1 - (t / 100)));
+
+        // HTML mode: flat-color content — derive color count from declared CSS colors,
+        // but still respect the shared tracing sliders so logo tuning matches the SVG tab.
+        if (ls.htmlModeActive) {
+            const declaredColors = getDeclaredHtmlColors(htmlDeclaredColors);
+            const declaredColorCount = Math.max(2, declaredColors.length || 3);
+            const edgeAllowance = Math.max(0, Math.round(CP / (ls.highFidelity ? 24 : 32))) + (ls.highFidelity ? 1 : 0);
+            const requestedColorCount = declaredColorCount + edgeAllowance;
+            const colorCount = Number.isNaN(MC)
+                ? requestedColorCount
+                : Math.max(2, Math.min(Math.max(2, MC), requestedColorCount));
+            return Object.assign({}, tracer.optionpresets.default, {
+                viewbox: true,
+                strokewidth: 0,
+                numberofcolors: colorCount,
+                colorsampling: 2,
+                colorquantcycles: Math.max(ls.highFidelity ? 10 : 6, Math.round(map(CP, ls.highFidelity ? 12 : 8, ls.highFidelity ? 24 : 18))),
+                pathomit: Math.round(map(P, 0, ls.highFidelity ? 1 : 2)),
+                ltres: +map(S, ls.highFidelity ? 0.02 : 0.03, ls.highFidelity ? 0.45 : 0.7).toFixed(2),
+                qtres: +mapInv(C, ls.highFidelity ? 0.45 : 0.6, 0.04).toFixed(2),
+                blurradius: +map(P, 0, ls.highFidelity ? 0.08 : 0.14).toFixed(2),
+                roundcoords: 1,
+                rightangleenhance: true,
+                mincolorratio: +mapInv(CP, 0.01, 0).toFixed(3),
+            });
+        }
 
         const options = Object.assign({}, tracer.optionpresets.default, {
             viewbox: true,
@@ -284,12 +294,17 @@ export function createLogoTabController({
     }
 
     function updateColorCountNotice() {
-        if (!le.colorCountNotice || !le.sourceImage.src) return;
+        if (!le.colorCountNotice) return;
+        if (!hasLogoSourceLoaded()) {
+            le.colorCountNotice.style.display = 'none';
+            return;
+        }
 
         const maxColors = le.maxColorsSlider ? parseInt(le.maxColorsSlider.value, 10) : 4;
         const canvas = document.createElement('canvas');
-        const w = le.sourceImage.naturalWidth;
-        const h = le.sourceImage.naturalHeight;
+        const srcImg = getLogoSourceImage();
+        const w = srcImg.naturalWidth;
+        const h = srcImg.naturalHeight;
         if (!w || !h) {
             le.colorCountNotice.style.display = 'none';
             return;
@@ -298,7 +313,7 @@ export function createLogoTabController({
         canvas.width = w;
         canvas.height = h;
         const ctx = canvas.getContext('2d');
-        ctx.drawImage(le.sourceImage, 0, 0, w, h);
+        ctx.drawImage(srcImg, 0, 0, w, h);
         const imageData = ctx.getImageData(0, 0, w, h);
 
         const estimatedColors = estimateDominantColors(imageData);
@@ -582,6 +597,7 @@ export function createLogoTabController({
 
         syncWorkspaceView();
         le.analyzeColorsBtn.disabled = false;
+        ls.sourceRenderScale = 1;
 
         const w = le.sourceImage.naturalWidth;
         const h = le.sourceImage.naturalHeight;
@@ -647,13 +663,32 @@ export function createLogoTabController({
             });
         }
         if (le.resetBtn) {
-            le.resetBtn.addEventListener('click', () => resetSlidersToInitial(ls, le));
+            le.resetBtn.addEventListener('click', () => {
+                if (ls.htmlModeActive && le.htmlInput?.value.trim()) {
+                    if (!ls.initialSliderValues) return;
+                    le.pathSimplificationSlider.value = ls.initialSliderValues.pathSimplification;
+                    le.cornerSharpnessSlider.value = ls.initialSliderValues.cornerSharpness;
+                    le.curveStraightnessSlider.value = ls.initialSliderValues.curveStraightness;
+                    le.colorPrecisionSlider.value = ls.initialSliderValues.colorPrecision;
+                    if (le.maxColorsSlider) {
+                        le.maxColorsSlider.value = ls.initialSliderValues.maxColors;
+                    }
+                    updateAllSliderDisplays(le);
+                    ls.colorsAnalyzed = false;
+                    if (le.optimizePathsBtn) le.optimizePathsBtn.disabled = true;
+                    ls.isDirty = false;
+                    le.resetBtn.style.display = 'none';
+                    analyzeColorsClick();
+                    return;
+                }
+                resetSlidersToInitial(ls, le);
+            });
         }
         if (le.toggleFidelityBtn) {
             le.toggleFidelityBtn.addEventListener('click', () => {
                 if (state.activeTab !== 'logo') return;
                 setHighFidelity(!ls.highFidelity);
-                if (ls.colorsAnalyzed && le.sourceImage.src) {
+                if (ls.colorsAnalyzed && hasLogoSourceLoaded()) {
                     ls.colorsAnalyzed = false;
                     if (le.optimizePathsBtn) le.optimizePathsBtn.disabled = true;
                     le.statusText.textContent = 'Fidelity changed. Re-analyze colors.';
@@ -741,7 +776,7 @@ export function createLogoTabController({
                 }
 
                 if (e.target.id === 'color-precision' || e.target.id === 'max-colors') {
-                    if (ls.colorsAnalyzed && le.sourceImage.src) {
+                    if (ls.colorsAnalyzed && hasLogoSourceLoaded()) {
                         ls.colorsAnalyzed = false;
                         if (le.optimizePathsBtn) le.optimizePathsBtn.disabled = true;
                     }

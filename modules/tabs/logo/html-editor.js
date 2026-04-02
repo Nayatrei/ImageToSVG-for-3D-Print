@@ -40,6 +40,7 @@ export const HTML_PRESETS = {
   GET STARTED →
 </div>`
 };
+export const HTML_RENDER_SCALE = 4;
 
 /**
  * Strips script elements and dangerous attributes from raw HTML.
@@ -388,7 +389,8 @@ async function loadSystemFonts(selectEl) {
 export function renderHtmlToDataUrl(html, font = '') {
     return new Promise((resolve, reject) => {
         const CANVAS_SIZE = 2048;
-        const PADDING = 24;
+        const PADDING = 32;
+        const RENDER_SCALE = HTML_RENDER_SCALE;
         const clean = sanitizeHtml(html);
 
         // Strip visual effects (shadows, filters) that produce gradient artifacts in tracing.
@@ -400,9 +402,16 @@ export function renderHtmlToDataUrl(html, font = '') {
             'filter:none!important',
             'backdrop-filter:none!important',
             '-webkit-filter:none!important',
+            'text-rendering:geometricPrecision!important',
+            '-webkit-font-smoothing:antialiased!important',
             ...(safeFontName ? [`font-family:"${safeFontName}",system-ui,sans-serif!important`] : [])
         ].join(';');
         const fontPrefix = `<style xmlns="http://www.w3.org/1999/xhtml">*,*::before,*::after{${safeCss}}</style>`;
+        const scaledWrapperStyle = [
+            'display:inline-block',
+            `transform:scale(${RENDER_SCALE})`,
+            'transform-origin:top left'
+        ].join(';');
 
         // Transparent, large container — content renders top-left, we crop after
         const containerStyle = [
@@ -417,7 +426,7 @@ export function renderHtmlToDataUrl(html, font = '') {
             `<svg xmlns="http://www.w3.org/2000/svg" xmlns:xhtml="http://www.w3.org/1999/xhtml" width="${CANVAS_SIZE}" height="${CANVAS_SIZE}">` +
             `<foreignObject x="0" y="0" width="${CANVAS_SIZE}" height="${CANVAS_SIZE}">` +
             `<div xmlns="http://www.w3.org/1999/xhtml" style="${containerStyle}">` +
-            `${fontPrefix}${clean}` +
+            `${fontPrefix}<div style="${scaledWrapperStyle}">${clean}</div>` +
             `</div>` +
             `</foreignObject>` +
             `</svg>`;
@@ -537,9 +546,13 @@ export function createHtmlEditor({ ls, le, elements, syncWorkspaceView, analyzeC
         }
         const w = le.htmlSourceImg.naturalWidth;
         const h = le.htmlSourceImg.naturalHeight;
+        ls.sourceRenderScale = HTML_RENDER_SCALE;
         if (le.originalResolution) le.originalResolution.textContent = `${w}×${h} px`;
         ls.colorsAnalyzed = false;
         ls.layerThicknessById = {};
+        if (le.analyzeColorsBtn) {
+            le.analyzeColorsBtn.disabled = false;
+        }
         await analyzeColorsClick();
 
         // Scroll the compare panels into view so the result is visible without manual scrolling
@@ -548,6 +561,9 @@ export function createHtmlEditor({ ls, le, elements, syncWorkspaceView, analyzeC
 
     function setHtmlMode(active) {
         ls.htmlModeActive = active;
+        if (!active) {
+            ls.sourceRenderScale = 1;
+        }
         if (le.htmlModeToggle) {
             le.htmlModeToggle.textContent = active ? 'Switch to Image Mode' : 'Switch to HTML Mode';
         }

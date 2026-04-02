@@ -468,6 +468,7 @@ export function createSvgTabController({
     function onSourceImageLoaded() {
         syncWorkspaceView();
         elements.analyzeColorsBtn.disabled = false;
+        state.sourceRenderScale = 1;
 
         const w = elements.sourceImage.naturalWidth;
         const h = elements.sourceImage.naturalHeight;

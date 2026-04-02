@@ -23,6 +23,7 @@ export function createElements() {
         importModeCopy: document.getElementById('import-mode-copy'),
         importUrlShell: document.getElementById('import-url-shell'),
         sidebarAdjustSection: document.getElementById('sidebar-adjust-section'),
+        objControlsSection: document.getElementById('obj-controls-section'),
         sidebarPrimaryFooter: document.getElementById('sidebar-primary-footer'),
 
         // ── Source image ───────────────────────────────────────────────────────

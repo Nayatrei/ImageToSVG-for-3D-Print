@@ -1,4 +1,5 @@
 import { buildObjGeometryBundle, buildObjModelPlan } from './obj-model-plan.js';
+import { computeObjScalePlan } from './obj-scale.js';
 import { layerHasPaths } from './shared/trace-utils.js';
 
 function buildMtl(materials, name) {
@@ -471,6 +472,26 @@ export function createObjExporter({
 
         const geometryBundle = buildObjGeometryBundle(plan, { THREERef, bufferUtils });
         if (!geometryBundle || geometryBundle.layers.size === 0) return null;
+
+        const sharedBedKey = elements.objBedSelect?.value;
+        const previewBedKey = elements.objPreviewBedSelect?.value;
+        const bedKey = sharedBedKey || previewBedKey || 'x1';
+        const marginValue = elements.objMarginInput ? Number.parseFloat(elements.objMarginInput.value) : 5;
+        const margin = Number.isFinite(marginValue) ? Math.max(0, marginValue) : 5;
+        const scaleValue = elements.objScaleSlider ? Number.parseFloat(elements.objScaleSlider.value) : 100;
+        const scalePlan = computeObjScalePlan({
+            rawWidth: plan.rawBounds.width,
+            rawDepth: plan.rawBounds.depth,
+            bedKey,
+            margin,
+            scalePercent: scaleValue,
+            sourceScale: state.sourceRenderScale || 1
+        });
+
+        geometryBundle.layers.forEach((layerData) => {
+            layerData.geometry.scale(scalePlan.scale, scalePlan.scale, 1);
+            layerData.geometry.computeVertexNormals();
+        });
 
         return geometryBundle;
     }

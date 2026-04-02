@@ -50,6 +50,7 @@ export function createState() {
         useBaseLayer: false,
         baseSourceLayerId: null,
         autoBaseLayerSelectionPending: true,
+        sourceRenderScale: 1,
         exportScale: 100,
         preserveAlpha: true,
 
@@ -104,6 +105,7 @@ export function createState() {
             useBaseLayer: false,
             baseSourceLayerId: null,
             autoBaseLayerSelectionPending: true,
+            sourceRenderScale: 1,
             highFidelity: false,
             htmlModeActive: true,
             htmlRenderTimer: null,

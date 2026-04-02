@@ -597,7 +597,8 @@ export function createObjPreview({
                 rawDepth: plan.rawBounds.depth,
                 bedKey,
                 margin,
-                scalePercent: scaleValue
+                scalePercent: scaleValue,
+                sourceScale: state.sourceRenderScale || 1
             });
 
             const geometryBundle = buildObjGeometryBundle(plan, { THREERef, bufferUtils });

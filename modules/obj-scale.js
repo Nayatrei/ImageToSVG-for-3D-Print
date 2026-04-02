@@ -2,6 +2,7 @@ import { BED_PRESETS } from './config.js';
 
 const OBJ_SCALE_MIN = 25;
 const OBJ_SCALE_MAX = 200;
+const OBJ_SOURCE_UNIT_TO_MM = 0.25;
 
 export function clampObjScalePercent(value) {
     const numeric = Number.isFinite(value) ? value : 100;
@@ -13,12 +14,14 @@ export function computeObjScalePlan({
     rawDepth,
     bedKey,
     margin,
-    scalePercent
+    scalePercent,
+    sourceScale = 1
 }) {
     const width = Number.isFinite(rawWidth) ? Math.max(0, rawWidth) : 0;
     const depth = Number.isFinite(rawDepth) ? Math.max(0, rawDepth) : 0;
     const safeMargin = Number.isFinite(margin) ? Math.max(0, margin) : 5;
     const requestedPercent = clampObjScalePercent(scalePercent);
+    const normalizedSourceScale = Number.isFinite(sourceScale) && sourceScale > 0 ? sourceScale : 1;
     const selectedBed = BED_PRESETS[bedKey] || BED_PRESETS.x1;
 
     const usableBedWidth = Math.max(1, selectedBed.width - safeMargin * 2);
@@ -26,7 +29,7 @@ export function computeObjScalePlan({
 
     if (width <= 0 || depth <= 0) {
         return {
-            scale: requestedPercent / 100,
+            scale: (requestedPercent / 100) * (OBJ_SOURCE_UNIT_TO_MM / normalizedSourceScale),
             requestedPercent,
             footprintWidth: 0,
             footprintDepth: 0,
@@ -38,7 +41,7 @@ export function computeObjScalePlan({
         };
     }
 
-    const finalScale = requestedPercent / 100;
+    const finalScale = (requestedPercent / 100) * (OBJ_SOURCE_UNIT_TO_MM / normalizedSourceScale);
     const footprintWidth = width * finalScale;
     const footprintDepth = depth * finalScale;
     const fitsBed = footprintWidth <= usableBedWidth && footprintDepth <= usableBedDepth;
