@@ -29,6 +29,10 @@ export function createSvgTabController({
         if (state.colorsAnalyzed) optimizePathsClick();
     });
 
+    function queueAutoBaseSelection() {
+        state.autoBaseLayerSelectionPending = true;
+    }
+
     // ── Fidelity ───────────────────────────────────────────────────────────────
 
     function setHighFidelity(enabled) {
@@ -234,6 +238,7 @@ export function createSvgTabController({
 
     async function optimizePathsClick() {
         if (!state.quantizedData) return;
+        queueAutoBaseSelection();
         await traceVectorPaths();
     }
 
@@ -554,6 +559,7 @@ export function createSvgTabController({
 
         if (elements.useBaseLayerCheckbox) {
             elements.useBaseLayerCheckbox.addEventListener('change', (e) => {
+                state.autoBaseLayerSelectionPending = false;
                 state.useBaseLayer = e.target.checked;
                 if (elements.baseLayerSelect) elements.baseLayerSelect.disabled = !e.target.checked;
                 updateFilteredPreview();
@@ -563,6 +569,7 @@ export function createSvgTabController({
         }
         if (elements.baseLayerSelect) {
             elements.baseLayerSelect.addEventListener('change', (e) => {
+                state.autoBaseLayerSelectionPending = false;
                 state.baseSourceLayerId = Number.parseInt(e.target.value, 10);
                 updateFilteredPreview();
             });
@@ -676,6 +683,7 @@ export function createSvgTabController({
                 palette.updateMergeRuleSwatches(row, defaultRule, visibleIndices);
                 if (elements.combineAndDownloadBtn) elements.combineAndDownloadBtn.disabled = false;
                 palette.updateFinalPalette();
+                queueAutoBaseSelection();
                 updateFilteredPreview();
             });
         }
@@ -689,6 +697,7 @@ export function createSvgTabController({
                     const visibleIndices = getVisibleLayerIndices();
                     palette.updateMergeRuleSwatches(e.target.parentElement, state.mergeRules[ruleIndex], visibleIndices);
                     palette.updateFinalPalette();
+                    queueAutoBaseSelection();
                     updateFilteredPreview();
                 }
             });
@@ -705,6 +714,7 @@ export function createSvgTabController({
                         elements.combineAndDownloadBtn.disabled = true;
                     }
                     palette.updateFinalPalette();
+                    queueAutoBaseSelection();
                     updateFilteredPreview();
                 }
             });

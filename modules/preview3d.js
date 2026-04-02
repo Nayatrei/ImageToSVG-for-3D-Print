@@ -449,10 +449,18 @@ export function createObjPreview({
 
         if (!plan || !Array.isArray(plan.outputLayers) || plan.outputLayers.length === 0) {
             elements.layerStackMeta.textContent = 'No layers yet';
+            if (elements.useBaseLayerCheckbox) {
+                elements.useBaseLayerCheckbox.checked = !!state.useBaseLayer;
+            }
             if (elements.baseLayerSelect) {
                 elements.baseLayerSelect.innerHTML = '<option value="0">L0</option>';
+                elements.baseLayerSelect.disabled = !state.useBaseLayer;
             }
             return;
+        }
+
+        if (elements.useBaseLayerCheckbox) {
+            elements.useBaseLayerCheckbox.checked = !!plan.useBaseLayer;
         }
 
         if (elements.baseLayerSelect) {
@@ -465,6 +473,7 @@ export function createObjPreview({
             });
             const nextValue = String(state.baseSourceLayerId ?? plan.outputLayers[0].primarySourceLayerId);
             elements.baseLayerSelect.value = nextValue;
+            elements.baseLayerSelect.disabled = !plan.useBaseLayer;
         }
 
         elements.layerStackMeta.textContent = `${plan.outputLayers.length} layer${plan.outputLayers.length === 1 ? '' : 's'} · max ${plan.maxHeight.toFixed(1)}mm`;

@@ -1,13 +1,13 @@
 import { SLIDER_TOOLTIPS, TRANSPARENT_ALPHA_CUTOFF } from '../config.js';
 import { createObjPreview } from '../preview3d.js';
 import { createObjExporter } from '../export3d.js';
-import { hasTransparentPixels, markTransparentPixels, stripTransparentPalette } from '../shared/image-utils.js';
+import { hasTransparentPixels, markTransparentPixels, stripTransparentPalette, remapQuantizedPaletteToColors } from '../shared/image-utils.js';
 import { debounce, layerHasPaths, buildTracedataSubset, createMergedTracedata, createSolidSilhouette, assess3DPrintQuality } from '../shared/trace-utils.js';
 import { saveInitialSliderValues, updateAllSliderDisplays, resetSlidersToInitial } from '../shared/slider-manager.js';
 import { createZoomPanController } from '../shared/zoom-pan.js';
 import { svgToPng } from '../shared/svg-renderer.js';
 import { createPaletteManager } from '../shared/palette-manager.js';
-import { HTML_PRESETS, createHtmlEditor } from './logo/html-editor.js?v=2';
+import { HTML_PRESETS, createHtmlEditor, extractDeclaredHtmlColors } from './logo/html-editor.js?v=3';
 
 export function createLogoTabController({
     state,
@@ -105,32 +105,33 @@ export function createLogoTabController({
 
     // ── Tracing options ────────────────────────────────────────────────────────
 
-    // Count distinct CSS colors declared in HTML inline styles.
-    // Forces the quantizer to use exactly that many colors, absorbing antialiasing artifacts.
-    function countHtmlCssColors(html) {
-        try {
-            const doc = new DOMParser().parseFromString(html, 'text/html');
-            const seen = new Set();
-            doc.querySelectorAll('[style]').forEach(el => {
-                ['color', 'backgroundColor', 'fill', 'stroke', 'borderColor', 'outlineColor'].forEach(prop => {
-                    const val = el.style[prop];
-                    if (val) seen.add(val);
-                });
-            });
-            return Math.max(2, seen.size);
-        } catch (_) { return 3; }
+    function getDeclaredHtmlColors(source = null) {
+        if (!ls.htmlModeActive) {
+            ls.htmlDeclaredColors = [];
+            return [];
+        }
+
+        const declaredColors = Array.isArray(source)
+            ? source
+            : extractDeclaredHtmlColors(le.htmlInput?.value || '');
+        ls.htmlDeclaredColors = declaredColors;
+        return declaredColors;
     }
 
-    function buildOptimizedOptions() {
+    function queueAutoBaseSelection() {
+        ls.autoBaseLayerSelectionPending = true;
+    }
+
+    function buildOptimizedOptions({ htmlDeclaredColors = null } = {}) {
         // HTML mode: flat-color content — derive color count from declared CSS colors,
         // use precision tracing settings, bypass slider values entirely
         if (ls.htmlModeActive) {
-            const htmlText = le.htmlInput?.value || '';
-            const colorCount = countHtmlCssColors(htmlText);
+            const declaredColors = getDeclaredHtmlColors(htmlDeclaredColors);
+            const colorCount = Math.max(2, declaredColors.length || 3);
             return Object.assign({}, tracer.optionpresets.default, {
                 viewbox: true,
                 strokewidth: 0,
-                numberofcolors: colorCount + 1, // +1 for the transparent background bucket
+                numberofcolors: colorCount,
                 colorsampling: 2,
                 colorquantcycles: 5,
                 pathomit: 0,
@@ -186,6 +187,52 @@ export function createLogoTabController({
         }
 
         return options;
+    }
+
+    function findLargestBackgroundLayerIndex(tracedata) {
+        if (!tracedata?.layers?.length) return -1;
+
+        let largestIndex = -1;
+        let largestArea = -1;
+
+        tracedata.layers.forEach((layer, index) => {
+            if (!Array.isArray(layer) || !layer.length) return;
+            const layerArea = layer.reduce((maxArea, path) => {
+                if (path?.isholepath) return maxArea;
+                const bb = path?.boundingbox;
+                if (!bb) return maxArea;
+                return Math.max(maxArea, (bb[2] - bb[0]) * (bb[3] - bb[1]));
+            }, 0);
+
+            if (layerArea > largestArea) {
+                largestArea = layerArea;
+                largestIndex = index;
+            }
+        });
+
+        return largestIndex;
+    }
+
+    function cleanupHtmlBackgroundLayer(tracedata) {
+        if (!ls.htmlModeActive || !tracedata?.layers?.length) return tracedata;
+
+        const backgroundLayerIndex = findLargestBackgroundLayerIndex(tracedata);
+        if (backgroundLayerIndex < 0) return tracedata;
+
+        tracedata.layers = tracedata.layers.map((layer, index) => {
+            if (index !== backgroundLayerIndex || !Array.isArray(layer)) return layer;
+            return layer.filter((path) => !path.isholepath).map((path) => ({ ...path, holechildren: [] }));
+        });
+
+        const order = tracedata.layers.map((_, index) => index).sort((a, b) => {
+            if (a === backgroundLayerIndex) return -1;
+            if (b === backgroundLayerIndex) return 1;
+            return a - b;
+        });
+
+        tracedata.layers = order.map((index) => tracedata.layers[index]);
+        tracedata.palette = order.map((index) => tracedata.palette[index]);
+        return tracedata;
     }
 
     // ── Color analysis ─────────────────────────────────────────────────────────
@@ -287,7 +334,8 @@ export function createLogoTabController({
                     ctx.drawImage(srcImg, 0, 0, width, height);
                     const imageData = ctx.getImageData(0, 0, width, height);
 
-                    const options = buildOptimizedOptions();
+                    const declaredHtmlColors = ls.htmlModeActive ? getDeclaredHtmlColors() : [];
+                    const options = buildOptimizedOptions({ htmlDeclaredColors: declaredHtmlColors });
                     if (!ls.htmlModeActive) {
                         const MC = le.maxColorsSlider ? parseInt(le.maxColorsSlider.value, 10) : 4;
                         const dominantColorCount = estimateDominantColors(imageData);
@@ -306,6 +354,10 @@ export function createLogoTabController({
                         stripTransparentPalette(ls.quantizedData);
                     } else {
                         ls.quantizedData.palette.forEach(c => { c.a = 255; });
+                    }
+
+                    if (ls.htmlModeActive && declaredHtmlColors.length > 0) {
+                        remapQuantizedPaletteToColors(ls.quantizedData, declaredHtmlColors);
                     }
 
                     if (!ls.quantizedData.palette.length) throw new Error('No opaque pixels found.');
@@ -330,6 +382,7 @@ export function createLogoTabController({
 
     async function optimizePathsClick() {
         if (!ls.quantizedData) return;
+        queueAutoBaseSelection();
         await traceVectorPaths();
     }
 
@@ -403,7 +456,7 @@ export function createLogoTabController({
         return new Promise((resolve, reject) => {
             setTimeout(async () => {
                 try {
-                    const options = buildOptimizedOptions();
+                    const options = buildOptimizedOptions({ htmlDeclaredColors: ls.htmlDeclaredColors });
                     ls.lastOptions = options;
 
                     const ii = ls.quantizedData;
@@ -424,33 +477,8 @@ export function createLogoTabController({
                         ));
                     }
 
-                    // Background-layer cleanup: HTML mode only.
-                    // In PNG mode the "hole" paths are the text/shape cutouts — removing them
-                    // would make text invisible. HTML mode renders flat colours, so hole paths
-                    // on the background are artifacts (anti-alias fringe) that should be stripped.
                     if (ls.htmlModeActive) {
-                        // Detect background = layer with the largest single outer-path bbox area
-                        const maxArea = tracedata.layers.map(layer => {
-                            if (!Array.isArray(layer) || !layer.length) return 0;
-                            return Math.max(...layer.map(p => {
-                                if (p.isholepath) return 0;
-                                const bb = p.boundingbox;
-                                return bb ? (bb[2] - bb[0]) * (bb[3] - bb[1]) : 0;
-                            }));
-                        });
-                        const bgIdx = maxArea.indexOf(Math.max(...maxArea));
-
-                        // Strip holes from background only; preserve holes on all other layers
-                        // (letter counters: A, B, D, O, P, Q, R…)
-                        tracedata.layers = tracedata.layers.map((layer, i) => {
-                            if (i !== bgIdx || !Array.isArray(layer)) return layer;
-                            return layer.filter(p => !p.isholepath).map(p => ({ ...p, holechildren: [] }));
-                        });
-
-                        // Sort so background is L0
-                        const order = maxArea.map((_, i) => i).sort((a, b) => maxArea[b] - maxArea[a]);
-                        tracedata.layers = order.map(i => tracedata.layers[i]);
-                        tracedata.palette = order.map(i => tracedata.palette[i]);
+                        cleanupHtmlBackgroundLayer(tracedata);
                     }
 
                     ls.tracedata = tracedata;
@@ -546,6 +574,7 @@ export function createLogoTabController({
         if (ls.htmlModeActive) {
             htmlEditor.setHtmlMode(false);
         }
+        ls.htmlDeclaredColors = [];
 
         if (elements.logoSvgSourceMirror && elements.sourceImage.src) {
             elements.logoSvgSourceMirror.src = elements.sourceImage.src;
@@ -668,6 +697,7 @@ export function createLogoTabController({
 
         if (le.useBaseLayerCheckbox) {
             le.useBaseLayerCheckbox.addEventListener('change', (e) => {
+                ls.autoBaseLayerSelectionPending = false;
                 ls.useBaseLayer = e.target.checked;
                 if (le.baseLayerSelect) le.baseLayerSelect.disabled = !e.target.checked;
                 objPreview.render();
@@ -676,6 +706,7 @@ export function createLogoTabController({
         }
         if (le.baseLayerSelect) {
             le.baseLayerSelect.addEventListener('change', (e) => {
+                ls.autoBaseLayerSelectionPending = false;
                 ls.baseSourceLayerId = Number.parseInt(e.target.value, 10);
                 objPreview.render();
             });
@@ -746,6 +777,7 @@ export function createLogoTabController({
                 le.mergeRulesContainer.appendChild(row);
                 palette.updateMergeRuleSwatches(row, defaultRule, visibleIndices);
                 palette.updateFinalPalette();
+                queueAutoBaseSelection();
                 updateFilteredPreview();
             });
         }
@@ -759,6 +791,7 @@ export function createLogoTabController({
                     const visibleIndices = getVisibleLayerIndices();
                     palette.updateMergeRuleSwatches(e.target.parentElement, ls.mergeRules[ruleIndex], visibleIndices);
                     palette.updateFinalPalette();
+                    queueAutoBaseSelection();
                     updateFilteredPreview();
                 }
             });
@@ -772,6 +805,7 @@ export function createLogoTabController({
                         row.querySelectorAll('[data-rule-index]').forEach(el => { el.dataset.ruleIndex = i; });
                     });
                     palette.updateFinalPalette();
+                    queueAutoBaseSelection();
                     updateFilteredPreview();
                 }
             });

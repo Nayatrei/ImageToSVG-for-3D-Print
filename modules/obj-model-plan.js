@@ -138,6 +138,35 @@ function triangleSetContainsPoint(point, triangles) {
     return triangles.some((triangle) => pointInTriangle(point, triangle));
 }
 
+function getTriangleArea([a, b, c]) {
+    return Math.abs(
+        ((b.x - a.x) * (c.y - a.y)) - ((c.x - a.x) * (b.y - a.y))
+    ) / 2;
+}
+
+function getLayerFootprintArea(layer, THREERef) {
+    const triangles = buildLayerTriangles(layer?.footprintShapes, THREERef);
+    if (!triangles.length) return 0;
+    return triangles.reduce((sum, triangle) => sum + getTriangleArea(triangle), 0);
+}
+
+function detectBaseOutputLayer(outputLayers, THREERef) {
+    if (!Array.isArray(outputLayers) || outputLayers.length === 0) return null;
+
+    let detectedLayer = outputLayers[0];
+    let maxArea = -1;
+
+    outputLayers.forEach((layer) => {
+        const area = getLayerFootprintArea(layer, THREERef);
+        if (area > maxArea + 1e-6) {
+            maxArea = area;
+            detectedLayer = layer;
+        }
+    });
+
+    return detectedLayer;
+}
+
 function validateSupportFootprint(outputLayers, resolvedBaseOutputLayer, THREERef) {
     if (!resolvedBaseOutputLayer || !THREERef) return [];
 
@@ -185,14 +214,14 @@ export function ensureLayerThicknessById(state, sourceLayerIds, defaultThickness
     return next;
 }
 
-function migrateLegacyBaseSourceLayerId(state, outputLayers) {
+function migrateLegacyBaseSourceLayerId(state, outputLayers, detectedBaseOutputLayer) {
     if (Number.isInteger(state.baseSourceLayerId)) return;
     const legacyIndex = Number.parseInt(state.baseLayerIndex, 10);
     if (Number.isInteger(legacyIndex) && legacyIndex >= 0 && legacyIndex < outputLayers.length) {
         state.baseSourceLayerId = outputLayers[legacyIndex].primarySourceLayerId;
         return;
     }
-    state.baseSourceLayerId = outputLayers[0]?.primarySourceLayerId ?? null;
+    state.baseSourceLayerId = detectedBaseOutputLayer?.primarySourceLayerId ?? outputLayers[0]?.primarySourceLayerId ?? null;
 }
 
 export function buildObjModelPlan({
@@ -252,13 +281,21 @@ export function buildObjModelPlan({
         };
     });
 
-    migrateLegacyBaseSourceLayerId(state, outputLayers);
+    const detectedBaseOutputLayer = detectBaseOutputLayer(outputLayers, THREERef);
+
+    if (state.autoBaseLayerSelectionPending && detectedBaseOutputLayer) {
+        state.useBaseLayer = true;
+        state.baseSourceLayerId = detectedBaseOutputLayer.primarySourceLayerId;
+        state.autoBaseLayerSelectionPending = false;
+    }
+
+    migrateLegacyBaseSourceLayerId(state, outputLayers, detectedBaseOutputLayer);
 
     let resolvedBaseOutputLayer = null;
     if (state.useBaseLayer && outputLayers.length > 0) {
         resolvedBaseOutputLayer = outputLayers.find((layer) => layer.sourceLayerIds.includes(state.baseSourceLayerId));
         if (!resolvedBaseOutputLayer) {
-            resolvedBaseOutputLayer = outputLayers[0];
+            resolvedBaseOutputLayer = detectedBaseOutputLayer || outputLayers[0];
             state.baseSourceLayerId = resolvedBaseOutputLayer.primarySourceLayerId;
         }
     }
@@ -292,6 +329,7 @@ export function buildObjModelPlan({
         thicknessById,
         useBaseLayer: !!state.useBaseLayer,
         baseSourceLayerId: state.baseSourceLayerId,
+        detectedBaseSourceLayerId: detectedBaseOutputLayer?.primarySourceLayerId ?? null,
         resolvedBaseOutputLayerId: resolvedBaseOutputLayer?.outputLayerId ?? null,
         rawBounds: normalizedBounds,
         totalHeight,
@@ -318,7 +356,7 @@ function createLayerGeometry({ layer, plan, THREERef }) {
         geometry.rotateX(Math.PI);
         geometry.translate(
             plan.normalization.shiftX,
-            plan.normalization.shiftY,
+            -plan.normalization.shiftY,
             layer.thickness + layer.zStart + plan.normalization.shiftZ
         );
         geometry.computeVertexNormals();

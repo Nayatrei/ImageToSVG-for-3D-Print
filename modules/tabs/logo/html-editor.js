@@ -11,25 +11,31 @@
 export const HTML_PRESETS = {
     pill: `<div style="
   display:inline-flex; align-items:center; justify-content:center;
-  padding:18px 48px; border-radius:999px;
-  background:linear-gradient(135deg,#6366f1,#8b5cf6);
-  font-family:system-ui,sans-serif; font-size:28px; font-weight:700;
-  color:#fff; letter-spacing:0.01em; white-space:nowrap;">
+  padding:16px 38px; border-radius:999px;
+  background-color:#5865f2;
+  font-family:system-ui,sans-serif; font-size:24px; font-weight:800;
+  color:#f8fafc; letter-spacing:0.08em; text-transform:uppercase; white-space:nowrap;">
   My Brand
 </div>`,
     badge: `<div style="
   display:inline-flex; flex-direction:column; align-items:center; justify-content:center;
   width:200px; height:200px; border-radius:24px;
-  background:#1e293b; border:3px solid #6366f1;
-  font-family:system-ui,sans-serif; gap:8px;">
-  <span style="font-size:64px;">🚀</span>
-  <span style="font-size:20px; font-weight:700; color:#e2e8f0;">LAUNCH</span>
+  background-color:#1e293b; border:4px solid #818cf8;
+  font-family:system-ui,sans-serif; gap:14px;">
+  <div style="
+    width:72px; height:72px; border-radius:999px;
+    display:flex; align-items:center; justify-content:center;
+    background-color:#818cf8;
+    color:#111827; font-size:38px; font-weight:900; line-height:1;">
+    G
+  </div>
+  <span style="font-size:22px; font-weight:800; color:#e2e8f0; letter-spacing:0.12em;">LAUNCH</span>
 </div>`,
     cta: `<div style="
   display:inline-flex; align-items:center; justify-content:center;
-  padding:20px 52px; border-radius:12px;
-  background:#f59e0b; box-shadow:0 4px 24px rgba(245,158,11,0.5);
-  font-family:system-ui,sans-serif; font-size:26px; font-weight:800;
+  padding:18px 32px; border-radius:12px;
+  background-color:#f59e0b;
+  font-family:system-ui,sans-serif; font-size:22px; font-weight:800;
   color:#1c1917; letter-spacing:0.02em; white-space:nowrap;">
   GET STARTED →
 </div>`
@@ -84,6 +90,158 @@ function findContentBounds(imageData) {
     return maxX >= minX ? { minX, minY, maxX, maxY } : null;
 }
 
+const HTML_COLOR_TOKEN_RE = /#(?:[\da-f]{3,8})\b|rgba?\([^)]*\)|hsla?\([^)]*\)/gi;
+const HTML_COLOR_STYLE_PROPS = [
+    'color',
+    'backgroundColor',
+    'borderColor',
+    'borderTopColor',
+    'borderRightColor',
+    'borderBottomColor',
+    'borderLeftColor',
+    'outlineColor',
+    'fill',
+    'stroke'
+];
+
+const FONT_GROUP_LABELS = {
+    installed: 'Installed fonts (coverage unknown)',
+    latin: 'Latin / General',
+    mono: 'Monospace',
+    arabic: 'Arabic / Persian',
+    hebrew: 'Hebrew',
+    indic: 'Indic',
+    sea: 'SE Asian',
+    cjk: 'CJK',
+    symbols: 'Symbols / Emoji'
+};
+
+const FONT_GROUP_ORDER = ['installed', 'latin', 'mono', 'arabic', 'hebrew', 'indic', 'sea', 'cjk', 'symbols'];
+
+let colorProbeCtx = null;
+
+function getColorProbeCtx() {
+    if (!colorProbeCtx) {
+        const canvas = document.createElement('canvas');
+        canvas.width = 1;
+        canvas.height = 1;
+        colorProbeCtx = canvas.getContext('2d', { willReadFrequently: true });
+    }
+    return colorProbeCtx;
+}
+
+function normalizeCssColorToken(value) {
+    if (typeof value !== 'string') return null;
+    const trimmed = value.trim();
+    if (!trimmed) return null;
+
+    const probe = document.createElement('span');
+    probe.style.color = '';
+    probe.style.color = trimmed;
+    if (!probe.style.color) return null;
+
+    const ctx = getColorProbeCtx();
+    if (!ctx) return null;
+
+    ctx.clearRect(0, 0, 1, 1);
+    ctx.fillStyle = 'rgba(0, 0, 0, 0)';
+    ctx.fillRect(0, 0, 1, 1);
+    ctx.fillStyle = probe.style.color;
+    ctx.fillRect(0, 0, 1, 1);
+
+    const [r, g, b, a] = ctx.getImageData(0, 0, 1, 1).data;
+    if (a === 0) return null;
+    return { r, g, b, a };
+}
+
+export function extractDeclaredHtmlColors(raw) {
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(sanitizeHtml(raw || ''), 'text/html');
+    const seen = new Map();
+
+    doc.querySelectorAll('[style]').forEach((el) => {
+        const rawStyle = el.getAttribute('style') || '';
+        const tokens = new Set(rawStyle.match(HTML_COLOR_TOKEN_RE) || []);
+
+        HTML_COLOR_STYLE_PROPS.forEach((prop) => {
+            const value = el.style[prop];
+            if (value) tokens.add(value);
+        });
+
+        tokens.forEach((token) => {
+            const color = normalizeCssColorToken(token);
+            if (!color) return;
+            seen.set(`${color.r},${color.g},${color.b}`, {
+                r: color.r,
+                g: color.g,
+                b: color.b,
+                a: 255
+            });
+        });
+    });
+
+    return [...seen.values()];
+}
+
+function inferFontGroup(family) {
+    const name = family.toLowerCase();
+
+    if (/emoji|wingdings|bookshelf symbol|marlett|symbol/.test(name)) return 'symbols';
+    if (/mono|code|console|courier|typewriter|menlo|monaco|ocr a|cascadia/.test(name)) return 'mono';
+    if (/arab|nastaliq|uighur|waseem|farah|dubai|mishafi/.test(name)) return 'arabic';
+    if (/hebrew/.test(name)) return 'hebrew';
+    if (/devanagari|bangla|gujarati|gurmukhi|kannada|malayalam|oriya|sinhala|tamil|telugu|mangal|nirmala|sangam|kohinoor|mukta/.test(name)) return 'indic';
+    if (/khmer|lao|myanmar|thonburi|sukhumvit|silom/.test(name)) return 'sea';
+    if (/hiragino|pingfang|apple sd gothic neo|malgun|meiryo|microsoft jhenghei|microsoft yahei|mingliu|ms gothic|ms mincho|ms pgothic|ms pmincho|yu gothic|yu mincho|simsun|baiti|source han/.test(name)) return 'cjk';
+    return 'latin';
+}
+
+function populateGroupedFontSelect(selectEl, fallbackEntries, installedFamilies = []) {
+    const previousValue = selectEl.value;
+    const placeholder = selectEl.options[0]?.cloneNode(true) || new Option('— default —', '');
+
+    selectEl.innerHTML = '';
+    selectEl.appendChild(placeholder);
+
+    const installedSet = new Set(installedFamilies.map((family) => family.toLowerCase()));
+    const groups = new Map();
+
+    if (installedFamilies.length) {
+        groups.set('installed', installedFamilies.map((family) => ({
+            family,
+            group: 'installed'
+        })));
+    }
+
+    fallbackEntries.forEach((entry) => {
+        if (installedSet.has(entry.family.toLowerCase())) return;
+        const items = groups.get(entry.group) || [];
+        items.push(entry);
+        groups.set(entry.group, items);
+    });
+
+    FONT_GROUP_ORDER.forEach((groupKey) => {
+        const entries = groups.get(groupKey);
+        if (!entries?.length) return;
+
+        const optgroup = document.createElement('optgroup');
+        optgroup.label = FONT_GROUP_LABELS[groupKey];
+
+        entries.forEach((entry) => {
+            const opt = document.createElement('option');
+            opt.value = entry.family;
+            opt.textContent = entry.family;
+            optgroup.appendChild(opt);
+        });
+
+        selectEl.appendChild(optgroup);
+    });
+
+    if (previousValue && [...selectEl.options].some((option) => option.value === previousValue)) {
+        selectEl.value = previousValue;
+    }
+}
+
 /**
  * Populates a <select> with system fonts via the Font Access API,
  * falling back silently to a curated cross-platform list.
@@ -96,7 +254,7 @@ async function loadSystemFonts(selectEl) {
     // popular Adobe / Google / Microsoft / Apple font collections.
     // The Font Access API (queryLocalFonts) supersedes this list when available
     // and returns the full set of every font actually installed on the machine.
-    const FALLBACK = [
+    const FALLBACK_FONT_FAMILIES = [
         // ── Core web / system ────────────────────────────────────────────────
         'Arial', 'Arial Black', 'Arial Narrow', 'Arial Rounded MT Bold',
         'Calibri', 'Cambria', 'Cambria Math', 'Candara', 'Carlito',
@@ -199,26 +357,23 @@ async function loadSystemFonts(selectEl) {
         'Open Sans', 'Roboto', 'Ubuntu', 'Ubuntu Mono',
     ].sort();
 
-    const populate = (families) => {
-        // Clear all options except the first placeholder
-        while (selectEl.options.length > 1) selectEl.remove(1);
-        families.forEach(family => {
-            const opt = document.createElement('option');
-            opt.value = family;
-            opt.textContent = family;
-            selectEl.appendChild(opt);
-        });
-    };
+    const fallbackEntries = FALLBACK_FONT_FAMILIES.map((family) => {
+        const group = inferFontGroup(family);
+        return {
+            family,
+            group,
+            coverageLabel: FONT_GROUP_LABELS[group]
+        };
+    });
 
-    // Populate with fallback immediately so the dropdown is usable right away
-    populate(FALLBACK);
+    populateGroupedFontSelect(selectEl, fallbackEntries);
 
     // Attempt to upgrade to the full system font list via Font Access API
     try {
         if (typeof window.queryLocalFonts === 'function') {
             const fonts = await window.queryLocalFonts();
-            const families = [...new Set(fonts.map(f => f.family))].sort();
-            if (families.length > 0) populate(families);
+            const families = [...new Set(fonts.map((font) => font.family))].sort((a, b) => a.localeCompare(b));
+            if (families.length > 0) populateGroupedFontSelect(selectEl, fallbackEntries, families);
         }
     } catch (_) { /* permission denied or unsupported — fallback stays */ }
 }
@@ -303,8 +458,10 @@ export function renderHtmlToDataUrl(html, font = '') {
                     const pad = PADDING;
                     const x = Math.max(0, bounds.minX - pad);
                     const y = Math.max(0, bounds.minY - pad);
-                    const w = Math.min(CANVAS_SIZE - x, bounds.maxX - x + pad * 2);
-                    const h = Math.min(CANVAS_SIZE - y, bounds.maxY - y + pad * 2);
+                    const contentWidth = bounds.maxX - bounds.minX + 1;
+                    const contentHeight = bounds.maxY - bounds.minY + 1;
+                    const w = Math.max(1, Math.min(CANVAS_SIZE - x, contentWidth + pad * 2));
+                    const h = Math.max(1, Math.min(CANVAS_SIZE - y, contentHeight + pad * 2));
 
                     const cropped = document.createElement('canvas');
                     cropped.width = w;
