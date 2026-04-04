@@ -65,7 +65,11 @@ export function sanitizeHtml(raw) {
             }
         });
     });
-    return doc.body.innerHTML;
+    // SVG foreignObject is loaded as strict XML (not HTML) when rendered via img.src.
+    // HTML void elements like <br>, <img>, <hr> must be self-closed (<br/>) or the
+    // XML parser rejects the entire SVG, causing a silent render failure.
+    const HTML_VOID_RE = /<(area|base|br|col|embed|hr|img|input|link|meta|param|source|track|wbr)(\s[^>]*)?>/gi;
+    return doc.body.innerHTML.replace(HTML_VOID_RE, (_, tag, attrs) => `<${tag}${attrs || ''}/>`);
 }
 
 /**
@@ -106,18 +110,21 @@ const HTML_COLOR_STYLE_PROPS = [
 ];
 
 const FONT_GROUP_LABELS = {
-    installed: 'Installed fonts (coverage unknown)',
+    installed: 'Installed (encoding unknown)',
     latin: 'Latin / General',
     mono: 'Monospace',
     arabic: 'Arabic / Persian',
     hebrew: 'Hebrew',
     indic: 'Indic',
     sea: 'SE Asian',
-    cjk: 'CJK',
+    korean: '한국어 Korean',
+    japanese: '日本語 Japanese',
+    chinese: '中文 Chinese',
+    cjk: 'CJK (multi-script)',
     symbols: 'Symbols / Emoji'
 };
 
-const FONT_GROUP_ORDER = ['installed', 'latin', 'mono', 'arabic', 'hebrew', 'indic', 'sea', 'cjk', 'symbols'];
+const FONT_GROUP_ORDER = ['installed', 'latin', 'mono', 'arabic', 'hebrew', 'indic', 'sea', 'korean', 'japanese', 'chinese', 'cjk', 'symbols'];
 
 let colorProbeCtx = null;
 
@@ -193,7 +200,10 @@ function inferFontGroup(family) {
     if (/hebrew/.test(name)) return 'hebrew';
     if (/devanagari|bangla|gujarati|gurmukhi|kannada|malayalam|oriya|sinhala|tamil|telugu|mangal|nirmala|sangam|kohinoor|mukta/.test(name)) return 'indic';
     if (/khmer|lao|myanmar|thonburi|sukhumvit|silom/.test(name)) return 'sea';
-    if (/hiragino|pingfang|apple sd gothic neo|malgun|meiryo|microsoft jhenghei|microsoft yahei|mingliu|ms gothic|ms mincho|ms pgothic|ms pmincho|yu gothic|yu mincho|simsun|baiti|source han/.test(name)) return 'cjk';
+    if (/malgun|apple sd gothic neo|nanum|noto sans kr|noto serif kr|spoqa|나눔|본고딕|kopub|sandoll|gmarket|uhbee|bm /.test(name)) return 'korean';
+    if (/hiragino|meiryo|ms gothic|ms mincho|ms pgothic|ms pmincho|yu gothic|yu mincho|osaka|noto sans jp|noto serif jp|biz ud/.test(name)) return 'japanese';
+    if (/pingfang|microsoft jhenghei|microsoft yahei|mingliu|nsimsun|simsun|noto sans sc|noto sans tc|noto serif sc|noto serif tc/.test(name)) return 'chinese';
+    if (/source han|baiti/.test(name)) return 'cjk';
     return 'latin';
 }
 
@@ -208,10 +218,14 @@ function populateGroupedFontSelect(selectEl, fallbackEntries, installedFamilies 
     const groups = new Map();
 
     if (installedFamilies.length) {
-        groups.set('installed', installedFamilies.map((family) => ({
-            family,
-            group: 'installed'
-        })));
+        installedFamilies.forEach((family) => {
+            const inferred = inferFontGroup(family);
+            // Only put in 'installed' when we have no script-specific knowledge (inferred as latin)
+            const targetGroup = inferred === 'latin' ? 'installed' : inferred;
+            const items = groups.get(targetGroup) || [];
+            items.push({ family, group: targetGroup });
+            groups.set(targetGroup, items);
+        });
     }
 
     fallbackEntries.forEach((entry) => {
@@ -367,16 +381,127 @@ async function loadSystemFonts(selectEl) {
         };
     });
 
-    populateGroupedFontSelect(selectEl, fallbackEntries);
+    // ── Font picker state ────────────────────────────────────────────────────
+    let _pickerEntries = fallbackEntries;
+    let _pickerActiveGroup = 'all';
+
+    const searchEl  = document.getElementById('logo-html-font-search');
+    const pillsEl   = document.getElementById('logo-html-font-pills');
+    const accessBtn = document.getElementById('logo-html-font-access-btn');
+
+    function rebuildSelect(query, group) {
+        const prev = selectEl.value;
+        selectEl.innerHTML = '';
+        selectEl.appendChild(new Option('— default —', ''));
+
+        let entries = _pickerEntries;
+        if (group && group !== 'all') entries = entries.filter(e => e.group === group);
+        if (query) {
+            const q = query.toLowerCase();
+            entries = entries.filter(e => e.family.toLowerCase().includes(q));
+        }
+
+        const groups = new Map();
+        entries.forEach(e => {
+            const list = groups.get(e.group) || [];
+            list.push(e);
+            groups.set(e.group, list);
+        });
+
+        FONT_GROUP_ORDER.forEach(key => {
+            const list = groups.get(key);
+            if (!list?.length) return;
+            const og = document.createElement('optgroup');
+            og.label = FONT_GROUP_LABELS[key];
+            list.forEach(e => og.appendChild(new Option(e.family, e.family)));
+            selectEl.appendChild(og);
+        });
+
+        if (prev && [...selectEl.options].some(o => o.value === prev)) selectEl.value = prev;
+    }
+
+    function buildPills() {
+        if (!pillsEl) return;
+        pillsEl.innerHTML = '';
+
+        const availGroups = new Set(_pickerEntries.map(e => e.group));
+        const pill = (label, group) => {
+            const b = document.createElement('button');
+            b.textContent = label;
+            b.dataset.group = group;
+            const active = group === _pickerActiveGroup;
+            b.className = `font-pill text-xs px-2 py-0.5 rounded-full border ${active ? 'border-blue-500 bg-blue-500 text-white' : 'border-gray-600 text-gray-300 hover:border-blue-400'}`;
+            b.addEventListener('click', () => {
+                _pickerActiveGroup = group;
+                pillsEl.querySelectorAll('.font-pill').forEach(p => {
+                    const on = p.dataset.group === group;
+                    p.className = `font-pill text-xs px-2 py-0.5 rounded-full border ${on ? 'border-blue-500 bg-blue-500 text-white' : 'border-gray-600 text-gray-300 hover:border-blue-400'}`;
+                });
+                rebuildSelect(searchEl?.value || '', group);
+            });
+            return b;
+        };
+
+        pillsEl.appendChild(pill('All', 'all'));
+        FONT_GROUP_ORDER.forEach(key => {
+            if (!availGroups.has(key)) return;
+            const short = FONT_GROUP_LABELS[key].split(' ')[0]; // "한국어", "Latin", etc.
+            pillsEl.appendChild(pill(short, key));
+        });
+        pillsEl.classList.remove('hidden');
+    }
+
+    function applyFontData(installedFamilies) {
+        const installedSet = new Set(installedFamilies.map(f => f.toLowerCase()));
+        const installedEntries = installedFamilies.map(family => {
+            const inferred = inferFontGroup(family);
+            return { family, group: inferred === 'latin' ? 'installed' : inferred };
+        });
+        const extraFallback = fallbackEntries.filter(e => !installedSet.has(e.family.toLowerCase()));
+        _pickerEntries = [...installedEntries, ...extraFallback];
+        rebuildSelect(searchEl?.value || '', _pickerActiveGroup);
+        buildPills();
+        if (accessBtn) accessBtn.classList.add('hidden');
+    }
+
+    // Wire up search
+    if (searchEl) {
+        searchEl.addEventListener('input', () => rebuildSelect(searchEl.value, _pickerActiveGroup));
+    }
+
+    // Initial render with fallback list
+    rebuildSelect('', 'all');
+    buildPills();
 
     // Attempt to upgrade to the full system font list via Font Access API
-    try {
-        if (typeof window.queryLocalFonts === 'function') {
-            const fonts = await window.queryLocalFonts();
-            const families = [...new Set(fonts.map((font) => font.family))].sort((a, b) => a.localeCompare(b));
-            if (families.length > 0) populateGroupedFontSelect(selectEl, fallbackEntries, families);
+    async function tryLoadFonts() {
+        if (accessBtn) { accessBtn.textContent = 'Loading…'; accessBtn.classList.remove('hidden'); }
+        try {
+            if (typeof window.queryLocalFonts === 'function') {
+                const fonts = await window.queryLocalFonts();
+                const families = [...new Set(fonts.map(f => f.family))].sort((a, b) => a.localeCompare(b));
+                if (families.length > 0) {
+                    applyFontData(families);
+                    if (accessBtn) accessBtn.classList.add('hidden');
+                } else if (accessBtn) {
+                    accessBtn.textContent = 'Load system fonts';
+                }
+            } else {
+                console.warn('[html-editor] window.queryLocalFonts not available — requires Chrome 103+ with local-fonts permission');
+                if (accessBtn) { accessBtn.textContent = 'Load system fonts'; accessBtn.classList.remove('hidden'); }
+            }
+        } catch (err) {
+            console.warn('[html-editor] queryLocalFonts failed:', err);
+            if (accessBtn) { accessBtn.textContent = 'Load system fonts'; accessBtn.classList.remove('hidden'); }
         }
-    } catch (_) { /* permission denied or unsupported — fallback stays */ }
+    }
+
+    if (accessBtn) {
+        accessBtn.addEventListener('click', tryLoadFonts);
+    }
+
+    // Auto-attempt on load (Chrome will show permission prompt first time)
+    tryLoadFonts();
 }
 
 /**
@@ -386,9 +511,9 @@ async function loadSystemFonts(selectEl) {
  * @param {string} [font] - optional font-family override applied to all elements
  * @returns {Promise<string>} PNG data URL
  */
-export function renderHtmlToDataUrl(html, font = '') {
+export function renderHtmlToDataUrl(html, font = '', widthPx = 0) {
     return new Promise((resolve, reject) => {
-        const CANVAS_SIZE = 2048;
+        const CANVAS_SIZE = 4096;
         const PADDING = 32;
         const RENDER_SCALE = HTML_RENDER_SCALE;
         const clean = sanitizeHtml(html);
@@ -409,6 +534,7 @@ export function renderHtmlToDataUrl(html, font = '') {
         const fontPrefix = `<style xmlns="http://www.w3.org/1999/xhtml">*,*::before,*::after{${safeCss}}</style>`;
         const scaledWrapperStyle = [
             'display:inline-block',
+            ...(widthPx > 0 ? [`width:${widthPx}px`] : []),
             `transform:scale(${RENDER_SCALE})`,
             'transform-origin:top left'
         ].join(';');
@@ -509,6 +635,8 @@ export function createHtmlEditor({ ls, le, elements, syncWorkspaceView, analyzeC
     }
 
     async function triggerHtmlRender() {
+        stopCountdownVisual();
+        clearTimeout(ls.htmlRenderTimer);
         const html = le.htmlInput ? le.htmlInput.value.trim() : '';
         if (!html) {
             setHtmlStatus('');
@@ -517,7 +645,8 @@ export function createHtmlEditor({ ls, le, elements, syncWorkspaceView, analyzeC
         setHtmlStatus('Rendering…');
         try {
             const font = le.htmlFontSelect ? le.htmlFontSelect.value : '';
-            const dataUrl = await renderHtmlToDataUrl(html, font);
+            const widthPx = le.htmlWidthSlider ? parseInt(le.htmlWidthSlider.value, 10) : 0;
+            const dataUrl = await renderHtmlToDataUrl(html, font, widthPx);
             await onHtmlRendered(dataUrl);
             setHtmlStatus('Ready');
         } catch (err) {
@@ -526,9 +655,40 @@ export function createHtmlEditor({ ls, le, elements, syncWorkspaceView, analyzeC
         }
     }
 
+    const RENDER_DELAY = 4000;
+    const COUNTDOWN_CIRCUMFERENCE = 31.42; // 2 * π * r (r=5)
+
+    function startCountdownVisual() {
+        const svg = le.htmlCountdown;
+        const arc = le.htmlCountdownArc;
+        if (!svg || !arc) return;
+        svg.style.display = '';
+        arc.setAttribute('stroke-dashoffset', '0');
+        const start = performance.now();
+        if (ls.htmlCountdownRaf) cancelAnimationFrame(ls.htmlCountdownRaf);
+        function tick(now) {
+            const t = Math.min((now - start) / RENDER_DELAY, 1);
+            arc.setAttribute('stroke-dashoffset', String(COUNTDOWN_CIRCUMFERENCE * t));
+            if (t < 1) ls.htmlCountdownRaf = requestAnimationFrame(tick);
+        }
+        ls.htmlCountdownRaf = requestAnimationFrame(tick);
+    }
+
+    function stopCountdownVisual() {
+        if (ls.htmlCountdownRaf) {
+            cancelAnimationFrame(ls.htmlCountdownRaf);
+            ls.htmlCountdownRaf = null;
+        }
+        if (le.htmlCountdown) le.htmlCountdown.style.display = 'none';
+    }
+
     function scheduleHtmlRender() {
         clearTimeout(ls.htmlRenderTimer);
-        ls.htmlRenderTimer = setTimeout(triggerHtmlRender, 400);
+        startCountdownVisual();
+        ls.htmlRenderTimer = setTimeout(() => {
+            stopCountdownVisual();
+            triggerHtmlRender();
+        }, RENDER_DELAY);
     }
 
     async function onHtmlRendered(dataUrl) {
@@ -559,6 +719,24 @@ export function createHtmlEditor({ ls, le, elements, syncWorkspaceView, analyzeC
         le.svgSourceMirror?.closest('.svg-compare-grid')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     }
 
+    // Render source preview only (no full pipeline) — used by width slider for instant feedback
+    async function triggerSourcePreview() {
+        const html = le.htmlInput?.value.trim();
+        if (!html) return;
+        try {
+            const font = le.htmlFontSelect?.value || '';
+            const widthPx = le.htmlWidthSlider ? parseInt(le.htmlWidthSlider.value, 10) : 0;
+            const dataUrl = await renderHtmlToDataUrl(html, font, widthPx);
+            if (le.htmlSourceImg) le.htmlSourceImg.src = dataUrl;
+            if (le.svgSourceMirror) {
+                le.svgSourceMirror.src = dataUrl;
+                le.svgSourceMirror.style.display = '';
+            }
+        } catch (err) {
+            console.warn('[html-editor] source preview render error:', err);
+        }
+    }
+
     function setHtmlMode(active) {
         ls.htmlModeActive = active;
         if (!active) {
@@ -573,6 +751,45 @@ export function createHtmlEditor({ ls, le, elements, syncWorkspaceView, analyzeC
         syncWorkspaceView();
     }
 
+    // Wire style shortcut buttons — wrap selection or insert placeholder
+    document.querySelectorAll('.logo-html-style-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const el = le.htmlInput;
+            if (!el) return;
+            const tag = btn.dataset.tag || '';
+            if (!tag) return;
+            const isSelf = tag.endsWith('/'); // self-closing like br/
+            const start = el.selectionStart;
+            const end = el.selectionEnd;
+            let inserted;
+            if (isSelf) {
+                inserted = `<${tag}>`;
+                el.setRangeText(inserted, start, end, 'end');
+            } else {
+                const selected = el.value.substring(start, end);
+                const placeholder = selected || 'text';
+                inserted = `<${tag}>${placeholder}</${tag}>`;
+                el.setRangeText(inserted, start, end, 'end');
+                // Select the inner text so user can immediately type
+                if (!selected) {
+                    const inner_start = start + tag.length + 2;
+                    el.setSelectionRange(inner_start, inner_start + placeholder.length);
+                }
+            }
+            el.focus();
+            el.dispatchEvent(new Event('input'));
+        });
+    });
+
+    // Style guide toggle
+    const styleGuideToggle = document.getElementById('logo-html-style-guide-toggle');
+    const styleGuidePanel = document.getElementById('logo-html-style-guide');
+    if (styleGuideToggle && styleGuidePanel) {
+        styleGuideToggle.addEventListener('click', () => {
+            styleGuidePanel.classList.toggle('hidden');
+        });
+    }
+
     // Load system fonts into the dropdown
     loadSystemFonts(le.htmlFontSelect);
 
@@ -583,5 +800,5 @@ export function createHtmlEditor({ ls, le, elements, syncWorkspaceView, analyzeC
         });
     }
 
-    return { setHtmlStatus, triggerHtmlRender, scheduleHtmlRender, onHtmlRendered, setHtmlMode };
+    return { setHtmlStatus, triggerHtmlRender, scheduleHtmlRender, onHtmlRendered, setHtmlMode, triggerSourcePreview };
 }

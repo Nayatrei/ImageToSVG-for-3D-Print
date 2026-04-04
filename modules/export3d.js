@@ -605,6 +605,73 @@ export function createObjExporter({
         }
     }
 
+    async function exportAndOpenInBambu() {
+        if (!state.tracedata) {
+            if (statusText) statusText.textContent = 'Generate preview before opening in Bambu Studio.';
+            return;
+        }
+
+        const THREERef = window.THREE;
+        if (!THREERef || !window.SVGLoader || !window.BufferGeometryUtils) {
+            if (statusText) statusText.textContent = '3MF export libraries are still loading.';
+            return;
+        }
+
+        const thicknessValue = model.objThicknessSlider ? parseFloat(model.objThicknessSlider.value) : 4;
+        const defaultThickness = Number.isFinite(thicknessValue) ? thicknessValue : 4;
+
+        try {
+            showLoader(true);
+            if (statusText) statusText.textContent = 'Preparing for Bambu Studio…';
+
+            const result = buildExportGeometry(defaultThickness);
+            if (!result || result.layers.size === 0) {
+                throw new Error('No geometry generated');
+            }
+
+            const baseName = `${getImageBaseName()}_${Math.round(result.plan.maxHeight || defaultThickness)}mm`;
+            const filename = `${baseName}.3mf`;
+            const blob = await generate3MF(result.layers, baseName);
+
+            // Step 1: Download the 3MF (if Bambu Studio is set as default for .3mf it opens automatically)
+            downloadBlob(blob, filename);
+
+            // Step 2: Attempt the bambustudio:// custom protocol to launch Bambu Studio.
+            // MakerWorld format: bambustudio://open?file=<encodeURIComponent(url + "&name=" + cleanName)>
+            // Blob URLs are browser-scoped so Bambu Studio can't fetch them directly,
+            // but the protocol handler still launches the app, and the downloaded file is ready.
+            const blobUrl = URL.createObjectURL(blob);
+            const cleanName = filename.replace(/[\\/:*?"<>|&\s#]/g, '_');
+            const encodedParam = encodeURIComponent(blobUrl + '&name=' + cleanName);
+
+            // Detect variant: bambusuite (new), bambustudio (standard)
+            const ua = navigator.userAgent.toLowerCase();
+            const isSuite = /bbl-suite/i.test(ua);
+            const scheme = isSuite ? 'bambusuite' : 'bambustudio';
+            const protocolUrl = `${scheme}://open?file=${encodedParam}`;
+
+            const link = document.createElement('a');
+            link.href = protocolUrl;
+            link.style.display = 'none';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+
+            // Revoke blob URL after Bambu Studio has had time to attempt download
+            setTimeout(() => URL.revokeObjectURL(blobUrl), 15000);
+
+            if (statusText) statusText.textContent = '3MF downloaded — opening Bambu Studio…';
+
+            // Cleanup geometry
+            result.layers.forEach((layerData) => layerData.geometry.dispose());
+        } catch (error) {
+            console.error('Bambu Studio export failed:', error);
+            if (statusText) statusText.textContent = 'Failed to prepare for Bambu Studio.';
+        } finally {
+            showLoader(false);
+        }
+    }
+
     async function exportAsSTL() {
         if (!state.tracedata) {
             if (statusText) statusText.textContent = 'Generate preview before exporting STL.';
@@ -655,5 +722,5 @@ export function createObjExporter({
         }
     }
 
-    return { exportAsOBJ, exportAs3MF, exportAsSTL };
+    return { exportAsOBJ, exportAs3MF, exportAsSTL, exportAndOpenInBambu };
 }

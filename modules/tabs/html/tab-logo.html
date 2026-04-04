@@ -7,6 +7,11 @@
                                 <h3 class="output-card-title">HTML Logo Editor</h3>
                                 <div class="flex items-center gap-2">
                                     <span id="logo-html-status" class="text-xs text-gray-500"></span>
+                                    <svg id="logo-html-countdown" width="14" height="14" viewBox="0 0 14 14" style="display:none;flex-shrink:0;" title="Auto-render countdown">
+                                        <circle cx="7" cy="7" r="5" fill="none" stroke="#374151" stroke-width="2"/>
+                                        <circle id="logo-html-countdown-arc" cx="7" cy="7" r="5" fill="none" stroke="#60a5fa" stroke-width="2" stroke-dasharray="31.42" stroke-dashoffset="0" stroke-linecap="round" transform="rotate(-90 7 7)"/>
+                                    </svg>
+                                    <button id="logo-html-render-btn" class="btn-primary text-xs font-semibold py-1 px-3 rounded-md">Render</button>
                                     <button id="logo-html-mode-toggle" class="btn-secondary text-xs font-semibold py-1 px-3 rounded-md">Switch to Image Mode</button>
                                 </div>
                             </div>
@@ -17,11 +22,46 @@
                                     <button class="logo-html-preset resize-chip" data-preset="badge">Icon Badge</button>
                                     <button class="logo-html-preset resize-chip" data-preset="cta">CTA Button</button>
                                 </div>
-                                <div class="flex items-center gap-2 mb-3">
-                                    <label class="text-xs text-gray-400" for="logo-html-font-select">Font:</label>
-                                    <select id="logo-html-font-select" class="text-xs bg-gray-800 border border-gray-600 rounded px-2 py-1 text-white flex-1" title="Override font family">
+                                <!-- Font picker: language pills + search + select -->
+                                <div class="mb-3">
+                                    <div class="flex items-center gap-2 mb-2">
+                                        <label class="text-xs text-gray-400 flex-shrink-0" for="logo-html-font-select">Font:</label>
+                                        <input id="logo-html-font-search" type="search" placeholder="Search fonts…" class="text-xs bg-gray-800 border border-gray-600 rounded px-2 py-1 text-white flex-1 min-w-0" autocomplete="off" spellcheck="false">
+                                        <button id="logo-html-font-access-btn" class="btn-secondary text-xs font-semibold py-1 px-2 rounded-md flex-shrink-0 hidden" title="Grant access to system fonts">Load system fonts</button>
+                                    </div>
+                                    <div id="logo-html-font-pills" class="flex flex-wrap gap-1 mb-2 hidden"></div>
+                                    <select id="logo-html-font-select" class="text-xs bg-gray-800 border border-gray-600 rounded px-2 py-1 text-white w-full" title="Override font family">
                                         <option value="">— default —</option>
                                     </select>
+                                </div>
+                                <!-- Style shortcut buttons -->
+                                <div class="flex flex-wrap gap-1 mb-2 items-center">
+                                    <span class="text-xs text-gray-400 self-center mr-1">Style:</span>
+                                    <button class="logo-html-style-btn resize-chip font-bold" data-tag="strong" title="Bold — wraps selection in &lt;strong&gt;">B</button>
+                                    <button class="logo-html-style-btn resize-chip italic" data-tag="em" title="Italic — wraps selection in &lt;em&gt;">I</button>
+                                    <button class="logo-html-style-btn resize-chip" style="text-decoration:underline;" data-tag="u" title="Underline — wraps selection in &lt;u&gt;">U</button>
+                                    <button class="logo-html-style-btn resize-chip" style="text-decoration:line-through;" data-tag="del" title="Strikethrough — wraps selection in &lt;del&gt;">S</button>
+                                    <button class="logo-html-style-btn resize-chip font-mono" data-tag="code" title="Inline code — wraps selection in &lt;code&gt;">&lt;/&gt;</button>
+                                    <button class="logo-html-style-btn resize-chip" data-tag="mark" title="Highlight — wraps selection in &lt;mark&gt;">▮</button>
+                                    <button class="logo-html-style-btn resize-chip" data-tag="br/" title="Line break — inserts &lt;br/&gt;">↵</button>
+                                    <button id="logo-html-style-guide-toggle" class="resize-chip text-xs ml-auto text-gray-400" title="Toggle HTML style reference">? guide</button>
+                                </div>
+                                <!-- Collapsible HTML style guide -->
+                                <div id="logo-html-style-guide" class="hidden text-xs bg-gray-900 border border-gray-700 rounded p-3 mb-2 leading-relaxed">
+                                    <div class="font-semibold text-gray-300 mb-2">HTML Style Reference</div>
+                                    <div class="grid gap-y-1" style="grid-template-columns:auto 1fr;column-gap:12px;">
+                                        <code class="text-blue-300">&lt;strong&gt;text&lt;/strong&gt;</code><span class="text-gray-400">Bold weight</span>
+                                        <code class="text-blue-300">&lt;em&gt;text&lt;/em&gt;</code><span class="text-gray-400">Italic</span>
+                                        <code class="text-blue-300">&lt;u&gt;text&lt;/u&gt;</code><span class="text-gray-400">Underline</span>
+                                        <code class="text-blue-300">&lt;del&gt;text&lt;/del&gt;</code><span class="text-gray-400">Strikethrough</span>
+                                        <code class="text-blue-300">&lt;mark&gt;text&lt;/mark&gt;</code><span class="text-gray-400">Highlight (yellow bg)</span>
+                                        <code class="text-blue-300">&lt;br/&gt;</code><span class="text-gray-400">Line break</span>
+                                        <code class="text-blue-300">&lt;span style="color:#f00"&gt;text&lt;/span&gt;</code><span class="text-gray-400">Text colour</span>
+                                        <code class="text-blue-300">&lt;span style="font-size:32px"&gt;text&lt;/span&gt;</code><span class="text-gray-400">Font size</span>
+                                        <code class="text-blue-300">&lt;span style="letter-spacing:.1em"&gt;text&lt;/span&gt;</code><span class="text-gray-400">Letter spacing</span>
+                                        <code class="text-blue-300">&lt;span style="font-weight:900"&gt;text&lt;/span&gt;</code><span class="text-gray-400">Numeric weight (100–900)</span>
+                                    </div>
+                                    <div class="text-gray-500 mt-2">Tip: select text in the editor, then click a style button to wrap it instantly.</div>
                                 </div>
                                 <textarea id="logo-html-input" class="logo-html-textarea" spellcheck="false" placeholder="Paste HTML + inline CSS here…"></textarea>
                             </div>
@@ -36,6 +76,13 @@
                                 </div>
                                 <div class="bg-grid rounded-md flex items-center justify-center overflow-hidden svg-source-frame">
                                     <img id="logo-svg-source-mirror" alt="Original" class="max-w-full max-h-full object-contain">
+                                </div>
+                                <!-- Width slider for HTML render width -->
+                                <div id="logo-html-width-row" class="flex items-center gap-2 mt-2">
+                                    <label class="text-xs text-gray-400 flex-shrink-0" for="logo-html-width-slider">Width:</label>
+                                    <input type="range" id="logo-html-width-slider" min="200" max="1000" step="10" value="600" class="flex-1 accent-blue-500" title="Content width before scaling">
+                                    <span id="logo-html-width-label" class="text-xs text-gray-300 w-14 text-right flex-shrink-0">600px</span>
+                                    <button id="logo-html-width-reset" class="text-xs text-blue-400 hover:text-blue-300 flex-shrink-0" title="Reset to auto width">Auto</button>
                                 </div>
                             </div>
                             <div class="svg-compare-col">
@@ -140,7 +187,7 @@
                     </div>
 
 <footer id="logo-export-footer" data-tab-footer="logo" class="hidden p-4 border-t border-gray-700 bg-gray-800 flex-shrink-0">
-    <div class="footer-action-stack footer-action-stack-three">
+    <div class="footer-action-stack footer-action-stack-four">
         <div class="footer-action-card">
             <button id="logo-export-obj-btn" class="export-icon-btn btn-primary font-semibold py-3 px-4 rounded-md text-sm disabled:bg-gray-600 disabled:cursor-not-allowed" disabled>
                 <svg class="export-btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
@@ -173,6 +220,18 @@
                 <span>Export STL</span>
             </button>
             <div class="footer-action-meta">Per-layer STL files</div>
+        </div>
+        <div class="footer-action-card">
+            <button id="logo-bambu-open-btn" class="export-icon-btn font-semibold py-3 px-4 rounded-md text-sm disabled:bg-gray-600 disabled:cursor-not-allowed" style="background-color:#1db954;color:#fff;" disabled>
+                <!-- Bambu Lab / printer head icon -->
+                <svg class="export-btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M9 3H5a2 2 0 00-2 2v4m6-6h10a2 2 0 012 2v4M9 3v18m0 0h10a2 2 0 002-2v-4M9 21H5a2 2 0 01-2-2v-4m0 0h18"/>
+                    <circle cx="12" cy="12" r="2" fill="currentColor" stroke="none"/>
+                    <path d="M12 10V6M12 18v-4"/>
+                </svg>
+                <span>Open in Bambu Studio</span>
+            </button>
+            <div class="footer-action-meta">Export 3MF + launch Bambu Studio</div>
         </div>
     </div>
 </footer>

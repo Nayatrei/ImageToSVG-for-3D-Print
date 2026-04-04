@@ -7,7 +7,7 @@ import { saveInitialSliderValues, updateAllSliderDisplays, resetSlidersToInitial
 import { createZoomPanController } from '../shared/zoom-pan.js';
 import { svgToPng } from '../shared/svg-renderer.js';
 import { createPaletteManager } from '../shared/palette-manager.js';
-import { HTML_PRESETS, createHtmlEditor, extractDeclaredHtmlColors } from './logo/html-editor.js?v=4';
+import { HTML_PRESETS, createHtmlEditor, extractDeclaredHtmlColors } from './logo/html-editor.js?v=13';
 
 export function createLogoTabController({
     state,
@@ -703,6 +703,9 @@ export function createLogoTabController({
         if (le.export3mfBtn) {
             le.export3mfBtn.addEventListener('click', () => objExporter.exportAs3MF());
         }
+        if (le.bambuOpenBtn) {
+            le.bambuOpenBtn.addEventListener('click', () => objExporter.exportAndOpenInBambu());
+        }
         if (le.exportStlBtn) {
             le.exportStlBtn.addEventListener('click', () => objExporter.exportAsSTL());
         }
@@ -861,9 +864,38 @@ export function createLogoTabController({
             });
         }
 
+        if (le.htmlRenderBtn) {
+            le.htmlRenderBtn.addEventListener('click', () => {
+                if (le.htmlInput?.value.trim()) htmlEditor.triggerHtmlRender();
+            });
+        }
+
         if (le.htmlInput) {
             le.htmlInput.addEventListener('input', () => {
                 if (ls.htmlModeActive) htmlEditor.scheduleHtmlRender();
+            });
+        }
+
+        if (le.htmlWidthSlider && le.htmlWidthLabel) {
+            le.htmlWidthSlider.addEventListener('input', () => {
+                le.htmlWidthLabel.textContent = `${le.htmlWidthSlider.value}px`;
+                if (ls.htmlModeActive && le.htmlInput?.value.trim()) {
+                    // Immediately re-render source preview at new width, debounce full pipeline
+                    htmlEditor.triggerSourcePreview();
+                    htmlEditor.scheduleHtmlRender();
+                }
+            });
+        }
+
+        if (le.htmlWidthReset) {
+            le.htmlWidthReset.addEventListener('click', () => {
+                if (!le.htmlWidthSlider || !le.htmlWidthLabel) return;
+                le.htmlWidthSlider.value = 600;
+                le.htmlWidthLabel.textContent = '600px';
+                if (ls.htmlModeActive && le.htmlInput?.value.trim()) {
+                    htmlEditor.triggerSourcePreview();
+                    htmlEditor.triggerHtmlRender();
+                }
             });
         }
 

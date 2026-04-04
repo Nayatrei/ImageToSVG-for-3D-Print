@@ -239,11 +239,22 @@ export function createElements() {
             },
             html: {
                 htmlSourceImg: document.getElementById('logo-html-source-img'),
+                bambuOpenBtn: document.getElementById('logo-bambu-open-btn'),
                 htmlInput: document.getElementById('logo-html-input'),
                 htmlStatus: document.getElementById('logo-html-status'),
+                htmlRenderBtn: document.getElementById('logo-html-render-btn'),
+                htmlWidthRow: document.getElementById('logo-html-width-row'),
+                htmlWidthSlider: document.getElementById('logo-html-width-slider'),
+                htmlWidthLabel: document.getElementById('logo-html-width-label'),
+                htmlWidthReset: document.getElementById('logo-html-width-reset'),
+                htmlCountdown: document.getElementById('logo-html-countdown'),
+                htmlCountdownArc: document.getElementById('logo-html-countdown-arc'),
                 htmlModeToggle: document.getElementById('logo-html-mode-toggle'),
                 htmlEditorBody: document.getElementById('logo-html-editor-body'),
-                htmlFontSelect: document.getElementById('logo-html-font-select')
+                htmlFontSelect: document.getElementById('logo-html-font-select'),
+                htmlFontSearch: document.getElementById('logo-html-font-search'),
+                htmlFontPills: document.getElementById('logo-html-font-pills'),
+                htmlFontAccessBtn: document.getElementById('logo-html-font-access-btn')
             }
         },
 
