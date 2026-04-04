@@ -1798,7 +1798,8 @@
         }
 
         .layer-stack-item {
-            display: flex;
+            display: grid;
+            grid-template-columns: auto minmax(0, 1fr) auto auto;
             align-items: center;
             gap: 0.5rem;
             font-size: 0.75rem;
@@ -1826,16 +1827,22 @@
         }
 
         .layer-stack-label {
-            flex: 1;
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
         }
 
         .layer-stack-range {
             font-size: 0.7rem;
             color: #9ca3af;
+            min-width: 5.2rem;
+            text-align: right;
+            white-space: nowrap;
         }
 
         .layer-stack-thickness {
-            width: 38px;
+            width: 54px;
             padding: 2px 4px;
             font-size: 0.65rem;
             background: #374151;
@@ -2781,6 +2788,10 @@ body,
     display: flex;
     flex-direction: column;
     gap: 0.375rem;
+}
+
+.sidebar-sub-sections.hidden {
+    display: none;
 }
 
 .sidebar-sub-accordion {

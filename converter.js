@@ -143,6 +143,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     function syncImportPanel() {
         const isBulk = state.activeTab === 'bulk';
         const isLogo = state.activeTab === 'logo';
+        const isSvg = state.activeTab === 'svg';
+        const usesConversionSidebar = isSvg || isLogo;
 
         if (elements.importPanelTitle) {
             elements.importPanelTitle.textContent = isBulk ? '1. Load Folder' : '1. Load Image';
@@ -158,15 +160,31 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (elements.importUrlShell) {
             elements.importUrlShell.classList.toggle('hidden', isBulk);
         }
-        // Bulk mode is the only workflow that does not use the shared conversion controls.
-        if (elements.sidebarAdjustSection) {
-            elements.sidebarAdjustSection.classList.toggle('hidden', isBulk);
+        if (elements.sidebar?.adjustSection) {
+            elements.sidebar.adjustSection.classList.toggle('hidden', !usesConversionSidebar);
         }
-        if (elements.objControlsSection) {
-            elements.objControlsSection.classList.toggle('hidden', isBulk || isLogo);
+        if (elements.sidebar?.footer) {
+            elements.sidebar.footer.classList.toggle('hidden', !usesConversionSidebar);
         }
-        if (elements.sidebarPrimaryFooter) {
-            elements.sidebarPrimaryFooter.classList.toggle('hidden', isBulk);
+        if (elements.sidebar?.svgControls) {
+            elements.sidebar.svgControls.classList.toggle('hidden', !isSvg);
+        }
+        if (elements.sidebar?.logoControls) {
+            elements.sidebar.logoControls.classList.toggle('hidden', !isLogo);
+        }
+        if (elements.sidebar?.svgActions) {
+            elements.sidebar.svgActions.classList.toggle('hidden', !isSvg);
+        }
+        if (elements.sidebar?.logoActions) {
+            elements.sidebar.logoActions.classList.toggle('hidden', !isLogo);
+        }
+        if (elements.sidebar?.svgResetBtn) {
+            elements.sidebar.svgResetBtn.classList.remove('hidden');
+            elements.sidebar.svgResetBtn.style.display = isSvg && state.isDirty ? 'inline' : 'none';
+        }
+        if (elements.sidebar?.logoResetBtn) {
+            elements.sidebar.logoResetBtn.classList.remove('hidden');
+            elements.sidebar.logoResetBtn.style.display = isLogo && state.logo.isDirty ? 'inline' : 'none';
         }
         if (elements.resolutionNotice && isBulk) {
             elements.resolutionNotice.classList.add('hidden');
@@ -235,7 +253,19 @@ document.addEventListener('DOMContentLoaded', async () => {
 
     const svgTab = createSvgTabController({
         state,
-        elements,
+        sharedElements: {
+            sourceImage: elements.sourceImage,
+            outputSection: elements.outputSection,
+            statusText: elements.statusText,
+            resolutionNotice: elements.resolutionNotice,
+            colorCountNotice: elements.colorCountNotice
+        },
+        sidebarControls: elements.svg.sidebar,
+        previewElements: elements.svg.preview,
+        paletteElements: elements.svg.palette,
+        modelControls: elements.svg.model3d,
+        viewControls: elements.svg.preview3d,
+        exportElements: elements.svg.export,
         showLoader,
         syncWorkspaceView,
         hasSingleImageLoaded,
@@ -250,7 +280,20 @@ document.addEventListener('DOMContentLoaded', async () => {
     const logoTab = createLogoTabController({
         state,
         ls: state.logo,
-        elements,
+        sharedElements: {
+            sourceImage: elements.sourceImage,
+            outputSection: elements.outputSection,
+            statusText: elements.statusText,
+            resolutionNotice: elements.resolutionNotice,
+            colorCountNotice: elements.colorCountNotice
+        },
+        sidebarControls: elements.logo.sidebar,
+        previewElements: elements.logo.preview,
+        paletteElements: elements.logo.palette,
+        modelControls: elements.logo.model3d,
+        viewControls: elements.logo.preview3d,
+        exportElements: elements.logo.export,
+        htmlElements: elements.logo.html,
         showLoader,
         syncWorkspaceView,
         hasSingleImageLoaded,
@@ -308,8 +351,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         elements.sourceImage.src = src;
-        if (elements.svgSourceMirror) elements.svgSourceMirror.src = src;
-        if (elements.logoSvgSourceMirror) elements.logoSvgSourceMirror.src = src;
+        if (elements.logo?.preview?.svgSourceMirror) elements.logo.preview.svgSourceMirror.src = src;
     }
 
     function resetImageInfo() {
@@ -479,6 +521,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         rasterTab.setExportScale(state.exportScale);
         bulkTab.setExportScale(state.bulk.exportScale);
         svgTab.setHighFidelity(state.highFidelity);
+        logoTab.setHighFidelity(state.logo.highFidelity);
         rasterTab.updateExportScaleDisplay();
         syncImportPanel();
         syncWorkspaceView();

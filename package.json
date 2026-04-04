@@ -1,0 +1,10 @@
+{
+  "name": "genesis-image-converter",
+  "private": true,
+  "scripts": {
+    "test:smoke": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.54.0"
+  }
+}

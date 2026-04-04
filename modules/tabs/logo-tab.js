@@ -12,7 +12,14 @@ import { HTML_PRESETS, createHtmlEditor, extractDeclaredHtmlColors } from './log
 export function createLogoTabController({
     state,
     ls,
-    elements,
+    sharedElements,
+    sidebarControls,
+    previewElements,
+    paletteElements,
+    modelControls,
+    viewControls,
+    exportElements,
+    htmlElements,
     showLoader,
     syncWorkspaceView,
     hasSingleImageLoaded,
@@ -25,52 +32,15 @@ export function createLogoTabController({
 }) {
     const tracer = window.ImageTracer;
 
-    // ── Logo-local element aliases ─────────────────────────────────────────────
-    // `le` remaps logo-prefixed DOM elements to the same property names used by
-    // shared utilities, so shared code receives a consistent element interface.
     const le = {
-        ...elements,
-        svgSourceMirror: elements.logoSvgSourceMirror,
-        svgPreview: elements.logoSvgPreview,
-        objPreviewCanvas: elements.logoObjPreviewCanvas,
-        objPreviewPlaceholder: elements.logoObjPreviewPlaceholder,
-        objBuildPlateToggle: elements.logoObjBuildPlateToggle,
-        objPreviewBedSelect: elements.logoObjPreviewBedSelect,
-        objBedSelect: elements.logoObjPreviewBedSelect,
-        objFitView: elements.logoObjFitView,
-        objRecenter: elements.logoObjRecenter,
-        objTargetLock: elements.logoObjTargetLock,
-        objModeGhost: elements.logoObjModeGhost,
-        objModeSolo: elements.logoObjModeSolo,
-        layerStackList: elements.logoLayerStackList,
-        layerStackMeta: elements.logoLayerStackMeta,
-        previewResolution: elements.logoPreviewResolution,
-        qualityIndicator: elements.logoQualityIndicator,
-        paletteContainer: elements.logoPaletteContainer,
-        paletteRow: elements.logoPaletteRow,
-        finalPaletteContainer: elements.logoFinalPaletteContainer,
-        layerMergingSection: elements.logoLayerMergingSection,
-        mergeRulesContainer: elements.logoMergeRulesContainer,
-        addMergeRuleBtn: elements.logoAddMergeRuleBtn,
-        useBaseLayerCheckbox: elements.logoUseBaseLayerCheckbox,
-        baseLayerSelect: elements.logoBaseLayerSelect,
-        exportObjBtn: elements.logoExportObjBtn,
-        export3mfBtn: elements.logoExport3mfBtn,
-        exportStlBtn: elements.logoExportStlBtn,
-        objScaleSlider: elements.logoObjScaleSlider,
-        objScaleValue: elements.logoObjScaleValue,
-        objThicknessSlider: elements.logoObjThicknessSlider,
-        objThicknessValue: elements.logoObjThicknessValue,
-        objMarginInput: elements.logoObjMarginInput,
-        objSizeReadout: elements.logoObjSizeReadout,
-        objStructureWarning: elements.logoObjStructureWarning,
-        originalResolution: elements.logoOriginalResolution,
-        htmlSourceImg: elements.logoHtmlSourceImg,
-        htmlInput: elements.logoHtmlInput,
-        htmlStatus: elements.logoHtmlStatus,
-        htmlModeToggle: elements.logoHtmlModeToggle,
-        htmlEditorBody: elements.logoHtmlEditorBody,
-        htmlFontSelect: elements.logoHtmlFontSelect,
+        ...sharedElements,
+        ...sidebarControls,
+        ...previewElements,
+        ...paletteElements,
+        ...modelControls,
+        ...viewControls,
+        ...exportElements,
+        ...htmlElements
     };
 
     // Returns the active source image (HTML-rendered or imported)
@@ -406,7 +376,7 @@ export function createLogoTabController({
     const htmlEditor = createHtmlEditor({
         ls,
         le,
-        elements,
+        elements: sharedElements,
         syncWorkspaceView,
         analyzeColorsClick
     });
@@ -444,7 +414,8 @@ export function createLogoTabController({
 
     const objPreview = createObjPreview({
         state: ls,
-        elements: le,
+        modelControls,
+        viewControls,
         getDataToExport,
         getVisibleLayerIndices,
         ImageTracer: tracer
@@ -452,7 +423,8 @@ export function createLogoTabController({
 
     const objExporter = createObjExporter({
         state: ls,
-        elements: le,
+        modelControls,
+        statusText: le.statusText,
         getDataToExport,
         ImageTracer: tracer,
         showLoader,
@@ -591,8 +563,8 @@ export function createLogoTabController({
         }
         ls.htmlDeclaredColors = [];
 
-        if (elements.logoSvgSourceMirror && elements.sourceImage.src) {
-            elements.logoSvgSourceMirror.src = elements.sourceImage.src;
+        if (le.svgSourceMirror && le.sourceImage.src) {
+            le.svgSourceMirror.src = le.sourceImage.src;
         }
 
         syncWorkspaceView();
@@ -757,30 +729,36 @@ export function createLogoTabController({
             });
         }
 
-        document.querySelectorAll('.control-panel input[type="range"]').forEach((slider) => {
+        [
+            le.pathSimplificationSlider,
+            le.cornerSharpnessSlider,
+            le.curveStraightnessSlider,
+            le.colorPrecisionSlider,
+            le.maxColorsSlider
+        ].filter(Boolean).forEach((slider) => {
             slider.addEventListener('input', (e) => {
                 if (state.activeTab !== 'logo') return;
-                if (e.target.id === 'obj-thickness' || e.target.id === 'obj-scale') return;
                 if (!ls.isDirty) {
                     ls.isDirty = true;
                     le.resetBtn.style.display = 'inline';
                 }
                 updateAllSliderDisplays(le);
 
+                const controlId = e.target.id.replace(/^logo-/, '');
                 const tooltipEl = document.getElementById(`${e.target.id}-tooltip`);
                 if (tooltipEl) {
-                    tooltipEl.textContent = SLIDER_TOOLTIPS[e.target.id];
+                    tooltipEl.textContent = SLIDER_TOOLTIPS[controlId];
                     tooltipEl.style.opacity = '1';
-                    clearTimeout(state.tooltipTimeout);
-                    state.tooltipTimeout = setTimeout(() => { tooltipEl.style.opacity = '0'; }, 2000);
+                    clearTimeout(ls.tooltipTimeout);
+                    ls.tooltipTimeout = setTimeout(() => { tooltipEl.style.opacity = '0'; }, 2000);
                 }
 
-                if (e.target.id === 'color-precision' || e.target.id === 'max-colors') {
+                if (controlId === 'color-precision' || controlId === 'max-colors') {
                     if (ls.colorsAnalyzed && hasLogoSourceLoaded()) {
                         ls.colorsAnalyzed = false;
                         if (le.optimizePathsBtn) le.optimizePathsBtn.disabled = true;
                     }
-                    if (e.target.id === 'max-colors') updateColorCountNotice();
+                    if (controlId === 'max-colors') updateColorCountNotice();
                 } else if (ls.colorsAnalyzed) {
                     debounceOptimizePaths();
                 }
@@ -863,7 +841,7 @@ export function createLogoTabController({
             objPreview.render();
         });
 
-        elements.sourceImage.addEventListener('load', onSourceImageLoaded);
+        le.sourceImage.addEventListener('load', onSourceImageLoaded);
 
         // ── HTML editor bindings ───────────────────────────────────────────────
         if (le.htmlModeToggle) {

@@ -5,7 +5,7 @@
  */
 export function createElements() {
     return {
-        // ── App shell ──────────────────────────────────────────────────────────
+        // App shell
         welcomeScreen: document.getElementById('welcome-screen'),
         mainContent: document.getElementById('main-content'),
         loaderOverlay: document.getElementById('loader-overlay'),
@@ -16,31 +16,37 @@ export function createElements() {
         loaderProgressMeta: document.getElementById('loader-progress-meta'),
         workspace: document.querySelector('.workspace'),
 
-        // ── Sidebar / import panel ─────────────────────────────────────────────
+        // Sidebar / import panel
         sidebarImportSection: document.getElementById('sidebar-import-section'),
         importPanelTitle: document.getElementById('import-panel-title'),
         importBtnLabel: document.getElementById('import-btn-label'),
         importModeCopy: document.getElementById('import-mode-copy'),
         importUrlShell: document.getElementById('import-url-shell'),
-        sidebarAdjustSection: document.getElementById('sidebar-adjust-section'),
-        objControlsSection: document.getElementById('obj-controls-section'),
-        sidebarPrimaryFooter: document.getElementById('sidebar-primary-footer'),
+        sidebar: {
+            adjustSection: document.getElementById('sidebar-adjust-section'),
+            footer: document.getElementById('sidebar-primary-footer'),
+            svgControls: document.getElementById('svg-sidebar-controls'),
+            logoControls: document.getElementById('logo-sidebar-controls'),
+            svgActions: document.getElementById('svg-sidebar-actions'),
+            logoActions: document.getElementById('logo-sidebar-actions'),
+            svgResetBtn: document.getElementById('reset-btn'),
+            logoResetBtn: document.getElementById('logo-reset-btn')
+        },
 
-        // ── Source image ───────────────────────────────────────────────────────
+        // Shared source / status
         sourceImage: document.getElementById('source-image'),
-        svgSourceMirror: document.getElementById('svg-source-mirror'),
         originalImagePanel: document.getElementById('original-image-panel'),
         singleOriginalView: document.getElementById('single-original-view'),
         bulkOriginalView: document.getElementById('bulk-original-view'),
-
-        // ── Common controls ────────────────────────────────────────────────────
         statusText: document.getElementById('status-text'),
         importBtn: document.getElementById('import-btn'),
         fileInput: document.getElementById('file-input'),
         urlInput: document.getElementById('url-input'),
         loadUrlBtn: document.getElementById('load-url-btn'),
+        resolutionNotice: document.getElementById('resolution-notice'),
+        outputSection: document.getElementById('output-section'),
 
-        // ── Bulk tab ───────────────────────────────────────────────────────────
+        // Bulk tab
         bulkFolderInput: document.getElementById('bulk-folder-input'),
         bulkFolderSummary: document.getElementById('bulk-folder-summary'),
         bulkSourceList: document.getElementById('bulk-source-list'),
@@ -75,9 +81,8 @@ export function createElements() {
         bulkSelectedFormat: document.getElementById('bulk-selected-format'),
         bulkSelectedOutputFormat: document.getElementById('bulk-selected-output-format'),
 
-        // ── Raster tab ─────────────────────────────────────────────────────────
+        // Raster tab
         originalResolution: document.getElementById('original-resolution'),
-        resolutionNotice: document.getElementById('resolution-notice'),
         colorCountNotice: document.getElementById('color-count-notice'),
         resizeChips: document.querySelectorAll('#tab-raster .resize-chip'),
         resizeCustomInput: document.getElementById('resize-custom'),
@@ -91,126 +96,170 @@ export function createElements() {
         sizeEstJpg: document.getElementById('size-est-jpg'),
         sizeEstTga: document.getElementById('size-est-tga'),
 
-        // ── SVG tab controls ───────────────────────────────────────────────────
-        analyzeColorsBtn: document.getElementById('analyze-colors-btn'),
-        optimizePathsBtn: document.getElementById('optimize-paths-btn'),
-        resetBtn: document.getElementById('reset-btn'),
-        colorControls: document.getElementById('color-controls'),
-        pathControls: document.getElementById('path-controls'),
-        pathSimplificationSlider: document.getElementById('path-simplification'),
-        pathSimplificationValue: document.getElementById('path-simplification-value'),
-        pathSimplificationTooltip: document.getElementById('path-simplification-tooltip'),
-        cornerSharpnessSlider: document.getElementById('corner-sharpness'),
-        cornerSharpnessValue: document.getElementById('corner-sharpness-value'),
-        cornerSharpnessTooltip: document.getElementById('corner-sharpness-tooltip'),
-        curveStraightnessSlider: document.getElementById('curve-straightness'),
-        curveStraightnessValue: document.getElementById('curve-straightness-value'),
-        curveStraightnessTooltip: document.getElementById('curve-straightness-tooltip'),
-        colorPrecisionSlider: document.getElementById('color-precision'),
-        colorPrecisionValue: document.getElementById('color-precision-value'),
-        colorPrecisionTooltip: document.getElementById('color-precision-tooltip'),
-        maxColorsSlider: document.getElementById('max-colors'),
-        maxColorsValue: document.getElementById('max-colors-value'),
-        maxColorsTooltip: document.getElementById('max-colors-tooltip'),
-        toggleFidelityBtn: document.getElementById('toggle-fidelity-btn'),
+        // SVG tab
+        svg: {
+            sidebar: {
+                analyzeColorsBtn: document.getElementById('analyze-colors-btn'),
+                optimizePathsBtn: document.getElementById('optimize-paths-btn'),
+                resetBtn: document.getElementById('reset-btn'),
+                colorControls: document.getElementById('color-controls'),
+                pathControls: document.getElementById('path-controls'),
+                pathSimplificationSlider: document.getElementById('path-simplification'),
+                pathSimplificationValue: document.getElementById('path-simplification-value'),
+                pathSimplificationTooltip: document.getElementById('path-simplification-tooltip'),
+                cornerSharpnessSlider: document.getElementById('corner-sharpness'),
+                cornerSharpnessValue: document.getElementById('corner-sharpness-value'),
+                cornerSharpnessTooltip: document.getElementById('corner-sharpness-tooltip'),
+                curveStraightnessSlider: document.getElementById('curve-straightness'),
+                curveStraightnessValue: document.getElementById('curve-straightness-value'),
+                curveStraightnessTooltip: document.getElementById('curve-straightness-tooltip'),
+                colorPrecisionSlider: document.getElementById('color-precision'),
+                colorPrecisionValue: document.getElementById('color-precision-value'),
+                colorPrecisionTooltip: document.getElementById('color-precision-tooltip'),
+                maxColorsSlider: document.getElementById('max-colors'),
+                maxColorsValue: document.getElementById('max-colors-value'),
+                maxColorsTooltip: document.getElementById('max-colors-tooltip'),
+                toggleFidelityBtn: document.getElementById('toggle-fidelity-btn')
+            },
+            preview: {
+                svgPreview: document.getElementById('svg-preview'),
+                svgPreviewImportOverlay: document.getElementById('svg-preview-import-overlay'),
+                svgPreviewFiltered: document.getElementById('svg-preview-filtered'),
+                previewResolution: document.getElementById('preview-resolution'),
+                qualityIndicator: document.getElementById('quality-indicator'),
+                selectedLayerText: document.getElementById('selected-layer-text'),
+                originalResolution: document.getElementById('original-resolution')
+            },
+            palette: {
+                paletteContainer: document.getElementById('palette-container'),
+                paletteRow: document.getElementById('palette-row'),
+                finalPaletteContainer: document.getElementById('final-palette-container'),
+                layerMergingSection: document.getElementById('layer-merging-section'),
+                mergeRulesContainer: document.getElementById('merge-rules-container'),
+                addMergeRuleBtn: document.getElementById('add-merge-rule-btn'),
+                combineAndDownloadBtn: document.getElementById('combine-and-download-btn'),
+                downloadCombinedLayersBtn: document.getElementById('download-combined-layers-btn'),
+                downloadSilhouetteBtn: document.getElementById('download-silhouette-btn'),
+                exportLayersBtn: document.getElementById('export-layers-btn')
+            },
+            model3d: {
+                objThicknessSlider: document.getElementById('obj-thickness'),
+                objThicknessValue: document.getElementById('obj-thickness-value'),
+                objScaleSlider: document.getElementById('obj-scale'),
+                objScaleValue: document.getElementById('obj-scale-value'),
+                objSizeReadout: document.getElementById('obj-size-readout'),
+                objStructureWarning: document.getElementById('obj-structure-warning'),
+                objBedSelect: document.getElementById('obj-bed'),
+                objMarginInput: document.getElementById('obj-margin')
+            },
+            preview3d: {
+                objPreviewCanvas: document.getElementById('obj-preview-canvas'),
+                objPreviewPlaceholder: document.getElementById('obj-preview-placeholder'),
+                objBuildPlateToggle: document.getElementById('obj-build-plate-toggle'),
+                objPreviewBedSelect: document.getElementById('obj-preview-bed'),
+                objFitView: document.getElementById('obj-fit-view'),
+                objRecenter: document.getElementById('obj-recenter'),
+                objTargetLock: document.getElementById('obj-target-lock'),
+                objModeGhost: document.getElementById('obj-mode-ghost'),
+                objModeSolo: document.getElementById('obj-mode-solo'),
+                layerStackList: document.getElementById('layer-stack-list'),
+                layerStackMeta: document.getElementById('layer-stack-meta'),
+                useBaseLayerCheckbox: document.getElementById('use-base-layer'),
+                baseLayerSelect: document.getElementById('base-layer-select')
+            },
+            export: {
+                exportObjBtn: document.getElementById('export-obj-btn'),
+                export3mfBtn: document.getElementById('export-3mf-btn'),
+                exportStlBtn: document.getElementById('export-stl-btn'),
+                exportFooter: document.getElementById('svg-export-footer')
+            }
+        },
 
-        // ── SVG tab previews ───────────────────────────────────────────────────
-        svgPreview: document.getElementById('svg-preview'),
-        svgPreviewImportOverlay: document.getElementById('svg-preview-import-overlay'),
-        svgPreviewFiltered: document.getElementById('svg-preview-filtered'),
-        outputSection: document.getElementById('output-section'),
-        previewResolution: document.getElementById('preview-resolution'),
-        qualityIndicator: document.getElementById('quality-indicator'),
-        selectedLayerText: document.getElementById('selected-layer-text'),
+        // Logo tab
+        logo: {
+            sidebar: {
+                analyzeColorsBtn: document.getElementById('logo-analyze-colors-btn'),
+                optimizePathsBtn: document.getElementById('logo-optimize-paths-btn'),
+                resetBtn: document.getElementById('logo-reset-btn'),
+                colorControls: document.getElementById('logo-color-controls'),
+                pathControls: document.getElementById('logo-path-controls'),
+                pathSimplificationSlider: document.getElementById('logo-path-simplification'),
+                pathSimplificationValue: document.getElementById('logo-path-simplification-value'),
+                pathSimplificationTooltip: document.getElementById('logo-path-simplification-tooltip'),
+                cornerSharpnessSlider: document.getElementById('logo-corner-sharpness'),
+                cornerSharpnessValue: document.getElementById('logo-corner-sharpness-value'),
+                cornerSharpnessTooltip: document.getElementById('logo-corner-sharpness-tooltip'),
+                curveStraightnessSlider: document.getElementById('logo-curve-straightness'),
+                curveStraightnessValue: document.getElementById('logo-curve-straightness-value'),
+                curveStraightnessTooltip: document.getElementById('logo-curve-straightness-tooltip'),
+                colorPrecisionSlider: document.getElementById('logo-color-precision'),
+                colorPrecisionValue: document.getElementById('logo-color-precision-value'),
+                colorPrecisionTooltip: document.getElementById('logo-color-precision-tooltip'),
+                maxColorsSlider: document.getElementById('logo-max-colors'),
+                maxColorsValue: document.getElementById('logo-max-colors-value'),
+                maxColorsTooltip: document.getElementById('logo-max-colors-tooltip'),
+                toggleFidelityBtn: document.getElementById('logo-toggle-fidelity-btn')
+            },
+            preview: {
+                svgSourceMirror: document.getElementById('logo-svg-source-mirror'),
+                originalResolution: document.getElementById('logo-original-resolution'),
+                svgPreview: document.getElementById('logo-svg-preview'),
+                previewResolution: document.getElementById('logo-preview-resolution'),
+                qualityIndicator: document.getElementById('logo-quality-indicator')
+            },
+            palette: {
+                paletteContainer: document.getElementById('logo-palette-container'),
+                paletteRow: document.getElementById('logo-palette-row'),
+                finalPaletteContainer: document.getElementById('logo-final-palette-container'),
+                layerMergingSection: document.getElementById('logo-layer-merging-section'),
+                mergeRulesContainer: document.getElementById('logo-merge-rules-container'),
+                addMergeRuleBtn: document.getElementById('logo-add-merge-rule-btn')
+            },
+            model3d: {
+                objThicknessSlider: document.getElementById('logo-obj-thickness'),
+                objThicknessValue: document.getElementById('logo-obj-thickness-value'),
+                objScaleSlider: document.getElementById('logo-obj-scale'),
+                objScaleValue: document.getElementById('logo-obj-scale-value'),
+                objSizeReadout: document.getElementById('logo-obj-size-readout'),
+                objStructureWarning: document.getElementById('logo-obj-structure-warning'),
+                objBedSelect: document.getElementById('logo-obj-bed'),
+                objMarginInput: document.getElementById('logo-obj-margin')
+            },
+            preview3d: {
+                objPreviewCanvas: document.getElementById('logo-obj-preview-canvas'),
+                objPreviewPlaceholder: document.getElementById('logo-obj-preview-placeholder'),
+                objBuildPlateToggle: document.getElementById('logo-obj-build-plate-toggle'),
+                objFitView: document.getElementById('logo-obj-fit-view'),
+                objRecenter: document.getElementById('logo-obj-recenter'),
+                objTargetLock: document.getElementById('logo-obj-target-lock'),
+                objModeGhost: document.getElementById('logo-obj-mode-ghost'),
+                objModeSolo: document.getElementById('logo-obj-mode-solo'),
+                layerStackList: document.getElementById('logo-layer-stack-list'),
+                layerStackMeta: document.getElementById('logo-layer-stack-meta'),
+                useBaseLayerCheckbox: document.getElementById('logo-use-base-layer'),
+                baseLayerSelect: document.getElementById('logo-base-layer-select')
+            },
+            export: {
+                exportObjBtn: document.getElementById('logo-export-obj-btn'),
+                export3mfBtn: document.getElementById('logo-export-3mf-btn'),
+                exportStlBtn: document.getElementById('logo-export-stl-btn'),
+                exportFooter: document.getElementById('logo-export-footer')
+            },
+            html: {
+                htmlSourceImg: document.getElementById('logo-html-source-img'),
+                htmlInput: document.getElementById('logo-html-input'),
+                htmlStatus: document.getElementById('logo-html-status'),
+                htmlModeToggle: document.getElementById('logo-html-mode-toggle'),
+                htmlEditorBody: document.getElementById('logo-html-editor-body'),
+                htmlFontSelect: document.getElementById('logo-html-font-select')
+            }
+        },
 
-        // ── SVG tab palette / merge ────────────────────────────────────────────
-        paletteContainer: document.getElementById('palette-container'),
-        paletteRow: document.getElementById('palette-row'),
-        finalPaletteContainer: document.getElementById('final-palette-container'),
-        layerMergingSection: document.getElementById('layer-merging-section'),
-        mergeRulesContainer: document.getElementById('merge-rules-container'),
-        addMergeRuleBtn: document.getElementById('add-merge-rule-btn'),
-        combineAndDownloadBtn: document.getElementById('combine-and-download-btn'),
-        downloadCombinedLayersBtn: document.getElementById('download-combined-layers-btn'),
-        downloadSilhouetteBtn: document.getElementById('download-silhouette-btn'),
-        exportLayersBtn: document.getElementById('export-layers-btn'),
-        useBaseLayerCheckbox: document.getElementById('use-base-layer'),
-        baseLayerSelect: document.getElementById('base-layer-select'),
-
-        // ── 3D preview / export (SVG tab) ──────────────────────────────────────
-        objPreviewCanvas: document.getElementById('obj-preview-canvas'),
-        objPreviewPlaceholder: document.getElementById('obj-preview-placeholder'),
-        objBuildPlateToggle: document.getElementById('obj-build-plate-toggle'),
-        objPreviewBedSelect: document.getElementById('obj-preview-bed'),
-        objFitView: document.getElementById('obj-fit-view'),
-        objRecenter: document.getElementById('obj-recenter'),
-        objTargetLock: document.getElementById('obj-target-lock'),
-        objModeGhost: document.getElementById('obj-mode-ghost'),
-        objModeSolo: document.getElementById('obj-mode-solo'),
-        layerStackList: document.getElementById('layer-stack-list'),
-        layerStackMeta: document.getElementById('layer-stack-meta'),
-        objThicknessSlider: document.getElementById('obj-thickness'),
-        objThicknessValue: document.getElementById('obj-thickness-value'),
-        objScaleSlider: document.getElementById('obj-scale'),
-        objScaleValue: document.getElementById('obj-scale-value'),
-        objSizeReadout: document.getElementById('obj-size-readout'),
-        objStructureWarning: document.getElementById('obj-structure-warning'),
-        exportObjBtn: document.getElementById('export-obj-btn'),
-        export3mfBtn: document.getElementById('export-3mf-btn'),
-        exportStlBtn: document.getElementById('export-stl-btn'),
-        objBedSelect: document.getElementById('obj-bed'),
-        objMarginInput: document.getElementById('obj-margin'),
-
-        // ── Tab nav ────────────────────────────────────────────────────────────
+        // Tab nav
         exportTabs: document.querySelectorAll('.segmented-control-tab'),
         exportPanels: document.querySelectorAll('.export-panel'),
         svgExportFooter: document.getElementById('svg-export-footer'),
         rasterDownloadFooter: document.getElementById('download-footer'),
-        bulkDownloadFooter: document.getElementById('bulk-download-footer'),
-
-        // ── Logo tab elements ──────────────────────────────────────────────────
-        logoExportFooter: document.getElementById('logo-export-footer'),
-        logoSvgSourceMirror: document.getElementById('logo-svg-source-mirror'),
-        logoOriginalResolution: document.getElementById('logo-original-resolution'),
-        logoSvgPreview: document.getElementById('logo-svg-preview'),
-        logoObjPreviewCanvas: document.getElementById('logo-obj-preview-canvas'),
-        logoObjPreviewPlaceholder: document.getElementById('logo-obj-preview-placeholder'),
-        logoObjBuildPlateToggle: document.getElementById('logo-obj-build-plate-toggle'),
-        logoObjPreviewBedSelect: document.getElementById('logo-obj-preview-bed'),
-        logoObjFitView: document.getElementById('logo-obj-fit-view'),
-        logoObjRecenter: document.getElementById('logo-obj-recenter'),
-        logoObjTargetLock: document.getElementById('logo-obj-target-lock'),
-        logoObjModeGhost: document.getElementById('logo-obj-mode-ghost'),
-        logoObjModeSolo: document.getElementById('logo-obj-mode-solo'),
-        logoLayerStackList: document.getElementById('logo-layer-stack-list'),
-        logoLayerStackMeta: document.getElementById('logo-layer-stack-meta'),
-        logoPreviewResolution: document.getElementById('logo-preview-resolution'),
-        logoQualityIndicator: document.getElementById('logo-quality-indicator'),
-        logoPaletteContainer: document.getElementById('logo-palette-container'),
-        logoPaletteRow: document.getElementById('logo-palette-row'),
-        logoFinalPaletteContainer: document.getElementById('logo-final-palette-container'),
-        logoLayerMergingSection: document.getElementById('logo-layer-merging-section'),
-        logoMergeRulesContainer: document.getElementById('logo-merge-rules-container'),
-        logoAddMergeRuleBtn: document.getElementById('logo-add-merge-rule-btn'),
-        logoUseBaseLayerCheckbox: document.getElementById('logo-use-base-layer'),
-        logoBaseLayerSelect: document.getElementById('logo-base-layer-select'),
-        logoObjScaleSlider: document.getElementById('logo-obj-scale'),
-        logoObjScaleValue: document.getElementById('logo-obj-scale-value'),
-        logoObjThicknessSlider: document.getElementById('logo-obj-thickness'),
-        logoObjThicknessValue: document.getElementById('logo-obj-thickness-value'),
-        logoObjMarginInput: document.getElementById('logo-obj-margin'),
-        logoObjSizeReadout: document.getElementById('logo-obj-size-readout'),
-        logoObjStructureWarning: document.getElementById('logo-obj-structure-warning'),
-        logoExportObjBtn: document.getElementById('logo-export-obj-btn'),
-        logoExport3mfBtn: document.getElementById('logo-export-3mf-btn'),
-        logoExportStlBtn: document.getElementById('logo-export-stl-btn'),
-
-        // ── Logo HTML editor elements ──────────────────────────────────────────
-        logoHtmlSourceImg: document.getElementById('logo-html-source-img'),
-        logoHtmlInput: document.getElementById('logo-html-input'),
-        logoHtmlStatus: document.getElementById('logo-html-status'),
-        logoHtmlModeToggle: document.getElementById('logo-html-mode-toggle'),
-        logoHtmlEditorBody: document.getElementById('logo-html-editor-body'),
-        logoHtmlFontSelect: document.getElementById('logo-html-font-select')
+        bulkDownloadFooter: document.getElementById('bulk-download-footer')
     };
 }

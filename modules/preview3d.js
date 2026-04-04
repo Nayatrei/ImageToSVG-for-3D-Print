@@ -25,23 +25,26 @@ function createFrameState({ THREERef, footprintWidth, footprintDepth, modelHeigh
 
 export function createObjPreview({
     state,
-    elements,
+    modelControls,
+    viewControls,
     getDataToExport,
     getVisibleLayerIndices,
     ImageTracer
 }) {
     const tracer = ImageTracer || window.ImageTracer;
+    const model = modelControls || {};
+    const view = viewControls || {};
 
     function ensureObjPreview() {
         if (state.objPreview.renderer) return true;
-        if (!elements.objPreviewCanvas) return false;
+        if (!view.objPreviewCanvas) return false;
 
         const THREERef = window.THREE;
         const SVGLoader = window.SVGLoader;
         if (!THREERef || !SVGLoader) return false;
 
         const renderer = new THREERef.WebGLRenderer({
-            canvas: elements.objPreviewCanvas,
+            canvas: view.objPreviewCanvas,
             antialias: true,
             alpha: true
         });
@@ -82,7 +85,7 @@ export function createObjPreview({
 
     function bindObjPreviewInteractions() {
         const preview = state.objPreview;
-        const canvas = elements.objPreviewCanvas;
+        const canvas = view.objPreviewCanvas;
         if (!canvas || preview.interactionsBound) return;
 
         preview.interactionsBound = true;
@@ -139,8 +142,8 @@ export function createObjPreview({
 
     function resize() {
         const preview = state.objPreview;
-        if (!preview.renderer || !preview.camera || !elements.objPreviewCanvas) return;
-        const container = elements.objPreviewCanvas.parentElement;
+        if (!preview.renderer || !preview.camera || !view.objPreviewCanvas) return;
+        const container = view.objPreviewCanvas.parentElement;
         if (!container) return;
         const width = container.clientWidth || 1;
         const height = container.clientHeight || 1;
@@ -190,9 +193,9 @@ export function createObjPreview({
     }
 
     function setPlaceholder(text, show = true) {
-        if (!elements.objPreviewPlaceholder) return;
-        elements.objPreviewPlaceholder.textContent = text;
-        elements.objPreviewPlaceholder.style.display = show ? 'flex' : 'none';
+        if (!view.objPreviewPlaceholder) return;
+        view.objPreviewPlaceholder.textContent = text;
+        view.objPreviewPlaceholder.style.display = show ? 'flex' : 'none';
     }
 
     function scheduleRetry() {
@@ -211,32 +214,30 @@ export function createObjPreview({
     }
 
     function getSelectedBedKey() {
-        const sharedKey = elements.objBedSelect?.value;
-        if (sharedKey && BED_PRESETS[sharedKey]) return sharedKey;
-        const previewKey = elements.objPreviewBedSelect?.value;
-        if (previewKey && BED_PRESETS[previewKey]) return previewKey;
+        const bedKey = model.objBedSelect?.value;
+        if (bedKey && BED_PRESETS[bedKey]) return bedKey;
         return 'x1';
     }
 
     function syncBedPresetControl() {
         const bedKey = getSelectedBedKey();
-        if (elements.objPreviewBedSelect && elements.objPreviewBedSelect.value !== bedKey) {
-            elements.objPreviewBedSelect.value = bedKey;
+        if (view.objPreviewBedSelect && view.objPreviewBedSelect.value !== bedKey) {
+            view.objPreviewBedSelect.value = bedKey;
         }
     }
 
     function updateBuildPlateToggleButton() {
-        if (!elements.objBuildPlateToggle) return;
+        if (!view.objBuildPlateToggle) return;
         const showBuildPlate = state.objPreview.showBuildPlate !== false;
-        elements.objBuildPlateToggle.classList.toggle('active', showBuildPlate);
-        elements.objBuildPlateToggle.setAttribute('aria-pressed', showBuildPlate ? 'true' : 'false');
-        elements.objBuildPlateToggle.title = showBuildPlate ? 'Hide build plate' : 'Show build plate';
+        view.objBuildPlateToggle.classList.toggle('active', showBuildPlate);
+        view.objBuildPlateToggle.setAttribute('aria-pressed', showBuildPlate ? 'true' : 'false');
+        view.objBuildPlateToggle.title = showBuildPlate ? 'Hide build plate' : 'Show build plate';
     }
 
     function updateSizeReadout(scalePlan) {
-        if (!elements.objSizeReadout) return;
+        if (!model.objSizeReadout) return;
         if (!scalePlan || !scalePlan.footprintWidth || !scalePlan.footprintDepth) {
-            elements.objSizeReadout.textContent = 'Footprint: —';
+            model.objSizeReadout.textContent = 'Footprint: —';
             return;
         }
 
@@ -247,23 +248,23 @@ export function createObjPreview({
             suffix = ` · exceeds bed${ow}${od}`;
         }
 
-        elements.objSizeReadout.textContent = `Footprint: ${scalePlan.footprintWidth.toFixed(1)} × ${scalePlan.footprintDepth.toFixed(1)} mm${suffix}`;
+        model.objSizeReadout.textContent = `Footprint: ${scalePlan.footprintWidth.toFixed(1)} × ${scalePlan.footprintDepth.toFixed(1)} mm${suffix}`;
     }
 
     function updateStructureWarning(warnings) {
-        if (!elements.objStructureWarning) return;
+        if (!model.objStructureWarning) return;
         if (!Array.isArray(warnings) || warnings.length === 0) {
-            elements.objStructureWarning.textContent = '';
-            elements.objStructureWarning.classList.add('hidden');
+            model.objStructureWarning.textContent = '';
+            model.objStructureWarning.classList.add('hidden');
             return;
         }
 
         if (warnings.length === 1) {
-            elements.objStructureWarning.textContent = warnings[0].message;
+            model.objStructureWarning.textContent = warnings[0].message;
         } else {
-            elements.objStructureWarning.textContent = `${warnings.length} output layers extend beyond the selected support base footprint.`;
+            model.objStructureWarning.textContent = `${warnings.length} output layers extend beyond the selected support base footprint.`;
         }
-        elements.objStructureWarning.classList.remove('hidden');
+        model.objStructureWarning.classList.remove('hidden');
     }
 
     function setBuildPlateVisible(showBuildPlate) {
@@ -274,23 +275,23 @@ export function createObjPreview({
 
     function setBedPreset(bedKey) {
         if (!BED_PRESETS[bedKey]) return;
-        if (elements.objPreviewBedSelect && elements.objPreviewBedSelect.value !== bedKey) {
-            elements.objPreviewBedSelect.value = bedKey;
+        if (view.objPreviewBedSelect && view.objPreviewBedSelect.value !== bedKey) {
+            view.objPreviewBedSelect.value = bedKey;
         }
-        if (elements.objBedSelect && elements.objBedSelect.value !== bedKey) {
-            elements.objBedSelect.value = bedKey;
-            elements.objBedSelect.dispatchEvent(new Event('change', { bubbles: true }));
+        if (model.objBedSelect && model.objBedSelect.value !== bedKey) {
+            model.objBedSelect.value = bedKey;
+            model.objBedSelect.dispatchEvent(new Event('change', { bubbles: true }));
             return;
         }
         render();
     }
 
     function updateLayerModeButtons() {
-        if (elements.objModeGhost) {
-            elements.objModeGhost.classList.toggle('active', state.objPreview.layerDisplayMode === 'ghost');
+        if (view.objModeGhost) {
+            view.objModeGhost.classList.toggle('active', state.objPreview.layerDisplayMode === 'ghost');
         }
-        if (elements.objModeSolo) {
-            elements.objModeSolo.classList.toggle('active', state.objPreview.layerDisplayMode === 'solo');
+        if (view.objModeSolo) {
+            view.objModeSolo.classList.toggle('active', state.objPreview.layerDisplayMode === 'solo');
         }
     }
 
@@ -301,9 +302,9 @@ export function createObjPreview({
     }
 
     function updateTargetLockButton() {
-        if (!elements.objTargetLock) return;
-        elements.objTargetLock.classList.toggle('active', state.objPreview.targetLocked);
-        elements.objTargetLock.textContent = state.objPreview.targetLocked ? 'Lock' : 'Pan';
+        if (!view.objTargetLock) return;
+        view.objTargetLock.classList.toggle('active', state.objPreview.targetLocked);
+        view.objTargetLock.textContent = state.objPreview.targetLocked ? 'Lock' : 'Pan';
     }
 
     function setTargetLocked(locked) {
@@ -320,16 +321,6 @@ export function createObjPreview({
         preview.viewGroup.position.set(0, 0, 0);
         preview.needsFit = true;
         setZoom(1);
-
-        if (elements.objScaleSlider) {
-            if (elements.objScaleSlider.value !== '100') {
-                elements.objScaleSlider.value = '100';
-                if (elements.objScaleValue) elements.objScaleValue.textContent = '100';
-                elements.objScaleSlider.dispatchEvent(new Event('input', { bubbles: true }));
-                return;
-            }
-        }
-
         render();
     }
 
@@ -444,39 +435,39 @@ export function createObjPreview({
     }
 
     function updateLayerStackPreview(plan, defaultThickness, selectionSet) {
-        if (!elements.layerStackList || !elements.layerStackMeta) return;
-        elements.layerStackList.innerHTML = '';
+        if (!view.layerStackList || !view.layerStackMeta) return;
+        view.layerStackList.innerHTML = '';
 
         if (!plan || !Array.isArray(plan.outputLayers) || plan.outputLayers.length === 0) {
-            elements.layerStackMeta.textContent = 'No layers yet';
-            if (elements.useBaseLayerCheckbox) {
-                elements.useBaseLayerCheckbox.checked = !!state.useBaseLayer;
+            view.layerStackMeta.textContent = 'No layers yet';
+            if (view.useBaseLayerCheckbox) {
+                view.useBaseLayerCheckbox.checked = !!state.useBaseLayer;
             }
-            if (elements.baseLayerSelect) {
-                elements.baseLayerSelect.innerHTML = '<option value="0">L0</option>';
-                elements.baseLayerSelect.disabled = !state.useBaseLayer;
+            if (view.baseLayerSelect) {
+                view.baseLayerSelect.innerHTML = '<option value="0">L0</option>';
+                view.baseLayerSelect.disabled = !state.useBaseLayer;
             }
             return;
         }
 
-        if (elements.useBaseLayerCheckbox) {
-            elements.useBaseLayerCheckbox.checked = !!plan.useBaseLayer;
+        if (view.useBaseLayerCheckbox) {
+            view.useBaseLayerCheckbox.checked = !!plan.useBaseLayer;
         }
 
-        if (elements.baseLayerSelect) {
-            elements.baseLayerSelect.innerHTML = '';
+        if (view.baseLayerSelect) {
+            view.baseLayerSelect.innerHTML = '';
             plan.outputLayers.forEach((layer) => {
                 const option = document.createElement('option');
                 option.value = String(layer.primarySourceLayerId);
                 option.textContent = layer.displayLabel;
-                elements.baseLayerSelect.appendChild(option);
+                view.baseLayerSelect.appendChild(option);
             });
             const nextValue = String(state.baseSourceLayerId ?? plan.outputLayers[0].primarySourceLayerId);
-            elements.baseLayerSelect.value = nextValue;
-            elements.baseLayerSelect.disabled = !plan.useBaseLayer;
+            view.baseLayerSelect.value = nextValue;
+            view.baseLayerSelect.disabled = !plan.useBaseLayer;
         }
 
-        elements.layerStackMeta.textContent = `${plan.outputLayers.length} layer${plan.outputLayers.length === 1 ? '' : 's'} · max ${plan.maxHeight.toFixed(1)}mm`;
+        view.layerStackMeta.textContent = `${plan.outputLayers.length} layer${plan.outputLayers.length === 1 ? '' : 's'} · max ${plan.maxHeight.toFixed(1)}mm`;
 
         plan.outputLayers.forEach((layer, outputIndex) => {
             const row = document.createElement('div');
@@ -523,12 +514,12 @@ export function createObjPreview({
             if (hasSelection && !isSelected) row.classList.add('ghosted');
             if (isSelected) row.classList.add('selected');
 
-            elements.layerStackList.appendChild(row);
+            view.layerStackList.appendChild(row);
         });
     }
 
     function render() {
-        if (!elements.objPreviewCanvas) return;
+        if (!view.objPreviewCanvas) return;
         if (!window.THREE || !window.SVGLoader) {
             setPlaceholder('Loading 3D preview...', true);
             scheduleRetry();
@@ -559,13 +550,13 @@ export function createObjPreview({
             clearGroup();
             clearBuildPlate();
 
-            const defaultThickness = elements.objThicknessSlider ? Number.parseFloat(elements.objThicknessSlider.value) : 4;
+            const defaultThickness = model.objThicknessSlider ? Number.parseFloat(model.objThicknessSlider.value) : 4;
             const thickness = Number.isFinite(defaultThickness) ? defaultThickness : 4;
             const bedKey = getSelectedBedKey();
             const bed = BED_PRESETS[bedKey] || BED_PRESETS.x1;
-            const marginValue = elements.objMarginInput ? Number.parseFloat(elements.objMarginInput.value) : 5;
+            const marginValue = model.objMarginInput ? Number.parseFloat(model.objMarginInput.value) : 5;
             const margin = Number.isFinite(marginValue) ? Math.max(0, marginValue) : 5;
-            const scaleValue = elements.objScaleSlider ? Number.parseFloat(elements.objScaleSlider.value) : 100;
+            const scaleValue = model.objScaleSlider ? Number.parseFloat(model.objScaleSlider.value) : 100;
             const selectionSet = getSelectionIndices();
             const hasSelection = selectionSet.size > 0;
             const displayMode = state.objPreview.layerDisplayMode;
@@ -668,37 +659,37 @@ export function createObjPreview({
     }
 
     function bindControls() {
-        if (elements.objBuildPlateToggle) {
-            elements.objBuildPlateToggle.addEventListener('click', () => {
+        if (view.objBuildPlateToggle) {
+            view.objBuildPlateToggle.addEventListener('click', () => {
                 setBuildPlateVisible(state.objPreview.showBuildPlate === false);
             });
         }
-        if (elements.objPreviewBedSelect) {
-            elements.objPreviewBedSelect.addEventListener('change', (event) => {
+        if (view.objPreviewBedSelect) {
+            view.objPreviewBedSelect.addEventListener('change', (event) => {
                 setBedPreset(event.target.value);
             });
         }
-        if (elements.objBedSelect) {
-            elements.objBedSelect.addEventListener('change', () => {
+        if (model.objBedSelect) {
+            model.objBedSelect.addEventListener('change', () => {
                 syncBedPresetControl();
             });
         }
-        if (elements.objFitView) {
-            elements.objFitView.addEventListener('click', () => fitView());
+        if (view.objFitView) {
+            view.objFitView.addEventListener('click', () => fitView());
         }
-        if (elements.objRecenter) {
-            elements.objRecenter.addEventListener('click', () => recenterView());
+        if (view.objRecenter) {
+            view.objRecenter.addEventListener('click', () => recenterView());
         }
-        if (elements.objTargetLock) {
-            elements.objTargetLock.addEventListener('click', () => {
+        if (view.objTargetLock) {
+            view.objTargetLock.addEventListener('click', () => {
                 setTargetLocked(!state.objPreview.targetLocked);
             });
         }
-        if (elements.objModeGhost) {
-            elements.objModeGhost.addEventListener('click', () => setLayerDisplayMode('ghost'));
+        if (view.objModeGhost) {
+            view.objModeGhost.addEventListener('click', () => setLayerDisplayMode('ghost'));
         }
-        if (elements.objModeSolo) {
-            elements.objModeSolo.addEventListener('click', () => setLayerDisplayMode('solo'));
+        if (view.objModeSolo) {
+            view.objModeSolo.addEventListener('click', () => setLayerDisplayMode('solo'));
         }
         updateLayerModeButtons();
         updateTargetLockButton();

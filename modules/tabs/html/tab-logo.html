@@ -68,15 +68,7 @@
                                     </h3>
                                     <div class="preview-card-actions flex items-center gap-2">
                                         <button id="logo-obj-build-plate-toggle" class="btn-secondary text-xs px-3 py-1 rounded-md active" type="button" title="Toggle build plate">Plate</button>
-                                        <label class="preview-bed-picker" for="logo-obj-preview-bed">
-                                            <span class="text-xs text-gray-500">Bed</span>
-                                            <select id="logo-obj-preview-bed" class="text-xs bg-gray-800 border border-gray-600 rounded px-2 py-1 text-white" title="Preview build plate size">
-                                                <option value="x1" selected>X1 · 256×256</option>
-                                                <option value="h2d">H2D · 325×320</option>
-                                                <option value="a1mini">A1 mini · 180×180</option>
-                                            </select>
-                                        </label>
-                                        <button id="logo-obj-fit-view" class="btn-secondary text-xs px-2 py-1 rounded-md" title="Center on plate at 100% scale">Fit</button>
+                                        <button id="logo-obj-fit-view" class="btn-secondary text-xs px-2 py-1 rounded-md" title="Reset framing">Fit</button>
                                         <button id="logo-obj-recenter" class="btn-secondary text-xs px-2 py-1 rounded-md" title="Recenter view">Recenter</button>
                                         <button id="logo-obj-target-lock" class="btn-secondary text-xs px-2 py-1 rounded-md" title="Lock camera target">Lock</button>
                                     </div>
@@ -84,30 +76,6 @@
                                 <div class="preview-container preview-container-flexible bg-grid rounded-md overflow-hidden relative obj-preview-stage">
                                     <canvas id="logo-obj-preview-canvas" class="obj-preview-canvas"></canvas>
                                     <div id="logo-obj-preview-placeholder" class="preview-placeholder">3D preview will appear after analysis.</div>
-                                </div>
-                                <!-- OBJ export controls live here so they stay with the 3D view -->
-                                <div class="output-card-content" style="padding-top:0.5rem; border-top: 1px solid #374151;">
-                                    <div class="flex items-center gap-3 flex-wrap">
-                                        <!-- Scale -->
-                                        <div class="flex items-center gap-1 flex-1 min-w-[140px]">
-                                            <label for="logo-obj-scale" class="text-xs text-gray-400 whitespace-nowrap">Scale %</label>
-                                            <input type="range" id="logo-obj-scale" min="25" max="200" value="100" step="5" class="flex-1">
-                                            <span id="logo-obj-scale-value" class="text-xs font-mono bg-gray-700 border border-gray-600 rounded px-1.5 py-0.5 w-10 text-center text-gray-200">100</span>
-                                        </div>
-                                        <!-- Layer thickness -->
-                                        <div class="flex items-center gap-1 flex-1 min-w-[140px]">
-                                            <label for="logo-obj-thickness" class="text-xs text-gray-400 whitespace-nowrap">Thickness</label>
-                                            <input type="range" id="logo-obj-thickness" min="0.4" max="20" value="4" step="0.4" class="flex-1">
-                                            <span id="logo-obj-thickness-value" class="text-xs font-mono bg-gray-700 border border-gray-600 rounded px-1.5 py-0.5 w-10 text-center text-gray-200">4</span>
-                                        </div>
-                                        <!-- Margin -->
-                                        <div class="flex items-center gap-1">
-                                            <label for="logo-obj-margin" class="text-xs text-gray-400 whitespace-nowrap">Margin mm</label>
-                                            <input id="logo-obj-margin" type="number" min="0" max="20" value="5" class="w-14 text-xs p-1 rounded border border-gray-600 bg-gray-900 text-white">
-                                        </div>
-                                    </div>
-                                    <p id="logo-obj-size-readout" class="text-xs text-gray-500 mt-1">Footprint: —</p>
-                                    <p id="logo-obj-structure-warning" class="text-xs text-yellow-300 mt-1 hidden"></p>
                                 </div>
                             </div>
 

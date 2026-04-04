@@ -433,7 +433,8 @@ function getCRC32Table() {
 
 export function createObjExporter({
     state,
-    elements,
+    modelControls,
+    statusText,
     getDataToExport,
     ImageTracer,
     showLoader,
@@ -441,6 +442,7 @@ export function createObjExporter({
     getImageBaseName
 }) {
     const tracer = ImageTracer || window.ImageTracer;
+    const model = modelControls || {};
 
     function getVisibleLayerIndices() {
         if (!state.tracedata) return [];
@@ -473,12 +475,10 @@ export function createObjExporter({
         const geometryBundle = buildObjGeometryBundle(plan, { THREERef, bufferUtils });
         if (!geometryBundle || geometryBundle.layers.size === 0) return null;
 
-        const sharedBedKey = elements.objBedSelect?.value;
-        const previewBedKey = elements.objPreviewBedSelect?.value;
-        const bedKey = sharedBedKey || previewBedKey || 'x1';
-        const marginValue = elements.objMarginInput ? Number.parseFloat(elements.objMarginInput.value) : 5;
+        const bedKey = model.objBedSelect?.value || 'x1';
+        const marginValue = model.objMarginInput ? Number.parseFloat(model.objMarginInput.value) : 5;
         const margin = Number.isFinite(marginValue) ? Math.max(0, marginValue) : 5;
-        const scaleValue = elements.objScaleSlider ? Number.parseFloat(elements.objScaleSlider.value) : 100;
+        const scaleValue = model.objScaleSlider ? Number.parseFloat(model.objScaleSlider.value) : 100;
         const scalePlan = computeObjScalePlan({
             rawWidth: plan.rawBounds.width,
             rawDepth: plan.rawBounds.depth,
@@ -498,7 +498,7 @@ export function createObjExporter({
 
     async function exportAsOBJ() {
         if (!state.tracedata) {
-            elements.statusText.textContent = 'Generate preview before exporting OBJ.';
+            if (statusText) statusText.textContent = 'Generate preview before exporting OBJ.';
             return;
         }
 
@@ -506,16 +506,16 @@ export function createObjExporter({
         const THREERef = window.THREE;
 
         if (!OBJExporter || !THREERef || !window.SVGLoader || !window.BufferGeometryUtils) {
-            elements.statusText.textContent = 'OBJ export libraries are still loading.';
+            if (statusText) statusText.textContent = 'OBJ export libraries are still loading.';
             return;
         }
 
-        const thicknessValue = elements.objThicknessSlider ? parseFloat(elements.objThicknessSlider.value) : 4;
+        const thicknessValue = model.objThicknessSlider ? parseFloat(model.objThicknessSlider.value) : 4;
         const defaultThickness = Number.isFinite(thicknessValue) ? thicknessValue : 4;
 
         try {
             showLoader(true);
-            elements.statusText.textContent = 'Exporting OBJ...';
+            if (statusText) statusText.textContent = 'Exporting OBJ...';
 
             const result = buildExportGeometry(defaultThickness);
             if (!result || result.layers.size === 0) {
@@ -553,13 +553,13 @@ export function createObjExporter({
             }
 
             downloadBlob(new Blob([obj], { type: 'text/plain' }), `${baseName}.obj`);
-            elements.statusText.textContent = 'OBJ export complete.';
+            if (statusText) statusText.textContent = 'OBJ export complete.';
 
             // Cleanup
             result.layers.forEach((layerData) => layerData.geometry.dispose());
         } catch (error) {
             console.error('OBJ export failed:', error);
-            elements.statusText.textContent = 'Failed to export OBJ.';
+            if (statusText) statusText.textContent = 'Failed to export OBJ.';
         } finally {
             showLoader(false);
         }
@@ -567,22 +567,22 @@ export function createObjExporter({
 
     async function exportAs3MF() {
         if (!state.tracedata) {
-            elements.statusText.textContent = 'Generate preview before exporting 3MF.';
+            if (statusText) statusText.textContent = 'Generate preview before exporting 3MF.';
             return;
         }
 
         const THREERef = window.THREE;
         if (!THREERef || !window.SVGLoader || !window.BufferGeometryUtils) {
-            elements.statusText.textContent = '3MF export libraries are still loading.';
+            if (statusText) statusText.textContent = '3MF export libraries are still loading.';
             return;
         }
 
-        const thicknessValue = elements.objThicknessSlider ? parseFloat(elements.objThicknessSlider.value) : 4;
+        const thicknessValue = model.objThicknessSlider ? parseFloat(model.objThicknessSlider.value) : 4;
         const defaultThickness = Number.isFinite(thicknessValue) ? thicknessValue : 4;
 
         try {
             showLoader(true);
-            elements.statusText.textContent = 'Exporting 3MF...';
+            if (statusText) statusText.textContent = 'Exporting 3MF...';
 
             const result = buildExportGeometry(defaultThickness);
             if (!result || result.layers.size === 0) {
@@ -593,13 +593,13 @@ export function createObjExporter({
 
             const blob = await generate3MF(result.layers, baseName);
             downloadBlob(blob, `${baseName}.3mf`);
-            elements.statusText.textContent = '3MF export complete.';
+            if (statusText) statusText.textContent = '3MF export complete.';
 
             // Cleanup
             result.layers.forEach((layerData) => layerData.geometry.dispose());
         } catch (error) {
             console.error('3MF export failed:', error);
-            elements.statusText.textContent = 'Failed to export 3MF.';
+            if (statusText) statusText.textContent = 'Failed to export 3MF.';
         } finally {
             showLoader(false);
         }
@@ -607,22 +607,22 @@ export function createObjExporter({
 
     async function exportAsSTL() {
         if (!state.tracedata) {
-            elements.statusText.textContent = 'Generate preview before exporting STL.';
+            if (statusText) statusText.textContent = 'Generate preview before exporting STL.';
             return;
         }
 
         const THREERef = window.THREE;
         if (!THREERef || !window.SVGLoader || !window.BufferGeometryUtils) {
-            elements.statusText.textContent = 'STL export libraries are still loading.';
+            if (statusText) statusText.textContent = 'STL export libraries are still loading.';
             return;
         }
 
-        const thicknessValue = elements.objThicknessSlider ? parseFloat(elements.objThicknessSlider.value) : 4;
+        const thicknessValue = model.objThicknessSlider ? parseFloat(model.objThicknessSlider.value) : 4;
         const defaultThickness = Number.isFinite(thicknessValue) ? thicknessValue : 4;
 
         try {
             showLoader(true);
-            elements.statusText.textContent = 'Exporting STL files...';
+            if (statusText) statusText.textContent = 'Exporting STL files...';
 
             const result = buildExportGeometry(defaultThickness);
             if (!result || result.layers.size === 0) {
@@ -643,13 +643,13 @@ export function createObjExporter({
                 }
             });
 
-            elements.statusText.textContent = `Exported ${exportedCount} STL files.`;
+            if (statusText) statusText.textContent = `Exported ${exportedCount} STL files.`;
 
             // Cleanup
             result.layers.forEach((layerData) => layerData.geometry.dispose());
         } catch (error) {
             console.error('STL export failed:', error);
-            elements.statusText.textContent = 'Failed to export STL.';
+            if (statusText) statusText.textContent = 'Failed to export STL.';
         } finally {
             showLoader(false);
         }

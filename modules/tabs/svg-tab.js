@@ -10,7 +10,13 @@ import { createPaletteManager } from '../shared/palette-manager.js';
 
 export function createSvgTabController({
     state,
-    elements,
+    sharedElements,
+    sidebarControls,
+    previewElements,
+    paletteElements,
+    modelControls,
+    viewControls,
+    exportElements,
     showLoader,
     syncWorkspaceView,
     hasSingleImageLoaded,
@@ -22,6 +28,15 @@ export function createSvgTabController({
     onRasterExportStateChanged
 }) {
     const tracer = window.ImageTracer;
+    const elements = {
+        ...sharedElements,
+        ...sidebarControls,
+        ...previewElements,
+        ...paletteElements,
+        ...modelControls,
+        ...viewControls,
+        ...exportElements
+    };
 
     // ── Debounced re-trace ─────────────────────────────────────────────────────
 
@@ -275,7 +290,8 @@ export function createSvgTabController({
 
     const objPreview = createObjPreview({
         state,
-        elements,
+        modelControls,
+        viewControls,
         getDataToExport,
         getVisibleLayerIndices,
         ImageTracer: tracer
@@ -283,7 +299,8 @@ export function createSvgTabController({
 
     const objExporter = createObjExporter({
         state,
-        elements,
+        modelControls,
+        statusText: elements.statusText,
         getDataToExport,
         ImageTracer: tracer,
         showLoader,
@@ -585,7 +602,13 @@ export function createSvgTabController({
             });
         }
 
-        document.querySelectorAll('.control-panel input[type="range"]').forEach((slider) => {
+        [
+            elements.pathSimplificationSlider,
+            elements.cornerSharpnessSlider,
+            elements.curveStraightnessSlider,
+            elements.colorPrecisionSlider,
+            elements.maxColorsSlider
+        ].filter(Boolean).forEach((slider) => {
             slider.addEventListener('input', (e) => {
                 if (e.target.id === 'obj-thickness' || e.target.id === 'obj-scale') return;
                 if (!state.isDirty) {
