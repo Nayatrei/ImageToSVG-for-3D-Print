@@ -1,0 +1,14 @@
+Image to SVG Converter - 3D Print Ready
+
+Turn everyday images into clean, printable SVG files with a workflow built specifically for 3D printing. Image to SVG Converter - 3D Print Ready helps makers transform logos, icons, and artwork into vector files optimized for Tinkercad and multi-color print projects.
+
+From quick one-click conversions to advanced controls for shape cleanup, color layers, and path simplification, the app is designed to make raster-to-vector conversion easier for both beginners and power users. Real-time previews and quality guidance help you create results that are easier to import, edit, and print.
+
+Key Highlights:
+- Convert images into SVG files optimized for 3D printing
+- Export Tinkercad-ready vector files with clean geometry
+- Create separate color layers for multi-color print workflows
+- Use smart presets for smooth curves, sharp details, or simple silhouettes
+- Preview quality instantly and adjust for cleaner output
+
+Perfect for hobbyists, educators, and makers preparing artwork for custom 3D printed signs, logos, badges, and layered designs.
