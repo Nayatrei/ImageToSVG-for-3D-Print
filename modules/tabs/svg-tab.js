@@ -545,22 +545,30 @@ export function createSvgTabController({
         if (elements.objThicknessSlider && elements.objThicknessValue) {
             elements.objThicknessValue.textContent = elements.objThicknessSlider.value;
             elements.objThicknessSlider.addEventListener('input', () => {
-                elements.objThicknessValue.textContent = elements.objThicknessSlider.value;
+                state.objParams.thickness = Number.parseFloat(elements.objThicknessSlider.value);
+                elements.objThicknessValue.textContent = state.objParams.thickness;
                 updateFilteredPreview();
             });
         }
         if (elements.objScaleSlider && elements.objScaleValue) {
             elements.objScaleValue.textContent = elements.objScaleSlider.value;
             elements.objScaleSlider.addEventListener('input', () => {
-                elements.objScaleValue.textContent = elements.objScaleSlider.value;
+                state.objParams.scale = Number.parseFloat(elements.objScaleSlider.value);
+                elements.objScaleValue.textContent = state.objParams.scale;
                 updateFilteredPreview();
             });
         }
         if (elements.objBedSelect) {
-            elements.objBedSelect.addEventListener('change', () => updateFilteredPreview());
+            elements.objBedSelect.addEventListener('change', (e) => {
+                state.objParams.bedKey = e.target.value;
+                updateFilteredPreview();
+            });
         }
         if (elements.objMarginInput) {
-            elements.objMarginInput.addEventListener('input', () => updateFilteredPreview());
+            elements.objMarginInput.addEventListener('input', (e) => {
+                state.objParams.margin = Number.parseFloat(e.target.value);
+                updateFilteredPreview();
+            });
         }
         if (elements.exportObjBtn) {
             elements.exportObjBtn.addEventListener('click', () => objExporter.exportAsOBJ());

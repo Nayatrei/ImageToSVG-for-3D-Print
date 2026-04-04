@@ -56,6 +56,17 @@ export function createState() {
 
         highFidelity: false,
 
+        // ── Shared 3D Parameters ──────────────────────────────────────────────
+        objParams: {
+            scale: 100,
+            thickness: 4,
+            bedKey: 'x1',
+            margin: 5,
+            showBuildPlate: true,
+            layerDisplayMode: 'ghost',
+            targetLocked: true
+        },
+
         // ── Bulk tab state ─────────────────────────────────────────────────────
         bulk: {
             folderName: '',

@@ -671,7 +671,8 @@ export function createLogoTabController({
         if (le.objThicknessSlider && le.objThicknessValue) {
             le.objThicknessValue.textContent = le.objThicknessSlider.value;
             le.objThicknessSlider.addEventListener('input', () => {
-                le.objThicknessValue.textContent = le.objThicknessSlider.value;
+                state.objParams.thickness = Number.parseFloat(le.objThicknessSlider.value);
+                le.objThicknessValue.textContent = state.objParams.thickness;
                 updateFilteredPreview();
             });
         }
@@ -679,15 +680,22 @@ export function createLogoTabController({
         if (le.objScaleSlider && le.objScaleValue) {
             le.objScaleValue.textContent = le.objScaleSlider.value;
             le.objScaleSlider.addEventListener('input', () => {
-                le.objScaleValue.textContent = le.objScaleSlider.value;
+                state.objParams.scale = Number.parseFloat(le.objScaleSlider.value);
+                le.objScaleValue.textContent = state.objParams.scale;
                 updateFilteredPreview();
             });
         }
         if (le.objBedSelect) {
-            le.objBedSelect.addEventListener('change', () => updateFilteredPreview());
+            le.objBedSelect.addEventListener('change', (e) => {
+                state.objParams.bedKey = e.target.value;
+                updateFilteredPreview();
+            });
         }
         if (le.objMarginInput) {
-            le.objMarginInput.addEventListener('input', () => updateFilteredPreview());
+            le.objMarginInput.addEventListener('input', (e) => {
+                state.objParams.margin = Number.parseFloat(e.target.value);
+                updateFilteredPreview();
+            });
         }
         if (le.exportObjBtn) {
             le.exportObjBtn.addEventListener('click', () => objExporter.exportAsOBJ());

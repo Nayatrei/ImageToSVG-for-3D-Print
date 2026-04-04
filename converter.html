@@ -104,8 +104,8 @@
                     </div>
                     <div id="sidebar-adjust-content" class="sidebar-accordion-body">
                         <div class="sidebar-accordion-body-inner">
+                        
                         <div id="svg-sidebar-controls" class="sidebar-sub-sections">
-
                             <div class="sidebar-sub-accordion">
                                 <button class="sidebar-sub-header expanded" onclick="toggleSidebarAccordion(this, 'color-controls-body')">
                                     <span class="sidebar-sub-label">
@@ -190,54 +190,9 @@
                                     </div>
                                 </div>
                             </div>
-
-                            <div class="sidebar-sub-accordion">
-                                <button class="sidebar-sub-header expanded" onclick="toggleSidebarAccordion(this, 'obj-controls-body')">
-                                    <span class="sidebar-sub-label">
-                                        <svg class="sidebar-sub-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                            <path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/>
-                                        </svg>
-                                        OBJ Export Settings
-                                    </span>
-                                    <svg class="sidebar-sub-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                        <path d="M19 9l-7 7-7-7"/>
-                                    </svg>
-                                </button>
-                                <div id="obj-controls-body" class="sidebar-sub-body">
-                                    <div class="sidebar-sub-body-inner">
-                                    <fieldset id="obj-controls">
-                                        <div>
-                                            <label for="obj-scale" class="text-sm font-medium text-gray-300">OBJ Scale (%)</label>
-                                            <div class="flex items-center space-x-2">
-                                                <input type="range" id="obj-scale" min="25" max="200" value="100" step="5">
-                                                <span id="obj-scale-value" class="text-sm font-mono bg-gray-700 border border-gray-600 rounded-md px-2 py-0.5 w-12 text-center text-gray-200">100</span>
-                                            </div>
-                                            <p id="obj-size-readout" class="text-xs text-gray-400 mt-1">Footprint: —</p>
-                                            <p id="obj-structure-warning" class="text-xs text-yellow-300 mt-1 hidden"></p>
-                                        </div>
-                                        <div class="grid grid-cols-2 gap-2">
-                                            <div>
-                                                <label for="obj-bed" class="text-sm font-medium text-gray-300">Printer Bed</label>
-                                                <select id="obj-bed" class="text-xs bg-gray-800 border border-gray-600 rounded px-2 py-2 text-white w-full">
-                                                    <option value="x1" selected>Bambu X1/X1C (256×256)</option>
-                                                    <option value="a1mini">Bambu A1 mini (180×180)</option>
-                                                    <option value="h2d">Bambu H2D (325×320, single nozzle)</option>
-                                                </select>
-                                            </div>
-                                            <div>
-                                                <label for="obj-margin" class="text-sm font-medium text-gray-300">Margin (mm)</label>
-                                                <input id="obj-margin" type="number" min="0" max="20" value="5" class="w-full text-xs p-2 rounded border border-gray-600 bg-gray-900 text-white">
-                                            </div>
-                                        </div>
-                                    </fieldset>
-                                    </div>
-                                </div>
-                            </div>
-
                         </div>
 
                         <div id="logo-sidebar-controls" class="sidebar-sub-sections hidden">
-
                             <div class="sidebar-sub-accordion">
                                 <button class="sidebar-sub-header expanded" onclick="toggleSidebarAccordion(this, 'logo-color-controls-body')">
                                     <span class="sidebar-sub-label">
@@ -322,58 +277,61 @@
                                     </div>
                                 </div>
                             </div>
+                        </div>
 
+                        <!-- 3. Unified OBJ Settings -->
+                        <div id="shared-obj-controls" class="sidebar-sub-sections">
                             <div class="sidebar-sub-accordion">
-                                <button class="sidebar-sub-header expanded" onclick="toggleSidebarAccordion(this, 'logo-obj-controls-body')">
+                                <button class="sidebar-sub-header expanded" onclick="toggleSidebarAccordion(this, 'obj-controls-body')">
                                     <span class="sidebar-sub-label">
                                         <svg class="sidebar-sub-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                             <path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/>
                                         </svg>
-                                        Logo OBJ Settings
+                                        3D Export Settings
                                     </span>
                                     <svg class="sidebar-sub-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                         <path d="M19 9l-7 7-7-7"/>
                                     </svg>
                                 </button>
-                                <div id="logo-obj-controls-body" class="sidebar-sub-body">
+                                <div id="obj-controls-body" class="sidebar-sub-body">
                                     <div class="sidebar-sub-body-inner">
-                                    <fieldset id="logo-obj-controls">
+                                    <fieldset id="obj-controls">
                                         <div>
-                                            <label for="logo-obj-scale" class="text-sm font-medium text-gray-300">OBJ Scale (%)</label>
+                                            <label for="obj-scale" class="text-sm font-medium text-gray-300">OBJ Scale (%)</label>
                                             <div class="flex items-center space-x-2">
-                                                <input type="range" id="logo-obj-scale" min="25" max="200" value="100" step="5">
-                                                <span id="logo-obj-scale-value" class="text-sm font-mono bg-gray-700 border border-gray-600 rounded-md px-2 py-0.5 w-12 text-center text-gray-200">100</span>
+                                                <input type="range" id="obj-scale" min="25" max="200" value="100" step="5">
+                                                <span id="obj-scale-value" class="text-sm font-mono bg-gray-700 border border-gray-600 rounded-md px-2 py-0.5 w-12 text-center text-gray-200">100</span>
                                             </div>
+                                            <p id="obj-size-readout" class="text-xs text-gray-400 mt-1">Footprint: —</p>
+                                            <p id="obj-structure-warning" class="text-xs text-yellow-300 mt-1 hidden"></p>
                                         </div>
                                         <div class="mt-3">
-                                            <label for="logo-obj-thickness" class="text-sm font-medium text-gray-300">Default Layer Height (mm)</label>
+                                            <label for="obj-thickness" class="text-sm font-medium text-gray-300">Default Layer Height (mm)</label>
                                             <div class="flex items-center space-x-2">
-                                                <input type="range" id="logo-obj-thickness" min="0.4" max="20" value="4" step="0.4">
-                                                <span id="logo-obj-thickness-value" class="text-sm font-mono bg-gray-700 border border-gray-600 rounded-md px-2 py-0.5 w-12 text-center text-gray-200">4</span>
+                                                <input type="range" id="obj-thickness" min="0.4" max="20" value="4" step="0.4">
+                                                <span id="obj-thickness-value" class="text-sm font-mono bg-gray-700 border border-gray-600 rounded-md px-2 py-0.5 w-12 text-center text-gray-200">4</span>
                                             </div>
                                         </div>
                                         <div class="grid grid-cols-2 gap-2 mt-3">
                                             <div>
-                                                <label for="logo-obj-bed" class="text-sm font-medium text-gray-300">Printer Bed</label>
-                                                <select id="logo-obj-bed" class="text-xs bg-gray-800 border border-gray-600 rounded px-2 py-2 text-white w-full">
+                                                <label for="obj-bed" class="text-sm font-medium text-gray-300">Printer Bed</label>
+                                                <select id="obj-bed" class="text-xs bg-gray-800 border border-gray-600 rounded px-2 py-2 text-white w-full">
                                                     <option value="x1" selected>Bambu X1/X1C (256×256)</option>
                                                     <option value="a1mini">Bambu A1 mini (180×180)</option>
                                                     <option value="h2d">Bambu H2D (325×320, single nozzle)</option>
                                                 </select>
                                             </div>
                                             <div>
-                                                <label for="logo-obj-margin" class="text-sm font-medium text-gray-300">Margin (mm)</label>
-                                                <input id="logo-obj-margin" type="number" min="0" max="20" value="5" class="w-full text-xs p-2 rounded border border-gray-600 bg-gray-900 text-white">
+                                                <label for="obj-margin" class="text-sm font-medium text-gray-300">Margin (mm)</label>
+                                                <input id="obj-margin" type="number" min="0" max="20" value="5" class="w-full text-xs p-2 rounded border border-gray-600 bg-gray-900 text-white">
                                             </div>
                                         </div>
-                                        <p id="logo-obj-size-readout" class="text-xs text-gray-400 mt-3">Footprint: —</p>
-                                        <p id="logo-obj-structure-warning" class="text-xs text-yellow-300 mt-1 hidden"></p>
                                     </fieldset>
                                     </div>
                                 </div>
                             </div>
-
                         </div>
+
                         </div><!-- end sidebar-accordion-body-inner -->
                     </div>
                 </div>

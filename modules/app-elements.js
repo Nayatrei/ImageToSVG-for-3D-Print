@@ -46,6 +46,18 @@ export function createElements() {
         resolutionNotice: document.getElementById('resolution-notice'),
         outputSection: document.getElementById('output-section'),
 
+        // Shared 3D controls (Unificed)
+        shared3d: {
+            objThicknessSlider: document.getElementById('obj-thickness'),
+            objThicknessValue: document.getElementById('obj-thickness-value'),
+            objScaleSlider: document.getElementById('obj-scale'),
+            objScaleValue: document.getElementById('obj-scale-value'),
+            objSizeReadout: document.getElementById('obj-size-readout'),
+            objStructureWarning: document.getElementById('obj-structure-warning'),
+            objBedSelect: document.getElementById('obj-bed'),
+            objMarginInput: document.getElementById('obj-margin')
+        },
+
         // Bulk tab
         bulkFolderInput: document.getElementById('bulk-folder-input'),
         bulkFolderSummary: document.getElementById('bulk-folder-summary'),
@@ -142,16 +154,6 @@ export function createElements() {
                 downloadSilhouetteBtn: document.getElementById('download-silhouette-btn'),
                 exportLayersBtn: document.getElementById('export-layers-btn')
             },
-            model3d: {
-                objThicknessSlider: document.getElementById('obj-thickness'),
-                objThicknessValue: document.getElementById('obj-thickness-value'),
-                objScaleSlider: document.getElementById('obj-scale'),
-                objScaleValue: document.getElementById('obj-scale-value'),
-                objSizeReadout: document.getElementById('obj-size-readout'),
-                objStructureWarning: document.getElementById('obj-structure-warning'),
-                objBedSelect: document.getElementById('obj-bed'),
-                objMarginInput: document.getElementById('obj-margin')
-            },
             preview3d: {
                 objPreviewCanvas: document.getElementById('obj-preview-canvas'),
                 objPreviewPlaceholder: document.getElementById('obj-preview-placeholder'),
@@ -214,16 +216,6 @@ export function createElements() {
                 layerMergingSection: document.getElementById('logo-layer-merging-section'),
                 mergeRulesContainer: document.getElementById('logo-merge-rules-container'),
                 addMergeRuleBtn: document.getElementById('logo-add-merge-rule-btn')
-            },
-            model3d: {
-                objThicknessSlider: document.getElementById('logo-obj-thickness'),
-                objThicknessValue: document.getElementById('logo-obj-thickness-value'),
-                objScaleSlider: document.getElementById('logo-obj-scale'),
-                objScaleValue: document.getElementById('logo-obj-scale-value'),
-                objSizeReadout: document.getElementById('logo-obj-size-readout'),
-                objStructureWarning: document.getElementById('logo-obj-structure-warning'),
-                objBedSelect: document.getElementById('logo-obj-bed'),
-                objMarginInput: document.getElementById('logo-obj-margin')
             },
             preview3d: {
                 objPreviewCanvas: document.getElementById('logo-obj-preview-canvas'),
