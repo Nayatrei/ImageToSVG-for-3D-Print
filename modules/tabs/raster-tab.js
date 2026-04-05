@@ -240,16 +240,26 @@ export function createRasterTabController({
         }
     }
 
+    function syncRasterEmptyState() {
+        const emptyState = document.getElementById('raster-empty-state');
+        const content = document.getElementById('raster-content');
+        const hasImage = hasSingleImageLoaded();
+        if (emptyState) emptyState.classList.toggle('hidden', hasImage);
+        if (content) content.classList.toggle('hidden', !hasImage);
+    }
+
     function onSourceImageLoaded() {
         if (elements.saveResizedPngBtn) elements.saveResizedPngBtn.disabled = false;
         if (elements.saveResizedJpgBtn) elements.saveResizedJpgBtn.disabled = false;
         if (elements.saveResizedTgaBtn) elements.saveResizedTgaBtn.disabled = false;
+        syncRasterEmptyState();
         renderRGBAChannels();
         updateExportScaleDisplay();
     }
 
     function onTabActivated() {
-        renderRGBAChannels();
+        syncRasterEmptyState();
+        if (hasSingleImageLoaded()) renderRGBAChannels();
     }
 
     function bindEvents() {

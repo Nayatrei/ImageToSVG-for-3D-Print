@@ -517,7 +517,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         svgTab.bindEvents();
         logoTab.bindEvents();
 
-        switchExportTab('svg');
+        // Detect default tab from the HTML filename so svg.html, logo.html, etc. open the right tab
+        const _tabFromPath = (function() {
+            const validTabs = ['svg', 'logo', 'raster', 'bulk'];
+            const pageName = window.location.pathname.split('/').pop().replace('.html', '').toLowerCase();
+            return validTabs.includes(pageName) ? pageName : 'svg';
+        })();
+        switchExportTab(_tabFromPath);
         rasterTab.setExportScale(state.exportScale);
         bulkTab.setExportScale(state.bulk.exportScale);
         svgTab.setHighFidelity(state.highFidelity);

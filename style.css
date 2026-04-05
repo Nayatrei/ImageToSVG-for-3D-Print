@@ -3060,3 +3060,104 @@ body,
     height: 14px;
     flex-shrink: 0;
 }
+
+/* ── Raster tab card empty state drop zone ── */
+.raster-card-dropzone {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    min-height: 20rem;
+    border: 2px dashed #374151;
+    border-radius: 1rem;
+    padding: 3rem 2rem;
+    cursor: pointer;
+    transition: border-color 200ms ease, background 200ms ease;
+    background: rgba(31, 41, 55, 0.35);
+    user-select: none;
+}
+
+.raster-card-dropzone:hover {
+    border-color: #3b82f6;
+    background: rgba(59, 130, 246, 0.05);
+}
+
+.raster-card-dropzone.drag-over {
+    border-color: #60a5fa;
+    background: rgba(59, 130, 246, 0.1);
+}
+
+.raster-card-dropzone-inner {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+    pointer-events: none;
+}
+
+.raster-card-dropzone-icon {
+    width: 3.5rem;
+    height: 3.5rem;
+    color: #4b5563;
+    margin-bottom: 0.5rem;
+    transition: color 200ms ease;
+}
+
+.raster-card-dropzone:hover .raster-card-dropzone-icon {
+    color: #6b7280;
+}
+
+.raster-card-dropzone-title {
+    font-size: 1.125rem;
+    font-weight: 700;
+    color: #6b7280;
+}
+
+.raster-card-dropzone-sub {
+    font-size: 0.75rem;
+    color: #4b5563;
+    margin-top: 0.1rem;
+}
+
+.raster-card-dropzone-divider {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    width: 100%;
+    max-width: 14rem;
+    margin: 0.5rem 0;
+}
+
+.raster-card-dropzone-divider::before,
+.raster-card-dropzone-divider::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: #374151;
+}
+
+.raster-card-dropzone-divider span {
+    font-size: 0.75rem;
+    color: #4b5563;
+    white-space: nowrap;
+}
+
+.raster-card-dropzone-btn {
+    pointer-events: all;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    padding: 0.5rem 1.25rem;
+    border-radius: 0.5rem;
+    margin-top: 0.25rem;
+    cursor: pointer;
+}
+
+.raster-card-dropzone-btn svg {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+}
