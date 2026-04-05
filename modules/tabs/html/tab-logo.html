@@ -144,7 +144,13 @@
                                             <option value="0">L0</option>
                                         </select>
                                     </div>
-                                    <p class="text-xs text-gray-500 px-3 pb-2">Largest final layer is auto-detected as the support base. Change or disable it below if needed. All other layers start on top of it.</p>
+                                    <p class="text-xs text-gray-500 px-3 pb-2">Largest final layer is auto-detected to provide the support base color and thickness. The support footprint is welded from the full visible silhouette, and all other layers start on top of it.</p>
+                                    <div class="px-3 pb-3">
+                                        <div class="rounded-md border border-gray-700 bg-gray-900/70 px-3 py-2">
+                                            <div id="logo-triangle-estimate" class="text-xs text-gray-300">Approx. triangles: —</div>
+                                            <div id="logo-triangle-controls-hint" class="text-xs text-gray-500 mt-1">Reduce triangles with Path Simplification, more Curve Straightness, fewer Max Colors, or Mesh Detail Reduction.</div>
+                                        </div>
+                                    </div>
                                     <div id="logo-layer-stack-list" class="layer-stack-list"></div>
                                 </div>
                             </div>

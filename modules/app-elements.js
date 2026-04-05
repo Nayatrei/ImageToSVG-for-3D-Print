@@ -50,6 +50,8 @@ export function createElements() {
         shared3d: {
             objThicknessSlider: document.getElementById('obj-thickness'),
             objThicknessValue: document.getElementById('obj-thickness-value'),
+            objDecimateSlider: document.getElementById('obj-decimate'),
+            objDecimateValue: document.getElementById('obj-decimate-value'),
             objScaleSlider: document.getElementById('obj-scale'),
             objScaleValue: document.getElementById('obj-scale-value'),
             objSizeReadout: document.getElementById('obj-size-readout'),
@@ -228,6 +230,8 @@ export function createElements() {
                 objModeSolo: document.getElementById('logo-obj-mode-solo'),
                 layerStackList: document.getElementById('logo-layer-stack-list'),
                 layerStackMeta: document.getElementById('logo-layer-stack-meta'),
+                triangleEstimate: document.getElementById('logo-triangle-estimate'),
+                triangleControlsHint: document.getElementById('logo-triangle-controls-hint'),
                 useBaseLayerCheckbox: document.getElementById('logo-use-base-layer'),
                 baseLayerSelect: document.getElementById('logo-base-layer-select')
             },

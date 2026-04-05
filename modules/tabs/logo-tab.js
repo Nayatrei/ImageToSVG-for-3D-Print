@@ -2,11 +2,12 @@ import { SLIDER_TOOLTIPS, TRANSPARENT_ALPHA_CUTOFF } from '../config.js';
 import { createObjPreview } from '../preview3d.js';
 import { createObjExporter } from '../export3d.js';
 import { hasTransparentPixels, markTransparentPixels, stripTransparentPalette, remapQuantizedPaletteToColors } from '../shared/image-utils.js';
-import { debounce, layerHasPaths, buildTracedataSubset, createMergedTracedata, createSolidSilhouette, assess3DPrintQuality } from '../shared/trace-utils.js';
+import { debounce, layerHasPaths, buildTracedataSubset, createMergedTracedata, assess3DPrintQuality } from '../shared/trace-utils.js';
 import { saveInitialSliderValues, updateAllSliderDisplays, resetSlidersToInitial } from '../shared/slider-manager.js';
 import { createZoomPanController } from '../shared/zoom-pan.js';
 import { svgToPng } from '../shared/svg-renderer.js';
 import { createPaletteManager } from '../shared/palette-manager.js';
+import { buildWeldedSilhouetteSvgString } from '../shared/silhouette-builder.js';
 import { HTML_PRESETS, createHtmlEditor, extractDeclaredHtmlColors } from './logo/html-editor.js?v=13';
 
 export function createLogoTabController({
@@ -469,7 +470,14 @@ export function createLogoTabController({
                     }
 
                     ls.tracedata = tracedata;
-                    ls.silhouetteTracedata = createSolidSilhouette(ls.tracedata, getVisibleLayerIndices);
+                    ls.silhouetteSvgString = buildWeldedSilhouetteSvgString({
+                        tracedata: ls.tracedata,
+                        layerIndices: getVisibleLayerIndices(),
+                        tracer,
+                        options: ls.lastOptions,
+                        SVGLoader: window.SVGLoader,
+                        THREERef: window.THREE
+                    });
 
                     palette.displayPalette();
                     palette.prepareMergeUIAfterGeneration();
@@ -533,6 +541,7 @@ export function createLogoTabController({
             le.export3mfBtn,
             le.exportStlBtn
         ].forEach(btn => { if (btn) btn.disabled = true; });
+        if (le.bambuOpenBtn) le.bambuOpenBtn.disabled = true;
     }
 
     function enableDownloadButtons() {
@@ -541,6 +550,14 @@ export function createLogoTabController({
             le.export3mfBtn,
             le.exportStlBtn
         ].forEach(btn => { if (btn) btn.disabled = false; });
+        if (le.bambuOpenBtn) {
+            const canOpenInExtension = typeof chrome !== 'undefined'
+                && Boolean(chrome.downloads?.download && chrome.downloads?.open);
+            le.bambuOpenBtn.disabled = !canOpenInExtension;
+            le.bambuOpenBtn.title = canOpenInExtension
+                ? 'Export a 3MF and ask Chrome to open it with your default .3mf app'
+                : 'Requires the installed Chrome extension context. In a regular browser tab, export the 3MF and open it manually.';
+        }
     }
 
     // ── Palette manager ────────────────────────────────────────────────────────
@@ -673,7 +690,24 @@ export function createLogoTabController({
             le.objThicknessSlider.addEventListener('input', () => {
                 state.objParams.thickness = Number.parseFloat(le.objThicknessSlider.value);
                 le.objThicknessValue.textContent = state.objParams.thickness;
-                updateFilteredPreview();
+                if (state.activeTab === 'logo') updateFilteredPreview();
+            });
+        }
+
+        if (le.objDecimateSlider && le.objDecimateValue) {
+            le.objDecimateValue.textContent = le.objDecimateSlider.value;
+            le.objDecimateSlider.addEventListener('input', () => {
+                state.objParams.decimate = Number.parseFloat(le.objDecimateSlider.value);
+                le.objDecimateValue.textContent = state.objParams.decimate;
+                if (state.activeTab === 'logo') updateFilteredPreview();
+
+                const tooltipEl = document.getElementById('obj-decimate-tooltip');
+                if (tooltipEl) {
+                    tooltipEl.textContent = SLIDER_TOOLTIPS['obj-decimate'];
+                    tooltipEl.style.opacity = '1';
+                    clearTimeout(ls.tooltipTimeout);
+                    ls.tooltipTimeout = setTimeout(() => { tooltipEl.style.opacity = '0'; }, 2000);
+                }
             });
         }
 
@@ -682,19 +716,19 @@ export function createLogoTabController({
             le.objScaleSlider.addEventListener('input', () => {
                 state.objParams.scale = Number.parseFloat(le.objScaleSlider.value);
                 le.objScaleValue.textContent = state.objParams.scale;
-                updateFilteredPreview();
+                if (state.activeTab === 'logo') updateFilteredPreview();
             });
         }
         if (le.objBedSelect) {
             le.objBedSelect.addEventListener('change', (e) => {
                 state.objParams.bedKey = e.target.value;
-                updateFilteredPreview();
+                if (state.activeTab === 'logo') updateFilteredPreview();
             });
         }
         if (le.objMarginInput) {
             le.objMarginInput.addEventListener('input', (e) => {
                 state.objParams.margin = Number.parseFloat(e.target.value);
-                updateFilteredPreview();
+                if (state.activeTab === 'logo') updateFilteredPreview();
             });
         }
         if (le.exportObjBtn) {

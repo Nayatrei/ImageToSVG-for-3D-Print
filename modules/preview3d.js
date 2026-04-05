@@ -23,6 +23,27 @@ function createFrameState({ THREERef, footprintWidth, footprintDepth, modelHeigh
     };
 }
 
+function getApproxTriangleCount(geometry) {
+    if (!geometry) return 0;
+    if (geometry.index) return Math.round(geometry.index.count / 3);
+    const position = geometry.getAttribute('position');
+    return position ? Math.round(position.count / 3) : 0;
+}
+
+function getBundleTriangleCount(geometryBundle) {
+    if (!geometryBundle?.layers) return 0;
+    let total = 0;
+    geometryBundle.layers.forEach((layerData) => {
+        total += getApproxTriangleCount(layerData.geometry);
+    });
+    return total;
+}
+
+function formatTriangleCount(value) {
+    const count = Number.isFinite(value) ? Math.max(0, Math.round(value)) : 0;
+    return count.toLocaleString();
+}
+
 export function createObjPreview({
     state,
     modelControls,
@@ -267,6 +288,19 @@ export function createObjPreview({
         model.objStructureWarning.classList.remove('hidden');
     }
 
+    function updateTriangleEstimate({ triangleCount = 0, decimatePercent = 0 } = {}) {
+        if (view.triangleEstimate) {
+            view.triangleEstimate.textContent = `Approx. triangles: ${triangleCount > 0 ? formatTriangleCount(triangleCount) : '—'}`;
+        }
+
+        if (view.triangleControlsHint) {
+            const baseHint = 'Reduce triangles with Path Simplification, more Curve Straightness, fewer Max Colors, or Mesh Detail Reduction.';
+            view.triangleControlsHint.textContent = decimatePercent > 0
+                ? `${baseHint} Mesh Detail Reduction is currently ${decimatePercent}%.`
+                : `${baseHint} Corner Sharpness usually preserves detail instead of lowering it.`;
+        }
+    }
+
     function setBuildPlateVisible(showBuildPlate) {
         state.objPreview.showBuildPlate = !!showBuildPlate;
         updateBuildPlateToggleButton();
@@ -479,7 +513,7 @@ export function createObjPreview({
 
             const label = document.createElement('span');
             label.className = 'layer-stack-label';
-            label.textContent = layer.isBase ? `${layer.displayLabel} (Base)` : layer.displayLabel;
+            label.textContent = layer.isBase ? `${layer.displayLabel} (Support Base)` : layer.displayLabel;
 
             const thicknessInput = document.createElement('input');
             thicknessInput.type = 'number';
@@ -542,6 +576,7 @@ export function createObjPreview({
             updateLayerStackPreview(null, 0, new Set());
             updateSizeReadout(null);
             updateStructureWarning([]);
+            updateTriangleEstimate();
             renderFrame();
             return;
         }
@@ -557,6 +592,8 @@ export function createObjPreview({
             const marginValue = model.objMarginInput ? Number.parseFloat(model.objMarginInput.value) : 5;
             const margin = Number.isFinite(marginValue) ? Math.max(0, marginValue) : 5;
             const scaleValue = model.objScaleSlider ? Number.parseFloat(model.objScaleSlider.value) : 100;
+            const decimateValue = model.objDecimateSlider ? Number.parseFloat(model.objDecimateSlider.value) : 0;
+            const decimatePercent = Number.isFinite(decimateValue) ? Math.max(0, Math.min(100, decimateValue)) : 0;
             const selectionSet = getSelectionIndices();
             const hasSelection = selectionSet.size > 0;
             const displayMode = state.objPreview.layerDisplayMode;
@@ -570,7 +607,8 @@ export function createObjPreview({
                 SVGLoader,
                 THREERef,
                 defaultThickness: thickness,
-                visibleSourceLayerIds
+                visibleSourceLayerIds,
+                decimatePercent
             });
 
             if (!plan || plan.outputLayers.length === 0) {
@@ -579,6 +617,7 @@ export function createObjPreview({
                 updateLayerStackPreview(null, thickness, selectionSet);
                 updateSizeReadout(null);
                 updateStructureWarning([]);
+                updateTriangleEstimate({ decimatePercent });
                 renderFrame();
                 return;
             }
@@ -599,6 +638,7 @@ export function createObjPreview({
                 updateLayerStackPreview(plan, thickness, selectionSet);
                 updateSizeReadout(scalePlan);
                 updateStructureWarning(plan.warnings);
+                updateTriangleEstimate({ decimatePercent });
                 renderFrame();
                 return;
             }
@@ -651,10 +691,15 @@ export function createObjPreview({
             updateLayerStackPreview(plan, thickness, selectionSet);
             updateSizeReadout(scalePlan);
             updateStructureWarning(plan.warnings);
+            updateTriangleEstimate({
+                triangleCount: getBundleTriangleCount(geometryBundle),
+                decimatePercent
+            });
             renderFrame();
         } catch (error) {
             console.error('3D preview failed:', error);
             setPlaceholder('3D preview failed. Try re-analyzing.', true);
+            updateTriangleEstimate();
         }
     }
 

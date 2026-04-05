@@ -1,13 +1,155 @@
-import { buildTracedataSubset, resolveMergedLayerGroups } from './shared/trace-utils.js';
+import { resolveMergedLayerGroups } from './shared/trace-utils.js';
+import { buildShapesFromTracedataLayers, buildWeldedShapeSet } from './shared/silhouette-builder.js';
 
 const DEFAULT_CURVE_SEGMENTS = 6;
 const BOUNDS_POINT_DIVISIONS = 16;
 const TRIANGULATION_POINT_DIVISIONS = 12;
+const MIN_SIMPLIFIED_POINT_DIVISIONS = 2;
 
 function clampThickness(value, defaultThickness) {
     const numeric = Number.isFinite(value) ? value : Number.parseFloat(value);
     const fallback = Number.isFinite(defaultThickness) ? defaultThickness : 4;
     return Math.max(0.1, Math.min(20, Number.isFinite(numeric) ? numeric : fallback));
+}
+
+function clampDecimatePercent(value) {
+    const numeric = Number.isFinite(value) ? value : Number.parseFloat(value);
+    return Math.max(0, Math.min(100, Number.isFinite(numeric) ? numeric : 0));
+}
+
+function getCurveSegmentsForDecimation(decimatePercent) {
+    const normalized = clampDecimatePercent(decimatePercent) / 100;
+    return Math.max(1, Math.round(DEFAULT_CURVE_SEGMENTS - ((DEFAULT_CURVE_SEGMENTS - 1) * normalized)));
+}
+
+function getPointDivisionsForDecimation(decimatePercent) {
+    const normalized = clampDecimatePercent(decimatePercent) / 100;
+    return Math.max(
+        MIN_SIMPLIFIED_POINT_DIVISIONS,
+        Math.round(TRIANGULATION_POINT_DIVISIONS - ((TRIANGULATION_POINT_DIVISIONS - MIN_SIMPLIFIED_POINT_DIVISIONS) * normalized))
+    );
+}
+
+function normalizePathPoints(points) {
+    if (!Array.isArray(points) || points.length === 0) return [];
+
+    const normalized = [];
+    points.forEach((point) => {
+        if (!point || !Number.isFinite(point.x) || !Number.isFinite(point.y)) return;
+        const previous = normalized[normalized.length - 1];
+        if (previous && Math.abs(previous.x - point.x) < 1e-6 && Math.abs(previous.y - point.y) < 1e-6) {
+            return;
+        }
+        normalized.push({ x: point.x, y: point.y });
+    });
+
+    if (normalized.length > 1) {
+        const first = normalized[0];
+        const last = normalized[normalized.length - 1];
+        if (Math.abs(first.x - last.x) < 1e-6 && Math.abs(first.y - last.y) < 1e-6) {
+            normalized.pop();
+        }
+    }
+
+    return normalized;
+}
+
+function getPathBounds(points) {
+    return points.reduce((bounds, point) => ({
+        minX: Math.min(bounds.minX, point.x),
+        minY: Math.min(bounds.minY, point.y),
+        maxX: Math.max(bounds.maxX, point.x),
+        maxY: Math.max(bounds.maxY, point.y)
+    }), {
+        minX: Infinity,
+        minY: Infinity,
+        maxX: -Infinity,
+        maxY: -Infinity
+    });
+}
+
+function getPointLineDistance(point, lineStart, lineEnd) {
+    const dx = lineEnd.x - lineStart.x;
+    const dy = lineEnd.y - lineStart.y;
+    if (Math.abs(dx) < 1e-9 && Math.abs(dy) < 1e-9) {
+        return Math.hypot(point.x - lineStart.x, point.y - lineStart.y);
+    }
+
+    const numerator = Math.abs((dy * point.x) - (dx * point.y) + (lineEnd.x * lineStart.y) - (lineEnd.y * lineStart.x));
+    return numerator / Math.hypot(dx, dy);
+}
+
+function simplifyPolyline(points, tolerance) {
+    if (!Array.isArray(points) || points.length <= 2 || tolerance <= 0) return points.slice();
+
+    let maxDistance = 0;
+    let splitIndex = -1;
+    const start = points[0];
+    const end = points[points.length - 1];
+
+    for (let index = 1; index < points.length - 1; index++) {
+        const distance = getPointLineDistance(points[index], start, end);
+        if (distance > maxDistance) {
+            maxDistance = distance;
+            splitIndex = index;
+        }
+    }
+
+    if (maxDistance <= tolerance || splitIndex === -1) {
+        return [start, end];
+    }
+
+    const left = simplifyPolyline(points.slice(0, splitIndex + 1), tolerance);
+    const right = simplifyPolyline(points.slice(splitIndex), tolerance);
+    return left.slice(0, -1).concat(right);
+}
+
+function simplifyPolygonPoints(points, decimatePercent) {
+    const normalizedPoints = normalizePathPoints(points);
+    if (normalizedPoints.length <= 3 || clampDecimatePercent(decimatePercent) <= 0) return normalizedPoints;
+
+    const bounds = getPathBounds(normalizedPoints);
+    const maxDimension = Math.max(bounds.maxX - bounds.minX, bounds.maxY - bounds.minY, 1);
+    const tolerance = maxDimension * (clampDecimatePercent(decimatePercent) / 100) * 0.01;
+    if (tolerance <= 0) return normalizedPoints;
+
+    const ring = normalizedPoints.concat(normalizedPoints[0]);
+    const simplified = simplifyPolyline(ring, tolerance);
+    const reopened = simplifyPolyline(
+        simplified.slice(0, -1).concat(simplified[0]),
+        tolerance * 0.5
+    ).slice(0, -1);
+
+    return reopened.length >= 3 ? reopened : normalizedPoints;
+}
+
+function buildLinearPath(points, THREERef, isShape = false, decimatePercent = 0) {
+    const normalizedPoints = simplifyPolygonPoints(points, decimatePercent);
+    if (normalizedPoints.length < 3) return null;
+
+    const path = isShape ? new THREERef.Shape() : new THREERef.Path();
+    path.moveTo(normalizedPoints[0].x, normalizedPoints[0].y);
+    normalizedPoints.slice(1).forEach((point) => {
+        path.lineTo(point.x, point.y);
+    });
+    path.closePath();
+    return path;
+}
+
+function simplifyShape(shape, THREERef, decimatePercent) {
+    if (!shape || !THREERef || clampDecimatePercent(decimatePercent) <= 0) return shape;
+
+    const pointDivisions = Math.max(BOUNDS_POINT_DIVISIONS, getPointDivisionsForDecimation(decimatePercent));
+    const extracted = shape.extractPoints(pointDivisions);
+    const simplifiedShape = buildLinearPath(extracted.shape, THREERef, true, decimatePercent);
+    if (!simplifiedShape) return shape;
+
+    extracted.holes.forEach((holePoints) => {
+        const simplifiedHole = buildLinearPath(holePoints, THREERef, false, decimatePercent);
+        if (simplifiedHole) simplifiedShape.holes.push(simplifiedHole);
+    });
+
+    return simplifiedShape;
 }
 
 function updateBoundsFromPoints(bounds, points) {
@@ -60,39 +202,43 @@ function finalizeBounds(bounds) {
     };
 }
 
-function buildShapesForSourceLayer({ tracedata, sourceLayerId, tracer, options, SVGLoader }) {
-    const subset = buildTracedataSubset(tracedata, [sourceLayerId]);
-    if (!subset) return { shapes: [], bounds: finalizeBounds(createEmptyBounds()) };
-
-    const svgString = tracer.getsvgstring(subset, options);
-    const loader = new SVGLoader();
-    const svgData = loader.parse(svgString);
-    const shapes = [];
-    const bounds = createEmptyBounds();
-
-    svgData.paths.forEach((path) => {
-        const pathShapes = SVGLoader.createShapes(path);
-        if (!pathShapes || !pathShapes.length) return;
-
-        pathShapes.forEach((shape) => {
-            shapes.push(shape);
-            const extracted = shape.extractPoints(BOUNDS_POINT_DIVISIONS);
-            updateBoundsFromPoints(bounds, extracted.shape);
-            extracted.holes.forEach((hole) => updateBoundsFromPoints(bounds, hole));
-        });
+function buildShapesForSourceLayer({ tracedata, sourceLayerId, tracer, options, SVGLoader, THREERef }) {
+    return buildShapesFromTracedataLayers({
+        tracedata,
+        layerIndices: [sourceLayerId],
+        tracer,
+        options,
+        SVGLoader,
+        THREERef
     });
-
-    return { shapes, bounds: finalizeBounds(bounds) };
 }
 
-function buildLayerTriangles(shapes, THREERef) {
+function buildBoundsFromShapes(shapes, offsetX = 0, offsetY = 0) {
+    const bounds = createEmptyBounds();
+    (Array.isArray(shapes) ? shapes : []).forEach((shape) => {
+        if (!shape?.extractPoints) return;
+        const extracted = shape.extractPoints(BOUNDS_POINT_DIVISIONS);
+        updateBoundsFromPoints(bounds, extracted.shape.map((point) => ({ x: point.x + offsetX, y: point.y + offsetY })));
+        extracted.holes.forEach((hole) => {
+            updateBoundsFromPoints(bounds, hole.map((point) => ({ x: point.x + offsetX, y: point.y + offsetY })));
+        });
+    });
+    return finalizeBounds(bounds);
+}
+
+function simplifyShapeSet(shapes, THREERef, decimatePercent) {
+    if (!Array.isArray(shapes) || shapes.length === 0) return [];
+    return shapes.map((shape) => simplifyShape(shape, THREERef, decimatePercent)).filter(Boolean);
+}
+
+function buildLayerTriangles(shapes, THREERef, offsetX = 0, offsetY = 0) {
     const triangles = [];
     if (!Array.isArray(shapes) || !THREERef?.ShapeUtils) return triangles;
 
     shapes.forEach((shape) => {
         const extracted = shape.extractPoints(TRIANGULATION_POINT_DIVISIONS);
-        const contour = extracted.shape.map((point) => new THREERef.Vector2(point.x, point.y));
-        const holes = extracted.holes.map((hole) => hole.map((point) => new THREERef.Vector2(point.x, point.y)));
+        const contour = extracted.shape.map((point) => new THREERef.Vector2(point.x + offsetX, point.y + offsetY));
+        const holes = extracted.holes.map((hole) => hole.map((point) => new THREERef.Vector2(point.x + offsetX, point.y + offsetY)));
         if (contour.length < 3) return;
 
         const faces = THREERef.ShapeUtils.triangulateShape(contour, holes);
@@ -145,7 +291,12 @@ function getTriangleArea([a, b, c]) {
 }
 
 function getLayerFootprintArea(layer, THREERef) {
-    const triangles = buildLayerTriangles(layer?.footprintShapes, THREERef);
+    const triangles = buildLayerTriangles(
+        layer?.footprintShapes,
+        THREERef,
+        layer?.footprintOffsetX || 0,
+        layer?.footprintOffsetY || 0
+    );
     if (!triangles.length) return 0;
     return triangles.reduce((sum, triangle) => sum + getTriangleArea(triangle), 0);
 }
@@ -170,13 +321,23 @@ function detectBaseOutputLayer(outputLayers, THREERef) {
 function validateSupportFootprint(outputLayers, resolvedBaseOutputLayer, THREERef) {
     if (!resolvedBaseOutputLayer || !THREERef) return [];
 
-    const baseTriangles = buildLayerTriangles(resolvedBaseOutputLayer.footprintShapes, THREERef);
+    const baseTriangles = buildLayerTriangles(
+        resolvedBaseOutputLayer.footprintShapes,
+        THREERef,
+        resolvedBaseOutputLayer.footprintOffsetX || 0,
+        resolvedBaseOutputLayer.footprintOffsetY || 0
+    );
     if (!baseTriangles.length) return [];
 
     return outputLayers
         .filter((layer) => !layer.isBase)
         .flatMap((layer) => {
-            const layerTriangles = buildLayerTriangles(layer.footprintShapes, THREERef);
+            const layerTriangles = buildLayerTriangles(
+                layer.footprintShapes,
+                THREERef,
+                layer.footprintOffsetX || 0,
+                layer.footprintOffsetY || 0
+            );
             const hasUnsupportedArea = layerTriangles.some((triangle) => {
                 const samples = buildTriangleSamples(triangle, THREERef);
                 return samples.some((sample) => !triangleSetContainsPoint(sample, baseTriangles));
@@ -230,7 +391,8 @@ export function buildObjModelPlan({
     SVGLoader,
     THREERef,
     defaultThickness,
-    visibleSourceLayerIds
+    visibleSourceLayerIds,
+    decimatePercent = 0
 }) {
     if (!state?.tracedata || !tracer || !SVGLoader || !THREERef) return null;
     if (!Array.isArray(visibleSourceLayerIds) || visibleSourceLayerIds.length === 0) return null;
@@ -247,7 +409,8 @@ export function buildObjModelPlan({
             sourceLayerId,
             tracer,
             options: state.lastOptions,
-            SVGLoader
+            SVGLoader,
+            THREERef
         });
         shapeCache.set(sourceLayerId, cached);
         if (cached.bounds.isValid) {
@@ -259,25 +422,41 @@ export function buildObjModelPlan({
     });
 
     const outputLayers = outputGroups.map((group) => {
-        const shapes = [];
+        const rawShapes = [];
         group.sourceLayerIds.forEach((sourceLayerId) => {
             const sourceShapes = shapeCache.get(sourceLayerId)?.shapes || [];
-            shapes.push(...sourceShapes);
+            rawShapes.push(...sourceShapes);
         });
+        const weldedShapeSet = buildWeldedShapeSet({
+            shapes: rawShapes,
+            tracer,
+            options: state.lastOptions,
+            SVGLoader,
+            THREERef
+        });
+        const shapes = simplifyShapeSet(weldedShapeSet.shapes, THREERef, decimatePercent);
+        const bounds = buildBoundsFromShapes(shapes, weldedShapeSet.offsetX, weldedShapeSet.offsetY);
         return {
             outputLayerId: group.outputLayerId,
             primarySourceLayerId: group.primarySourceLayerId,
             sourceLayerIds: group.sourceLayerIds.slice(),
             color: state.tracedata.palette[group.primarySourceLayerId],
             thickness: clampThickness(thicknessById[group.primarySourceLayerId], defaultThickness),
+            rawShapes,
             shapes,
+            shapeOffsetX: weldedShapeSet.offsetX || 0,
+            shapeOffsetY: weldedShapeSet.offsetY || 0,
             footprintShapes: shapes.slice(),
+            footprintOffsetX: weldedShapeSet.offsetX || 0,
+            footprintOffsetY: weldedShapeSet.offsetY || 0,
+            bounds,
             displayLabel: group.sourceLayerIds.length > 1
                 ? `L${group.primarySourceLayerId} (${group.sourceLayerIds.join('+')})`
                 : `L${group.primarySourceLayerId}`,
             zStart: 0,
             zEnd: 0,
-            isBase: false
+            isBase: false,
+            providesGeneratedSupportFootprint: false
         };
     });
 
@@ -297,6 +476,29 @@ export function buildObjModelPlan({
         if (!resolvedBaseOutputLayer) {
             resolvedBaseOutputLayer = detectedBaseOutputLayer || outputLayers[0];
             state.baseSourceLayerId = resolvedBaseOutputLayer.primarySourceLayerId;
+        }
+
+        const supportBaseShapeSet = buildWeldedShapeSet({
+            shapes: outputLayers.flatMap((layer) => layer.rawShapes || []),
+            tracer,
+            options: state.lastOptions,
+            SVGLoader,
+            THREERef
+        });
+        if (supportBaseShapeSet.shapes.length) {
+            const supportBaseShapes = simplifyShapeSet(supportBaseShapeSet.shapes, THREERef, decimatePercent);
+            resolvedBaseOutputLayer.shapes = supportBaseShapes;
+            resolvedBaseOutputLayer.shapeOffsetX = supportBaseShapeSet.offsetX || 0;
+            resolvedBaseOutputLayer.shapeOffsetY = supportBaseShapeSet.offsetY || 0;
+            resolvedBaseOutputLayer.footprintShapes = supportBaseShapes.slice();
+            resolvedBaseOutputLayer.footprintOffsetX = supportBaseShapeSet.offsetX || 0;
+            resolvedBaseOutputLayer.footprintOffsetY = supportBaseShapeSet.offsetY || 0;
+            resolvedBaseOutputLayer.bounds = buildBoundsFromShapes(
+                supportBaseShapes,
+                supportBaseShapeSet.offsetX || 0,
+                supportBaseShapeSet.offsetY || 0
+            );
+            resolvedBaseOutputLayer.providesGeneratedSupportFootprint = true;
         }
     }
 
@@ -319,7 +521,7 @@ export function buildObjModelPlan({
 
     const normalizedBounds = finalizeBounds(rawBounds);
     const totalHeight = outputLayers.reduce((maxHeight, layer) => Math.max(maxHeight, layer.zEnd), 0);
-    const warnings = resolvedBaseOutputLayer
+    const warnings = resolvedBaseOutputLayer && !resolvedBaseOutputLayer.providesGeneratedSupportFootprint
         ? validateSupportFootprint(outputLayers, resolvedBaseOutputLayer, THREERef)
         : [];
 
@@ -334,7 +536,8 @@ export function buildObjModelPlan({
         rawBounds: normalizedBounds,
         totalHeight,
         maxHeight: totalHeight,
-        curveSegments: DEFAULT_CURVE_SEGMENTS,
+        curveSegments: getCurveSegmentsForDecimation(decimatePercent),
+        decimatePercent: clampDecimatePercent(decimatePercent),
         normalization: {
             shiftX: -normalizedBounds.centerX,
             shiftY: -normalizedBounds.centerY,
@@ -346,6 +549,8 @@ export function buildObjModelPlan({
 
 function createLayerGeometry({ layer, plan, THREERef }) {
     const geometries = [];
+    const offsetX = layer.shapeOffsetX || 0;
+    const offsetY = layer.shapeOffsetY || 0;
 
     layer.shapes.forEach((shape) => {
         const geometry = new THREERef.ExtrudeGeometry(shape, {
@@ -355,8 +560,8 @@ function createLayerGeometry({ layer, plan, THREERef }) {
         });
         geometry.rotateX(Math.PI);
         geometry.translate(
-            plan.normalization.shiftX,
-            -plan.normalization.shiftY,
+            plan.normalization.shiftX + offsetX,
+            -plan.normalization.shiftY - offsetY,
             layer.thickness + layer.zStart + plan.normalization.shiftZ
         );
         geometry.computeVertexNormals();

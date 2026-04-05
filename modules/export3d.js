@@ -2,6 +2,8 @@ import { buildObjGeometryBundle, buildObjModelPlan } from './obj-model-plan.js';
 import { computeObjScalePlan } from './obj-scale.js';
 import { layerHasPaths } from './shared/trace-utils.js';
 
+const THREE_MF_BLOB_TYPE = 'model/3mf';
+
 function buildMtl(materials, name) {
     if (!materials || materials.size === 0) return '';
     let output = `# ${name}.mtl\n`;
@@ -276,7 +278,8 @@ export async function createZipFile(files) {
         for (const [path, content] of Object.entries(files)) {
             zip.file(path, content);
         }
-        return await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' });
+        const zipData = await zip.generateAsync({ type: 'uint8array', compression: 'DEFLATE' });
+        return new Blob([zipData], { type: THREE_MF_BLOB_TYPE });
     }
 
     // Fallback: create uncompressed ZIP manually
@@ -404,7 +407,7 @@ export async function createZipFile(files) {
     // Comment length
     view.setUint16(pos, 0, true);
 
-    return new Blob([buffer], { type: 'application/vnd.ms-package.3dmanufacturing-3dmodel+xml' });
+    return new Blob([buffer], { type: THREE_MF_BLOB_TYPE });
 }
 
 // CRC32 calculation
@@ -429,6 +432,140 @@ function getCRC32Table() {
         crc32Table[i] = c;
     }
     return crc32Table;
+}
+
+function getChromeDownloadsApi() {
+    if (typeof chrome === 'undefined' || !chrome.downloads?.download || !chrome.downloads?.search) {
+        return null;
+    }
+    return chrome.downloads;
+}
+
+function getDownloadInterruptionMessage(errorMessage, dangerState = '') {
+    const detail = [errorMessage, dangerState].filter(Boolean).join(' ').trim().toLowerCase();
+    if (detail.includes('danger') || detail.includes('blocked') || detail.includes('security') || detail.includes('uncommon')) {
+        return 'Chrome blocked the generated 3MF as unsafe. The file is a valid 3MF package, but uncommon downloads can still be flagged. Try the normal Export 3MF action, or open the saved file manually from Downloads.';
+    }
+    return errorMessage || 'Download interrupted.';
+}
+
+function waitForChromeDownload(downloadsApi, downloadId) {
+    return new Promise((resolve, reject) => {
+        const timeoutId = window.setTimeout(() => {
+            downloadsApi.onChanged.removeListener(handleChange);
+            reject(new Error('Timed out waiting for the downloaded 3MF file.'));
+        }, 30000);
+
+        function cleanup() {
+            window.clearTimeout(timeoutId);
+            downloadsApi.onChanged.removeListener(handleChange);
+        }
+
+        function handleChange(delta) {
+            if (delta.id !== downloadId || !delta.state?.current) return;
+
+            if (delta.state.current === 'complete') {
+                cleanup();
+                resolve();
+                return;
+            }
+
+            if (delta.state.current === 'interrupted') {
+                cleanup();
+                reject(new Error(getDownloadInterruptionMessage(delta.error?.current, delta.danger?.current)));
+            }
+        }
+
+        downloadsApi.onChanged.addListener(handleChange);
+    });
+}
+
+async function downloadBlobWithChrome(blob, filename) {
+    const downloadsApi = getChromeDownloadsApi();
+    if (!downloadsApi) return null;
+
+    const objectUrl = URL.createObjectURL(blob);
+    try {
+        const downloadId = await downloadsApi.download({
+            url: objectUrl,
+            filename,
+            conflictAction: 'uniquify',
+            saveAs: false
+        });
+
+        let [downloadItem] = await downloadsApi.search({ id: downloadId });
+        if (downloadItem?.state !== 'complete') {
+            await waitForChromeDownload(downloadsApi, downloadId);
+            [downloadItem] = await downloadsApi.search({ id: downloadId });
+        }
+
+        return {
+            downloadId,
+            filename: downloadItem?.filename || '',
+            danger: downloadItem?.danger || ''
+        };
+    } catch (error) {
+        console.warn('Chrome download handoff failed, falling back to a browser download:', error);
+        return null;
+    } finally {
+        window.setTimeout(() => URL.revokeObjectURL(objectUrl), 30000);
+    }
+}
+
+async function openChromeDownloadedFile(downloadId) {
+    const downloadsApi = getChromeDownloadsApi();
+    if (!downloadsApi?.open) return false;
+
+    try {
+        await downloadsApi.open(downloadId);
+        return true;
+    } catch (error) {
+        console.warn('Opening downloaded file via Chrome failed:', error);
+        return false;
+    }
+}
+
+function revealChromeDownloadedFile(downloadId) {
+    const downloadsApi = getChromeDownloadsApi();
+    if (!downloadsApi?.show) return;
+
+    try {
+        downloadsApi.show(downloadId);
+    } catch (error) {
+        console.warn('Revealing downloaded file via Chrome failed:', error);
+    }
+}
+
+async function download3MF({
+    blob,
+    filename,
+    statusText,
+    downloadBlob,
+    openAfterDownload = false
+}) {
+    const chromeDownload = await downloadBlobWithChrome(blob, filename);
+    if (!chromeDownload) {
+        downloadBlob(new Blob([blob], { type: THREE_MF_BLOB_TYPE }), filename);
+        return {
+            downloadedViaChrome: false,
+            openedViaChrome: false,
+            filename: ''
+        };
+    }
+
+    let openedViaChrome = false;
+    if (openAfterDownload) {
+        openedViaChrome = await openChromeDownloadedFile(chromeDownload.downloadId);
+        if (!openedViaChrome) {
+            revealChromeDownloadedFile(chromeDownload.downloadId);
+        }
+    }
+
+    return {
+        downloadedViaChrome: true,
+        openedViaChrome,
+        filename: chromeDownload.filename || ''
+    };
 }
 
 export function createObjExporter({
@@ -468,7 +605,8 @@ export function createObjExporter({
             SVGLoader,
             THREERef,
             defaultThickness,
-            visibleSourceLayerIds
+            visibleSourceLayerIds,
+            decimatePercent: model.objDecimateSlider ? Number.parseFloat(model.objDecimateSlider.value) : 0
         });
         if (!plan || plan.outputLayers.length === 0) return null;
 
@@ -592,14 +730,25 @@ export function createObjExporter({
             const baseName = `${getImageBaseName()}_${Math.round(result.plan.maxHeight || defaultThickness)}mm`;
 
             const blob = await generate3MF(result.layers, baseName);
-            downloadBlob(blob, `${baseName}.3mf`);
-            if (statusText) statusText.textContent = '3MF export complete.';
+            const filename = `${baseName}.3mf`;
+            const downloadResult = await download3MF({
+                blob,
+                filename,
+                statusText,
+                downloadBlob,
+                openAfterDownload: false
+            });
+            if (statusText) {
+                statusText.textContent = downloadResult.downloadedViaChrome
+                    ? '3MF export complete.'
+                    : '3MF downloaded. If Chrome warns about the file, keep it and open it manually from Downloads.';
+            }
 
             // Cleanup
             result.layers.forEach((layerData) => layerData.geometry.dispose());
         } catch (error) {
             console.error('3MF export failed:', error);
-            if (statusText) statusText.textContent = 'Failed to export 3MF.';
+            if (statusText) statusText.textContent = error.message || 'Failed to export 3MF.';
         } finally {
             showLoader(false);
         }
@@ -620,6 +769,13 @@ export function createObjExporter({
         const thicknessValue = model.objThicknessSlider ? parseFloat(model.objThicknessSlider.value) : 4;
         const defaultThickness = Number.isFinite(thicknessValue) ? thicknessValue : 4;
 
+        if (!getChromeDownloadsApi()) {
+            if (statusText) {
+                statusText.textContent = 'Open in Bambu Studio requires the installed extension context. In a normal browser tab, export the 3MF and open it from Downloads/Finder/Explorer.';
+            }
+            return;
+        }
+
         try {
             showLoader(true);
             if (statusText) statusText.textContent = 'Preparing for Bambu Studio…';
@@ -632,41 +788,25 @@ export function createObjExporter({
             const baseName = `${getImageBaseName()}_${Math.round(result.plan.maxHeight || defaultThickness)}mm`;
             const filename = `${baseName}.3mf`;
             const blob = await generate3MF(result.layers, baseName);
+            const downloadResult = await download3MF({
+                blob,
+                filename,
+                statusText,
+                downloadBlob,
+                openAfterDownload: true
+            });
 
-            // Step 1: Download the 3MF (if Bambu Studio is set as default for .3mf it opens automatically)
-            downloadBlob(blob, filename);
-
-            // Step 2: Attempt the bambustudio:// custom protocol to launch Bambu Studio.
-            // MakerWorld format: bambustudio://open?file=<encodeURIComponent(url + "&name=" + cleanName)>
-            // Blob URLs are browser-scoped so Bambu Studio can't fetch them directly,
-            // but the protocol handler still launches the app, and the downloaded file is ready.
-            const blobUrl = URL.createObjectURL(blob);
-            const cleanName = filename.replace(/[\\/:*?"<>|&\s#]/g, '_');
-            const encodedParam = encodeURIComponent(blobUrl + '&name=' + cleanName);
-
-            // Detect variant: bambusuite (new), bambustudio (standard)
-            const ua = navigator.userAgent.toLowerCase();
-            const isSuite = /bbl-suite/i.test(ua);
-            const scheme = isSuite ? 'bambusuite' : 'bambustudio';
-            const protocolUrl = `${scheme}://open?file=${encodedParam}`;
-
-            const link = document.createElement('a');
-            link.href = protocolUrl;
-            link.style.display = 'none';
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-
-            // Revoke blob URL after Bambu Studio has had time to attempt download
-            setTimeout(() => URL.revokeObjectURL(blobUrl), 15000);
-
-            if (statusText) statusText.textContent = '3MF downloaded — opening Bambu Studio…';
+            if (statusText) {
+                statusText.textContent = downloadResult.openedViaChrome
+                    ? '3MF exported and opened via your system default app for .3mf files.'
+                    : '3MF exported. If Bambu Studio did not open automatically, set it as the default app for .3mf files and open the saved file from Downloads.';
+            }
 
             // Cleanup geometry
             result.layers.forEach((layerData) => layerData.geometry.dispose());
         } catch (error) {
             console.error('Bambu Studio export failed:', error);
-            if (statusText) statusText.textContent = 'Failed to prepare for Bambu Studio.';
+            if (statusText) statusText.textContent = error.message || 'Failed to prepare for Bambu Studio.';
         } finally {
             showLoader(false);
         }

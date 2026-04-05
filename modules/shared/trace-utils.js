@@ -124,11 +124,12 @@ export function createMergedTracedata(sourceData, visibleIndices, rules) {
 }
 
 /**
- * Creates a single-color silhouette tracedata from all visible layers.
+ * Legacy helper that only concatenates visible paths into a single tracedata layer.
+ * This is not a welded silhouette and should not be used for print-safe backing geometry.
  * @param {object} tracedata
  * @param {function} getVisibleLayerIndices - () => number[]
  */
-export function createSolidSilhouette(tracedata, getVisibleLayerIndices) {
+export function createConcatenatedSilhouetteTracedata(tracedata, getVisibleLayerIndices) {
     if (!tracedata) return null;
     const visibleIndices = getVisibleLayerIndices();
     if (!visibleIndices.length) return null;

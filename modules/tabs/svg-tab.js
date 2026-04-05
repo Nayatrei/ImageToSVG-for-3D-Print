@@ -2,7 +2,8 @@ import { SLIDER_TOOLTIPS, TRANSPARENT_ALPHA_CUTOFF } from '../config.js';
 import { createObjPreview } from '../preview3d.js';
 import { createObjExporter } from '../export3d.js';
 import { hasTransparentPixels, markTransparentPixels, stripTransparentPalette } from '../shared/image-utils.js';
-import { debounce, layerHasPaths, buildTracedataSubset, createMergedTracedata, createSolidSilhouette, assess3DPrintQuality } from '../shared/trace-utils.js';
+import { debounce, layerHasPaths, buildTracedataSubset, createMergedTracedata, assess3DPrintQuality } from '../shared/trace-utils.js';
+import { buildWeldedSilhouetteSvgString } from '../shared/silhouette-builder.js';
 import { saveInitialSliderValues, updateAllSliderDisplays, resetSlidersToInitial } from '../shared/slider-manager.js';
 import { createZoomPanController } from '../shared/zoom-pan.js';
 import { svgToPng } from '../shared/svg-renderer.js';
@@ -341,7 +342,14 @@ export function createSvgTabController({
                     }
 
                     state.tracedata = tracedata;
-                    state.silhouetteTracedata = createSolidSilhouette(state.tracedata, getVisibleLayerIndices);
+                    state.silhouetteSvgString = buildWeldedSilhouetteSvgString({
+                        tracedata: state.tracedata,
+                        layerIndices: getVisibleLayerIndices(),
+                        tracer,
+                        options: state.lastOptions,
+                        SVGLoader: window.SVGLoader,
+                        THREERef: window.THREE
+                    });
 
                     palette.displayPalette();
                     palette.prepareMergeUIAfterGeneration();
@@ -547,7 +555,23 @@ export function createSvgTabController({
             elements.objThicknessSlider.addEventListener('input', () => {
                 state.objParams.thickness = Number.parseFloat(elements.objThicknessSlider.value);
                 elements.objThicknessValue.textContent = state.objParams.thickness;
-                updateFilteredPreview();
+                if (state.activeTab === 'svg') updateFilteredPreview();
+            });
+        }
+        if (elements.objDecimateSlider && elements.objDecimateValue) {
+            elements.objDecimateValue.textContent = elements.objDecimateSlider.value;
+            elements.objDecimateSlider.addEventListener('input', () => {
+                state.objParams.decimate = Number.parseFloat(elements.objDecimateSlider.value);
+                elements.objDecimateValue.textContent = state.objParams.decimate;
+                if (state.activeTab === 'svg') updateFilteredPreview();
+
+                const tooltipEl = document.getElementById('obj-decimate-tooltip');
+                if (tooltipEl) {
+                    tooltipEl.textContent = SLIDER_TOOLTIPS['obj-decimate'];
+                    tooltipEl.style.opacity = '1';
+                    clearTimeout(state.tooltipTimeout);
+                    state.tooltipTimeout = setTimeout(() => { tooltipEl.style.opacity = '0'; }, 2000);
+                }
             });
         }
         if (elements.objScaleSlider && elements.objScaleValue) {
@@ -555,19 +579,19 @@ export function createSvgTabController({
             elements.objScaleSlider.addEventListener('input', () => {
                 state.objParams.scale = Number.parseFloat(elements.objScaleSlider.value);
                 elements.objScaleValue.textContent = state.objParams.scale;
-                updateFilteredPreview();
+                if (state.activeTab === 'svg') updateFilteredPreview();
             });
         }
         if (elements.objBedSelect) {
             elements.objBedSelect.addEventListener('change', (e) => {
                 state.objParams.bedKey = e.target.value;
-                updateFilteredPreview();
+                if (state.activeTab === 'svg') updateFilteredPreview();
             });
         }
         if (elements.objMarginInput) {
             elements.objMarginInput.addEventListener('input', (e) => {
                 state.objParams.margin = Number.parseFloat(e.target.value);
-                updateFilteredPreview();
+                if (state.activeTab === 'svg') updateFilteredPreview();
             });
         }
         if (elements.exportObjBtn) {
@@ -618,7 +642,7 @@ export function createSvgTabController({
             elements.maxColorsSlider
         ].filter(Boolean).forEach((slider) => {
             slider.addEventListener('input', (e) => {
-                if (e.target.id === 'obj-thickness' || e.target.id === 'obj-scale') return;
+                if (e.target.id === 'obj-thickness' || e.target.id === 'obj-scale' || e.target.id === 'obj-decimate') return;
                 if (!state.isDirty) {
                     state.isDirty = true;
                     elements.resetBtn.style.display = 'inline';
@@ -671,8 +695,8 @@ export function createSvgTabController({
 
         if (elements.downloadSilhouetteBtn) {
             elements.downloadSilhouetteBtn.addEventListener('click', () => {
-                if (!state.silhouetteTracedata) return;
-                downloadSVG(tracer.getsvgstring(state.silhouetteTracedata, state.lastOptions), `${getImageBaseName()}_silhouette`);
+                if (!state.silhouetteSvgString) return;
+                downloadSVG(state.silhouetteSvgString, `${getImageBaseName()}_silhouette`);
             });
         }
 

@@ -3,7 +3,8 @@ export const SLIDER_TOOLTIPS = {
     'corner-sharpness': 'Higher values create crisper, more defined corners.',
     'curve-straightness': 'Higher values make curved lines more straight.',
     'color-precision': 'Higher values find more distinct color layers.',
-    'max-colors': 'Caps the maximum number of colors created.'
+    'max-colors': 'Caps the maximum number of colors created.',
+    'obj-decimate': 'Higher values reduce triangle/detail density for smaller, faster 3D exports. This does not weld separate shapes.'
 };
 
 export const TRANSPARENT_ALPHA_CUTOFF = 10;
