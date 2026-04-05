@@ -175,6 +175,7 @@ export function createElements() {
                 exportObjBtn: document.getElementById('export-obj-btn'),
                 export3mfBtn: document.getElementById('export-3mf-btn'),
                 exportStlBtn: document.getElementById('export-stl-btn'),
+                bambuOpenBtn: document.getElementById('svg-bambu-open-btn'),
                 exportFooter: document.getElementById('svg-export-footer')
             }
         },

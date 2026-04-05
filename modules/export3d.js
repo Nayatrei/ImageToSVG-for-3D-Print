@@ -462,7 +462,15 @@ function waitForChromeDownload(downloadsApi, downloadId) {
         }
 
         function handleChange(delta) {
-            if (delta.id !== downloadId || !delta.state?.current) return;
+            if (delta.id !== downloadId) return;
+
+            // If Chrome flags the file as dangerous/uncommon, accept it to show the keep/discard prompt
+            if (delta.danger?.current && delta.danger.current !== 'safe' && delta.danger.current !== '' && downloadsApi.acceptDanger) {
+                downloadsApi.acceptDanger(downloadId, () => {});
+                return;
+            }
+
+            if (!delta.state?.current) return;
 
             if (delta.state.current === 'complete') {
                 cleanup();
@@ -493,7 +501,16 @@ async function downloadBlobWithChrome(blob, filename) {
             saveAs: false
         });
 
+        // Brief pause so Chrome can evaluate file safety before we check the state
+        await new Promise(r => window.setTimeout(r, 400));
+
         let [downloadItem] = await downloadsApi.search({ id: downloadId });
+
+        // If Chrome has already flagged it as dangerous/uncommon, prompt acceptance now
+        if (downloadItem?.danger && downloadItem.danger !== 'safe' && downloadItem.danger !== '' && downloadsApi.acceptDanger) {
+            downloadsApi.acceptDanger(downloadId, () => {});
+        }
+
         if (downloadItem?.state !== 'complete') {
             await waitForChromeDownload(downloadsApi, downloadId);
             [downloadItem] = await downloadsApi.search({ id: downloadId });

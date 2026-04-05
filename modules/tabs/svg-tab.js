@@ -462,7 +462,8 @@ export function createSvgTabController({
             elements.downloadCombinedLayersBtn,
             elements.exportObjBtn,
             elements.export3mfBtn,
-            elements.exportStlBtn
+            elements.exportStlBtn,
+            elements.bambuOpenBtn
         ].forEach(btn => { if (btn) btn.disabled = true; });
     }
 
@@ -475,6 +476,14 @@ export function createSvgTabController({
         ].forEach(btn => { if (btn) btn.disabled = false; });
         if (elements.combineAndDownloadBtn) elements.combineAndDownloadBtn.disabled = state.mergeRules.length === 0;
         if (elements.downloadCombinedLayersBtn) elements.downloadCombinedLayersBtn.disabled = false;
+        if (elements.bambuOpenBtn) {
+            const canOpenInExtension = typeof chrome !== 'undefined'
+                && Boolean(chrome.downloads?.download && chrome.downloads?.open);
+            elements.bambuOpenBtn.disabled = !canOpenInExtension;
+            elements.bambuOpenBtn.title = canOpenInExtension
+                ? 'Export a 3MF and ask Chrome to open it with your default .3mf app'
+                : 'Requires the installed Chrome extension context. In a regular browser tab, export the 3MF and open it manually.';
+        }
     }
 
     // ── Palette manager ────────────────────────────────────────────────────────
@@ -602,6 +611,9 @@ export function createSvgTabController({
         }
         if (elements.exportStlBtn) {
             elements.exportStlBtn.addEventListener('click', () => objExporter.exportAsSTL());
+        }
+        if (elements.bambuOpenBtn) {
+            elements.bambuOpenBtn.addEventListener('click', () => objExporter.exportAndOpenInBambu());
         }
 
         setupZoomControls(['all', 'selected']);
