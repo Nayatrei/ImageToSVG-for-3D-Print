@@ -85,283 +85,88 @@
                     </div>
                 </div>
 
-                <!-- 2. Adjust Conversion -->
-                <div id="sidebar-adjust-section" class="sidebar-accordion">
-                    <div class="sidebar-accordion-header expanded" role="button" tabindex="0" onclick="toggleSidebarAccordion(this, 'sidebar-adjust-content')" onkeydown="if(event.key==='Enter'||event.key===' ')toggleSidebarAccordion(this,'sidebar-adjust-content')">
+                <!-- 2. Format Guide -->
+                <div id="sidebar-raster-output-section" class="sidebar-accordion">
+                    <button class="sidebar-accordion-header expanded" onclick="toggleSidebarAccordion(this, 'sidebar-raster-output-content')">
                         <span class="sidebar-accordion-label">
                             <svg class="sidebar-accordion-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                <path d="M12 20h9M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/>
+                                <rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/>
                             </svg>
-                            <h2 class="sidebar-accordion-title">2. Adjust Conversion</h2>
+                            <h2 class="sidebar-accordion-title">2. Format Guide</h2>
                         </span>
-                        <div class="flex items-center gap-2">
-                            <button id="reset-btn" class="hidden text-xs font-semibold text-blue-400 hover:text-blue-300" onclick="event.stopPropagation()">Reset to Initial</button>
-                            <button id="logo-reset-btn" class="hidden text-xs font-semibold text-blue-400 hover:text-blue-300" onclick="event.stopPropagation()">Reset to Initial</button>
-                            <svg class="sidebar-accordion-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                <path d="M19 9l-7 7-7-7"/>
-                            </svg>
-                        </div>
-                    </div>
-                    <div id="sidebar-adjust-content" class="sidebar-accordion-body">
+                        <svg class="sidebar-accordion-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <path d="M19 9l-7 7-7-7"/>
+                        </svg>
+                    </button>
+                    <div id="sidebar-raster-output-content" class="sidebar-accordion-body">
                         <div class="sidebar-accordion-body-inner">
-                        
-                        <div id="svg-sidebar-controls" class="sidebar-sub-sections">
-                            <div class="sidebar-sub-accordion">
-                                <button class="sidebar-sub-header expanded" onclick="toggleSidebarAccordion(this, 'color-controls-body')">
-                                    <span class="sidebar-sub-label">
-                                        <svg class="sidebar-sub-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                            <circle cx="12" cy="12" r="10"/><path d="M12 2a10 10 0 010 20"/>
-                                            <path d="M2 12h20"/>
-                                        </svg>
-                                        Color Settings
-                                    </span>
-                                    <svg class="sidebar-sub-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                        <path d="M19 9l-7 7-7-7"/>
-                                    </svg>
-                                </button>
-                                <div id="color-controls-body" class="sidebar-sub-body">
-                                    <div class="sidebar-sub-body-inner">
-                                    <fieldset id="color-controls">
-                                        <div>
-                                            <label for="color-precision" class="text-sm font-medium text-gray-300">Color Precision</label>
-                                            <div class="flex items-center space-x-2">
-                                                <input type="range" id="color-precision" min="0" max="100" value="75" step="1">
-                                                <span id="color-precision-value" class="text-sm font-mono bg-gray-700 border border-gray-600 rounded-md px-2 py-0.5 w-12 text-center text-gray-200">75</span>
-                                            </div>
-                                            <p id="color-precision-tooltip" class="slider-tooltip text-xs text-gray-400 mt-1 h-4 opacity-0"></p>
-                                        </div>
-                                        <div>
-                                            <label for="max-colors" class="text-sm font-medium text-gray-300">Max Colors</label>
-                                            <div class="flex items-center space-x-2">
-                                                <input type="range" id="max-colors" min="2" max="8" value="4" step="1">
-                                                <span id="max-colors-value" class="text-sm font-mono bg-gray-700 border border-gray-600 rounded-md px-2 py-0.5 w-12 text-center text-gray-200">4</span>
-                                            </div>
-                                            <p id="max-colors-tooltip" class="slider-tooltip text-xs text-gray-400 mt-1 h-4 opacity-0"></p>
-                                        </div>
-                                        <div class="mt-2">
-                                            <button id="toggle-fidelity-btn" class="btn-secondary w-full text-xs font-semibold py-2 px-3 rounded-md">Mode: Logo</button>
-                                            <p class="text-xs text-gray-400 mt-1">Logo mode simplifies; High Fidelity preserves small details.</p>
-                                        </div>
-                                    </fieldset>
-                                    </div>
+                            <div class="raster-sidebar-options">
+                                <p class="raster-sidebar-hint">Choose the right format for your use case.</p>
+                                <div class="raster-sidebar-fmt-row">
+                                    <span class="raster-sidebar-fmt-badge raster-sidebar-fmt-jpg">JPG</span>
+                                    <span class="raster-sidebar-fmt-detail">Smallest file. Best for photos. No transparency.</span>
                                 </div>
-                            </div>
-
-                            <div class="sidebar-sub-accordion">
-                                <button class="sidebar-sub-header expanded" onclick="toggleSidebarAccordion(this, 'path-controls-body')">
-                                    <span class="sidebar-sub-label">
-                                        <svg class="sidebar-sub-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                            <path d="M3 3c0 0 4 0 7 3s3 7 3 7 0-4 3-7 7-3 7-3"/>
-                                        </svg>
-                                        Path &amp; Curve Settings
-                                    </span>
-                                    <svg class="sidebar-sub-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                        <path d="M19 9l-7 7-7-7"/>
-                                    </svg>
-                                </button>
-                                <div id="path-controls-body" class="sidebar-sub-body">
-                                    <div class="sidebar-sub-body-inner">
-                                    <fieldset id="path-controls">
-                                        <div>
-                                            <label for="path-simplification" class="text-sm font-medium text-gray-300">Path Simplification</label>
-                                            <div class="flex items-center space-x-2">
-                                                <input type="range" id="path-simplification" min="0" max="100" value="40" step="1">
-                                                <span id="path-simplification-value" class="text-sm font-mono bg-gray-700 border border-gray-600 rounded-md px-2 py-0.5 w-12 text-center text-gray-200">40</span>
-                                            </div>
-                                            <p id="path-simplification-tooltip" class="slider-tooltip text-xs text-gray-400 mt-1 h-4 opacity-0"></p>
-                                        </div>
-                                        <div>
-                                            <label for="corner-sharpness" class="text-sm font-medium text-gray-300">Corner Sharpness</label>
-                                            <div class="flex items-center space-x-2">
-                                                <input type="range" id="corner-sharpness" min="0" max="100" value="60" step="1">
-                                                <span id="corner-sharpness-value" class="text-sm font-mono bg-gray-700 border border-gray-600 rounded-md px-2 py-0.5 w-12 text-center text-gray-200">60</span>
-                                            </div>
-                                            <p id="corner-sharpness-tooltip" class="slider-tooltip text-xs text-gray-400 mt-1 h-4 opacity-0"></p>
-                                        </div>
-                                        <div>
-                                            <label for="curve-straightness" class="text-sm font-medium text-gray-300">Curve Straightness</label>
-                                            <div class="flex items-center space-x-2">
-                                                <input type="range" id="curve-straightness" min="0" max="100" value="40" step="1">
-                                                <span id="curve-straightness-value" class="text-sm font-mono bg-gray-700 border border-gray-600 rounded-md px-2 py-0.5 w-12 text-center text-gray-200">40</span>
-                                            </div>
-                                            <p id="curve-straightness-tooltip" class="slider-tooltip text-xs text-gray-400 mt-1 h-4 opacity-0"></p>
-                                        </div>
-                                    </fieldset>
-                                    </div>
+                                <div class="raster-sidebar-fmt-row">
+                                    <span class="raster-sidebar-fmt-badge raster-sidebar-fmt-png">PNG</span>
+                                    <span class="raster-sidebar-fmt-detail">Lossless quality. Supports transparency. Recommended.</span>
                                 </div>
+                                <div class="raster-sidebar-fmt-row">
+                                    <span class="raster-sidebar-fmt-badge raster-sidebar-fmt-tga">TGA</span>
+                                    <span class="raster-sidebar-fmt-detail">Uncompressed raw pixels. For 3D / game engines.</span>
+                                </div>
+                                <p class="raster-sidebar-hint" style="margin-top:4px;">Alpha channel options appear next to each download button.</p>
                             </div>
                         </div>
-
-                        <div id="logo-sidebar-controls" class="sidebar-sub-sections hidden">
-                            <div class="sidebar-sub-accordion">
-                                <button class="sidebar-sub-header expanded" onclick="toggleSidebarAccordion(this, 'logo-color-controls-body')">
-                                    <span class="sidebar-sub-label">
-                                        <svg class="sidebar-sub-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                            <circle cx="12" cy="12" r="10"/><path d="M12 2a10 10 0 010 20"/>
-                                            <path d="M2 12h20"/>
-                                        </svg>
-                                        Logo Color Settings
-                                    </span>
-                                    <svg class="sidebar-sub-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                        <path d="M19 9l-7 7-7-7"/>
-                                    </svg>
-                                </button>
-                                <div id="logo-color-controls-body" class="sidebar-sub-body">
-                                    <div class="sidebar-sub-body-inner">
-                                    <fieldset id="logo-color-controls">
-                                        <div>
-                                            <label for="logo-color-precision" class="text-sm font-medium text-gray-300">Color Precision</label>
-                                            <div class="flex items-center space-x-2">
-                                                <input type="range" id="logo-color-precision" min="0" max="100" value="75" step="1">
-                                                <span id="logo-color-precision-value" class="text-sm font-mono bg-gray-700 border border-gray-600 rounded-md px-2 py-0.5 w-12 text-center text-gray-200">75</span>
-                                            </div>
-                                            <p id="logo-color-precision-tooltip" class="slider-tooltip text-xs text-gray-400 mt-1 h-4 opacity-0"></p>
-                                        </div>
-                                        <div>
-                                            <label for="logo-max-colors" class="text-sm font-medium text-gray-300">Max Colors</label>
-                                            <div class="flex items-center space-x-2">
-                                                <input type="range" id="logo-max-colors" min="2" max="8" value="4" step="1">
-                                                <span id="logo-max-colors-value" class="text-sm font-mono bg-gray-700 border border-gray-600 rounded-md px-2 py-0.5 w-12 text-center text-gray-200">4</span>
-                                            </div>
-                                            <p id="logo-max-colors-tooltip" class="slider-tooltip text-xs text-gray-400 mt-1 h-4 opacity-0"></p>
-                                        </div>
-                                        <div class="mt-2">
-                                            <button id="logo-toggle-fidelity-btn" class="btn-secondary w-full text-xs font-semibold py-2 px-3 rounded-md">Mode: Logo</button>
-                                            <p class="text-xs text-gray-400 mt-1">Logo mode simplifies; High Fidelity preserves small details.</p>
-                                        </div>
-                                    </fieldset>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="sidebar-sub-accordion">
-                                <button class="sidebar-sub-header expanded" onclick="toggleSidebarAccordion(this, 'logo-path-controls-body')">
-                                    <span class="sidebar-sub-label">
-                                        <svg class="sidebar-sub-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                            <path d="M3 3c0 0 4 0 7 3s3 7 3 7 0-4 3-7 7-3 7-3"/>
-                                        </svg>
-                                        Logo Path &amp; Curve Settings
-                                    </span>
-                                    <svg class="sidebar-sub-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                        <path d="M19 9l-7 7-7-7"/>
-                                    </svg>
-                                </button>
-                                <div id="logo-path-controls-body" class="sidebar-sub-body">
-                                    <div class="sidebar-sub-body-inner">
-                                    <fieldset id="logo-path-controls">
-                                        <div>
-                                            <label for="logo-path-simplification" class="text-sm font-medium text-gray-300">Path Simplification</label>
-                                            <div class="flex items-center space-x-2">
-                                                <input type="range" id="logo-path-simplification" min="0" max="100" value="40" step="1">
-                                                <span id="logo-path-simplification-value" class="text-sm font-mono bg-gray-700 border border-gray-600 rounded-md px-2 py-0.5 w-12 text-center text-gray-200">40</span>
-                                            </div>
-                                            <p id="logo-path-simplification-tooltip" class="slider-tooltip text-xs text-gray-400 mt-1 h-4 opacity-0"></p>
-                                        </div>
-                                        <div>
-                                            <label for="logo-corner-sharpness" class="text-sm font-medium text-gray-300">Corner Sharpness</label>
-                                            <div class="flex items-center space-x-2">
-                                                <input type="range" id="logo-corner-sharpness" min="0" max="100" value="60" step="1">
-                                                <span id="logo-corner-sharpness-value" class="text-sm font-mono bg-gray-700 border border-gray-600 rounded-md px-2 py-0.5 w-12 text-center text-gray-200">60</span>
-                                            </div>
-                                            <p id="logo-corner-sharpness-tooltip" class="slider-tooltip text-xs text-gray-400 mt-1 h-4 opacity-0"></p>
-                                        </div>
-                                        <div>
-                                            <label for="logo-curve-straightness" class="text-sm font-medium text-gray-300">Curve Straightness</label>
-                                            <div class="flex items-center space-x-2">
-                                                <input type="range" id="logo-curve-straightness" min="0" max="100" value="40" step="1">
-                                                <span id="logo-curve-straightness-value" class="text-sm font-mono bg-gray-700 border border-gray-600 rounded-md px-2 py-0.5 w-12 text-center text-gray-200">40</span>
-                                            </div>
-                                            <p id="logo-curve-straightness-tooltip" class="slider-tooltip text-xs text-gray-400 mt-1 h-4 opacity-0"></p>
-                                        </div>
-                                    </fieldset>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        <!-- 3. Unified OBJ Settings -->
-                        <div id="shared-obj-controls" class="sidebar-sub-sections">
-                            <div class="sidebar-sub-accordion">
-                                <button class="sidebar-sub-header expanded" onclick="toggleSidebarAccordion(this, 'obj-controls-body')">
-                                    <span class="sidebar-sub-label">
-                                        <svg class="sidebar-sub-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                            <path d="M21 16V8a2 2 0 00-1-1.73l-7-4a2 2 0 00-2 0l-7 4A2 2 0 003 8v8a2 2 0 001 1.73l7 4a2 2 0 002 0l7-4A2 2 0 0021 16z"/>
-                                        </svg>
-                                        3D Export Settings
-                                    </span>
-                                    <svg class="sidebar-sub-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-                                        <path d="M19 9l-7 7-7-7"/>
-                                    </svg>
-                                </button>
-                                <div id="obj-controls-body" class="sidebar-sub-body">
-                                    <div class="sidebar-sub-body-inner">
-                                    <fieldset id="obj-controls">
-                                        <div>
-                                            <label for="obj-scale" class="text-sm font-medium text-gray-300">OBJ Scale (%)</label>
-                                            <div class="flex items-center space-x-2">
-                                                <input type="range" id="obj-scale" min="25" max="200" value="100" step="5">
-                                                <span id="obj-scale-value" class="text-sm font-mono bg-gray-700 border border-gray-600 rounded-md px-2 py-0.5 w-12 text-center text-gray-200">100</span>
-                                            </div>
-                                            <p id="obj-size-readout" class="text-xs text-gray-400 mt-1">Footprint: —</p>
-                                            <p id="obj-structure-warning" class="text-xs text-yellow-300 mt-1 hidden"></p>
-                                        </div>
-                                        <div class="mt-3">
-                                            <label for="obj-thickness" class="text-sm font-medium text-gray-300">Default Layer Height (mm)</label>
-                                            <div class="flex items-center space-x-2">
-                                                <input type="range" id="obj-thickness" min="0.4" max="20" value="4" step="0.4">
-                                                <span id="obj-thickness-value" class="text-sm font-mono bg-gray-700 border border-gray-600 rounded-md px-2 py-0.5 w-12 text-center text-gray-200">4</span>
-                                            </div>
-                                        </div>
-                                        <div class="mt-3">
-                                            <label for="obj-decimate" class="text-sm font-medium text-gray-300">Mesh Detail Reduction (%)</label>
-                                            <div class="flex items-center space-x-2">
-                                                <input type="range" id="obj-decimate" min="0" max="100" value="0" step="5">
-                                                <span id="obj-decimate-value" class="text-sm font-mono bg-gray-700 border border-gray-600 rounded-md px-2 py-0.5 w-12 text-center text-gray-200">0</span>
-                                            </div>
-                                            <p id="obj-decimate-tooltip" class="slider-tooltip text-xs text-gray-400 mt-1 h-4 opacity-0"></p>
-                                        </div>
-                                        <div class="grid grid-cols-2 gap-2 mt-3">
-                                            <div>
-                                                <label for="obj-bed" class="text-sm font-medium text-gray-300">Printer Bed</label>
-                                                <select id="obj-bed" class="text-xs bg-gray-800 border border-gray-600 rounded px-2 py-2 text-white w-full">
-                                                    <option value="x1" selected>Bambu X1/X1C (256×256)</option>
-                                                    <option value="a1mini">Bambu A1 mini (180×180)</option>
-                                                    <option value="h2d">Bambu H2D (325×320, single nozzle)</option>
-                                                </select>
-                                            </div>
-                                            <div>
-                                                <label for="obj-margin" class="text-sm font-medium text-gray-300">Margin (mm)</label>
-                                                <input id="obj-margin" type="number" min="0" max="20" value="5" class="w-full text-xs p-2 rounded border border-gray-600 bg-gray-900 text-white">
-                                            </div>
-                                        </div>
-                                    </fieldset>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        </div><!-- end sidebar-accordion-body-inner -->
                     </div>
+                </div>
+
+                <!-- Hidden elements kept for JS compatibility (used on SVG/Logo tabs) -->
+                <div class="hidden" aria-hidden="true">
+                    <button id="reset-btn"></button>
+                    <button id="logo-reset-btn"></button>
+                    <div id="svg-sidebar-controls"></div>
+                    <div id="logo-sidebar-controls"></div>
+                    <div id="shared-obj-controls"></div>
+                    <input id="color-precision"><input id="max-colors"><input id="path-simplification">
+                    <input id="corner-sharpness"><input id="curve-straightness">
+                    <button id="toggle-fidelity-btn"></button>
+                    <input id="logo-color-precision"><input id="logo-max-colors">
+                    <input id="logo-path-simplification"><input id="logo-corner-sharpness">
+                    <input id="logo-curve-straightness"><button id="logo-toggle-fidelity-btn"></button>
+                    <input id="obj-scale"><input id="obj-thickness"><input id="obj-decimate">
+                    <select id="obj-bed"><option value="x1"></option></select>
+                    <input id="obj-margin">
+                    <span id="color-precision-value"></span><span id="max-colors-value"></span>
+                    <span id="path-simplification-value"></span><span id="corner-sharpness-value"></span>
+                    <span id="curve-straightness-value"></span>
+                    <span id="logo-color-precision-value"></span><span id="logo-max-colors-value"></span>
+                    <span id="logo-path-simplification-value"></span><span id="logo-corner-sharpness-value"></span>
+                    <span id="logo-curve-straightness-value"></span>
+                    <span id="obj-scale-value"></span><span id="obj-thickness-value"></span>
+                    <span id="obj-decimate-value"></span><p id="obj-size-readout"></p>
+                    <p id="obj-structure-warning"></p>
+                    <p id="color-precision-tooltip"></p><p id="max-colors-tooltip"></p>
+                    <p id="path-simplification-tooltip"></p><p id="corner-sharpness-tooltip"></p>
+                    <p id="curve-straightness-tooltip"></p><p id="logo-color-precision-tooltip"></p>
+                    <p id="logo-max-colors-tooltip"></p><p id="logo-path-simplification-tooltip"></p>
+                    <p id="logo-corner-sharpness-tooltip"></p><p id="logo-curve-straightness-tooltip"></p>
+                    <p id="obj-decimate-tooltip"></p>
                 </div>
 
             </div>
 
-            <footer id="sidebar-primary-footer" class="p-6 border-t border-gray-700">
-                <div id="svg-sidebar-actions" class="space-y-3">
-                    <button id="analyze-colors-btn" class="w-full btn-primary font-bold py-3 px-4 rounded-lg text-lg disabled:bg-gray-600 disabled:cursor-not-allowed" disabled>
-                        1. Analyze Colors
-                    </button>
-                    <button id="optimize-paths-btn" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-lg text-lg disabled:bg-gray-600 disabled:cursor-not-allowed" disabled>
-                        2. Optimize Paths
-                    </button>
-                </div>
-                <div id="logo-sidebar-actions" class="space-y-3 hidden">
-                    <button id="logo-analyze-colors-btn" class="w-full btn-primary font-bold py-3 px-4 rounded-lg text-lg disabled:bg-gray-600 disabled:cursor-not-allowed" disabled>
-                        1. Analyze Colors
-                    </button>
-                    <button id="logo-optimize-paths-btn" class="w-full bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-lg text-lg disabled:bg-gray-600 disabled:cursor-not-allowed" disabled>
-                        2. Optimize Paths
-                    </button>
+            <footer id="sidebar-primary-footer" class="p-5 border-t border-gray-700">
+                <p class="text-xs text-gray-500 text-center leading-relaxed">Load an image, choose a scale, then download as JPG, PNG, or TGA.</p>
+                <!-- Hidden: JS-referenced elements for SVG/Logo tabs (not used on this page) -->
+                <div class="hidden" aria-hidden="true">
+                    <div id="svg-sidebar-actions">
+                        <button id="analyze-colors-btn" disabled></button>
+                        <button id="optimize-paths-btn" disabled></button>
+                    </div>
+                    <div id="logo-sidebar-actions">
+                        <button id="logo-analyze-colors-btn" disabled></button>
+                        <button id="logo-optimize-paths-btn" disabled></button>
+                    </div>
                 </div>
             </footer>
         </aside>
