@@ -19,6 +19,17 @@
                             </div>
                         </div>
 
+                        <!-- Original image preview (shown when image is loaded, replaces dropzone) -->
+                        <div id="raster-original-preview" class="raster-original-preview hidden" onclick="document.getElementById('file-input').click()" title="Click to load a different image">
+                            <img id="raster-original-img" class="raster-original-img" alt="Original">
+                            <div class="raster-original-overlay">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16">
+                                    <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4M7 10l5 5 5-5M12 15V3"/>
+                                </svg>
+                                <span>Replace Image</span>
+                            </div>
+                        </div>
+
                         <!-- Content shown when image is loaded -->
                         <div id="raster-content" class="hidden raster-loaded-layout">
 

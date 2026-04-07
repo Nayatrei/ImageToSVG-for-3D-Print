@@ -3077,6 +3077,51 @@ body,
     background: rgba(31, 41, 55, 0.35);
     user-select: none;
 }
+.raster-card-dropzone.hidden {
+    display: none;
+}
+
+/* Original image preview (replaces dropzone when loaded) */
+.raster-original-preview {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    min-height: 12rem;
+    max-height: 24rem;
+    border: 1px solid #374151;
+    border-radius: 1rem;
+    overflow: hidden;
+    cursor: pointer;
+    background: rgba(17, 24, 39, 0.6);
+}
+.raster-original-preview.hidden {
+    display: none;
+}
+.raster-original-img {
+    display: block;
+    max-width: 100%;
+    max-height: 24rem;
+    object-fit: contain;
+}
+.raster-original-overlay {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    background: rgba(0, 0, 0, 0.55);
+    color: #e5e7eb;
+    font-size: 0.8rem;
+    font-weight: 500;
+    opacity: 0;
+    transition: opacity 200ms ease;
+}
+.raster-original-preview:hover .raster-original-overlay {
+    opacity: 1;
+}
 
 .raster-card-dropzone:hover {
     border-color: #3b82f6;
@@ -3169,6 +3214,9 @@ body,
     display: flex;
     flex-direction: column;
     gap: 12px;
+}
+.raster-loaded-layout.hidden {
+    display: none;
 }
 
 /* ① Channel Preview block */

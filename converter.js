@@ -137,7 +137,8 @@ document.addEventListener('DOMContentLoaded', async () => {
             elements.outputSection.style.display = 'flex';
         }
 
-        setOriginalPanelMode(state.activeTab === 'bulk' ? 'bulk' : isSvgLike ? 'svg' : 'single');
+        const hideOriginal = isSvgLike || state.activeTab === 'raster';
+        setOriginalPanelMode(state.activeTab === 'bulk' ? 'bulk' : hideOriginal ? 'svg' : 'single');
     }
 
     function syncImportPanel() {
@@ -323,7 +324,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
 
         const isSvgLike = target === 'svg' || target === 'logo';
-        setOriginalPanelMode(target === 'bulk' ? 'bulk' : isSvgLike ? 'svg' : 'single');
+        const hideOriginalPanel = isSvgLike || target === 'raster';
+        setOriginalPanelMode(target === 'bulk' ? 'bulk' : hideOriginalPanel ? 'svg' : 'single');
         syncImportPanel();
         syncWorkspaceView();
 

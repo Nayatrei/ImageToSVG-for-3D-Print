@@ -243,9 +243,15 @@ export function createRasterTabController({
     function syncRasterEmptyState() {
         const emptyState = document.getElementById('raster-empty-state');
         const content = document.getElementById('raster-content');
+        const originalPreview = document.getElementById('raster-original-preview');
+        const originalImg = document.getElementById('raster-original-img');
         const hasImage = hasSingleImageLoaded();
         if (emptyState) emptyState.classList.toggle('hidden', hasImage);
         if (content) content.classList.toggle('hidden', !hasImage);
+        if (originalPreview) originalPreview.classList.toggle('hidden', !hasImage);
+        if (originalImg && hasImage && elements.sourceImage?.src) {
+            originalImg.src = elements.sourceImage.src;
+        }
     }
 
     function onSourceImageLoaded() {
