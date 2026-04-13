@@ -52,6 +52,20 @@ function buildTinyBadgeSvg() {
 </svg>`.trim();
 }
 
+function buildRoundedWordmarkSvg() {
+    return `
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="220" viewBox="0 0 720 220">
+  <rect x="10" y="20" width="700" height="180" rx="90" ry="90" fill="#e0c500"/>
+  <g fill="#111111">
+    <rect x="140" y="70" width="52" height="90" rx="10"/>
+    <rect x="206" y="70" width="52" height="90" rx="10"/>
+    <rect x="280" y="70" width="40" height="90" rx="10"/>
+    <path d="M338 160V70h60c30 0 48 14 48 38 0 18-10 30-29 35l40 17h-45l-34-15h-8v15zm40-48h16c12 0 19-5 19-14 0-9-7-14-19-14h-16z"/>
+    <path d="M474 160l35-90h45l35 90h-35l-5-16h-36l-5 16zm46-40h21l-10-33z"/>
+  </g>
+</svg>`.trim();
+}
+
 function parseBinaryStl(buffer) {
     const arrayBuffer = buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength);
     const view = new DataView(arrayBuffer);
@@ -369,6 +383,40 @@ test('svg tab uses the welded silhouette for support-base exports', async ({ pag
     expect(countTriangleComponents(baseMesh.triangles)).toBe(1);
     expect(countZeroAreaTriangles(baseMesh.triangles)).toBe(0);
     expect(countOpenBoundaryEdges(baseMesh.triangles)).toBe(0);
+});
+
+test('rounded wordmark base stays printable without perimeter chatter', async ({ page }, testInfo) => {
+    await page.goto('/converter.html');
+
+    const svgDataUrl = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(buildRoundedWordmarkSvg())}`;
+    await page.locator('#url-input').fill(svgDataUrl);
+    await page.locator('#load-url-btn').click();
+
+    await expect(page.locator('#status-text')).toHaveText('Preview generated!', { timeout: 30_000 });
+    await expect(page.locator('#obj-preview-placeholder')).toBeHidden({ timeout: 30_000 });
+
+    const baselineDownloads = await exportLayerStls(page, '#export-stl-btn', 2);
+    const baselineBaseMesh = parseBinaryStl(await saveDownloadBuffer(
+        findDownloadByLayer(baselineDownloads, '_L0_') || baselineDownloads[0],
+        testInfo
+    ));
+
+    await setRangeValue(page.locator('#obj-decimate'), 80);
+
+    const reducedDownloads = await exportLayerStls(page, '#export-stl-btn', 2);
+    const reducedBaseMesh = parseBinaryStl(await saveDownloadBuffer(
+        findDownloadByLayer(reducedDownloads, '_L0_') || reducedDownloads[0],
+        testInfo
+    ));
+
+    expect(countTriangleComponents(baselineBaseMesh.triangles)).toBe(1);
+    expect(countTriangleComponents(reducedBaseMesh.triangles)).toBe(1);
+    expect(countOpenBoundaryEdges(baselineBaseMesh.triangles)).toBe(0);
+    expect(countOpenBoundaryEdges(reducedBaseMesh.triangles)).toBe(0);
+    expect(countZeroAreaTriangles(baselineBaseMesh.triangles)).toBe(0);
+    expect(countZeroAreaTriangles(reducedBaseMesh.triangles)).toBe(0);
+    expect(baselineBaseMesh.triangleCount).toBeLessThan(1200);
+    expect(reducedBaseMesh.triangleCount).toBeLessThan(baselineBaseMesh.triangleCount);
 });
 
 test('bezel presets raise the base without changing footprint size or adding layers', async ({ page }, testInfo) => {

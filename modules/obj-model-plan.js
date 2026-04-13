@@ -548,17 +548,6 @@ function buildShapeSetFromMask({
     };
 }
 
-function appendQuad(positions, a, b, c, d) {
-    positions.push(
-        a.x, a.y, a.z,
-        b.x, b.y, b.z,
-        c.x, c.y, c.z,
-        a.x, a.y, a.z,
-        c.x, c.y, c.z,
-        d.x, d.y, d.z
-    );
-}
-
 function appendTriangle(positions, a, b, c) {
     positions.push(
         a.x, a.y, a.z,
@@ -734,9 +723,10 @@ function buildMaskExtrusionGeometries({
     const pixelsPerUnit = maskSpace.pixelsPerUnit || 1;
     const shiftX = plan?.normalization?.shiftX || 0;
     const shiftY = plan?.normalization?.shiftY || 0;
+    const shiftZ = plan?.normalization?.shiftZ || 0;
     const contourTolerance = Number.isFinite(simplifyTolerance) && simplifyTolerance > 0
         ? simplifyTolerance
-        : (0.75 / pixelsPerUnit);
+        : (1.25 / pixelsPerUnit);
     const loops = extractMaskLoops(maskSpace, maskData).map((loop) => {
         const sourcePoints = loop.map((point) => ({
             x: maskSpace.originX + (point.x / pixelsPerUnit),
@@ -783,55 +773,20 @@ function buildMaskExtrusionGeometries({
             if (holePoints.length >= 3) holes.push(holePoints);
         });
 
-        const faces = THREERef.ShapeUtils.triangulateShape(
-            contour.map((point) => new THREERef.Vector2(point.x, point.y)),
-            holes.map((ring) => ring.map((point) => new THREERef.Vector2(point.x, point.y)))
-        );
-        if (!faces.length) return;
-
-        const vertices = contour.concat(...holes);
-        const zBottom = zOffset;
-        const zTop = zOffset + extrusionDepth;
-        const positions = [];
-
-        faces.forEach(([a, b, c]) => {
-            const vA = vertices[a];
-            const vB = vertices[b];
-            const vC = vertices[c];
-            if (!vA || !vB || !vC) return;
-
-            appendTriangle(positions,
-                { x: vA.x, y: vA.y, z: zTop },
-                { x: vB.x, y: vB.y, z: zTop },
-                { x: vC.x, y: vC.y, z: zTop }
-            );
-            appendTriangle(positions,
-                { x: vC.x, y: vC.y, z: zBottom },
-                { x: vB.x, y: vB.y, z: zBottom },
-                { x: vA.x, y: vA.y, z: zBottom }
-            );
+        const shape = buildPathFromPoints(contour, THREERef, true);
+        if (!shape) return;
+        holes.forEach((ring) => {
+            const holePath = buildPathFromPoints(ring, THREERef, false);
+            if (holePath) shape.holes.push(holePath);
         });
 
-        [contour, ...holes].forEach((ring) => {
-            for (let index = 0; index < ring.length; index++) {
-                const current = ring[index];
-                const next = ring[(index + 1) % ring.length];
-                if (!current || !next) continue;
-                if (Math.abs(current.x - next.x) < 1e-9 && Math.abs(current.y - next.y) < 1e-9) continue;
-
-                appendQuad(positions,
-                    { x: current.x, y: current.y, z: zBottom },
-                    { x: next.x, y: next.y, z: zBottom },
-                    { x: next.x, y: next.y, z: zTop },
-                    { x: current.x, y: current.y, z: zTop }
-                );
-            }
+        const geometry = new THREERef.ExtrudeGeometry(shape, {
+            depth: extrusionDepth,
+            curveSegments: 1,
+            bevelEnabled: false
         });
-
-        if (!positions.length) return;
-
-        const geometry = new THREERef.BufferGeometry();
-        geometry.setAttribute('position', new THREERef.Float32BufferAttribute(positions, 3));
+        geometry.rotateX(Math.PI);
+        geometry.translate(0, 0, extrusionDepth + zOffset + shiftZ);
         geometry.computeVertexNormals();
         geometries.push(geometry);
     });
@@ -1064,42 +1019,30 @@ export function buildObjModelPlan({
     outputLayers.forEach((layer) => {
         if (resolvedBaseOutputLayer && layer.outputLayerId === resolvedBaseOutputLayer.outputLayerId) {
             layer.isBase = true;
-            layer.geometrySegments = layer.shapes?.length
-                ? [{
-                    shapes: layer.shapes,
-                    offsetX: layer.shapeOffsetX || 0,
-                    offsetY: layer.shapeOffsetY || 0,
-                    zStart: 0,
-                    depth: layer.thickness
-                }]
-                : [{
-                    maskData: layer.printMask,
-                    maskSpace: layer.printMaskSpace,
-                    zStart: 0,
-                    depth: layer.thickness,
-                    simplifyTolerance: getMaskLoopSimplifyTolerance(normalizedDecimatePercent, maskSpace.pixelsPerUnit, {
-                        baseTolerancePx: 0,
-                        maxExtraTolerancePx: 1.1
-                    })
-                }];
+            layer.geometrySegments = [{
+                maskData: layer.printMask,
+                maskSpace: layer.printMaskSpace,
+                zStart: 0,
+                depth: layer.thickness,
+                simplifyTolerance: getMaskLoopSimplifyTolerance(normalizedDecimatePercent, maskSpace.pixelsPerUnit, {
+                    baseTolerancePx: 0,
+                    maxExtraTolerancePx: 3,
+                    minimumTolerancePx: 1.5
+                })
+            }];
 
             if (bezelSpec.enabled && bezelMaskData && bezelShapeSet?.shapes?.length) {
-                layer.geometrySegments.push(
-                    bezelShapeSet.shapes.length
-                        ? {
-                            shapes: bezelShapeSet.shapes,
-                            offsetX: bezelShapeSet.offsetX || 0,
-                            offsetY: bezelShapeSet.offsetY || 0,
-                            zStart: layer.thickness,
-                            depth: bezelSpec.extraHeightMm
-                        }
-                        : {
-                            maskData: bezelMaskData,
-                            maskSpace,
-                            zStart: layer.thickness,
-                            depth: bezelSpec.extraHeightMm
-                        }
-                );
+                layer.geometrySegments.push({
+                    maskData: bezelMaskData,
+                    maskSpace,
+                    zStart: layer.thickness,
+                    depth: bezelSpec.extraHeightMm,
+                    simplifyTolerance: getMaskLoopSimplifyTolerance(Math.min(normalizedDecimatePercent, 20), maskSpace.pixelsPerUnit, {
+                        baseTolerancePx: 0,
+                        maxExtraTolerancePx: 1.5,
+                        minimumTolerancePx: 1.25
+                    })
+                });
             }
 
             finalizedOutputLayers.push(layer);
@@ -1189,22 +1132,16 @@ export function buildObjModelPlan({
         layer.bounds = repairedDetailShapeSet.bounds;
         layer.printMask = split.keptMask;
         layer.printMaskSpace = maskSpace;
-        layer.geometrySegments = layer.shapes?.length
-            ? [{
-                shapes: layer.shapes,
-                offsetX: layer.shapeOffsetX || 0,
-                offsetY: layer.shapeOffsetY || 0,
-                depth: layer.thickness
-            }]
-            : [{
-                maskData: layer.printMask,
-                maskSpace: layer.printMaskSpace,
-                depth: layer.thickness,
-                simplifyTolerance: getMaskLoopSimplifyTolerance(detailDecimatePercent, maskSpace.pixelsPerUnit, {
-                    baseTolerancePx: 0,
-                    maxExtraTolerancePx: 0.7
-                })
-            }];
+        layer.geometrySegments = [{
+            maskData: layer.printMask,
+            maskSpace: layer.printMaskSpace,
+            depth: layer.thickness,
+            simplifyTolerance: getMaskLoopSimplifyTolerance(detailDecimatePercent, maskSpace.pixelsPerUnit, {
+                baseTolerancePx: 0,
+                maxExtraTolerancePx: 2,
+                minimumTolerancePx: 1
+            })
+        }];
         finalizedOutputLayers.push(layer);
         repairSummary.preservedDetailLayers += 1;
     });
@@ -1230,32 +1167,25 @@ export function buildObjModelPlan({
             layer.zStart = cursor;
             layer.zEnd = cursor + layer.thickness;
             cursor = layer.zEnd;
-            layer.geometrySegments = layer.shapes?.length
+            layer.geometrySegments = layer.printMask && layer.printMaskSpace
                 ? [{
-                    shapes: layer.shapes,
-                    offsetX: layer.shapeOffsetX || 0,
-                    offsetY: layer.shapeOffsetY || 0,
-                    zStart: layer.zStart,
-                    depth: layer.thickness
-                }]
-                : (layer.printMask && layer.printMaskSpace
-                    ? [{
                     maskData: layer.printMask,
                     maskSpace: layer.printMaskSpace,
                     zStart: layer.zStart,
                     depth: layer.thickness,
                     simplifyTolerance: getMaskLoopSimplifyTolerance(normalizedDecimatePercent, maskSpace.pixelsPerUnit, {
                         baseTolerancePx: 0,
-                        maxExtraTolerancePx: 1.1
+                        maxExtraTolerancePx: 3,
+                        minimumTolerancePx: 1.5
                     })
                 }]
-                    : [{
+                : [{
                     shapes: layer.shapes,
                     offsetX: layer.shapeOffsetX || 0,
                     offsetY: layer.shapeOffsetY || 0,
                     zStart: layer.zStart,
                     depth: layer.thickness
-                }]);
+                }];
         });
     }
 
