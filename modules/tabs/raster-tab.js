@@ -53,11 +53,11 @@ export function createRasterTabController({
     }
 
     function getBaseDimensions() {
-        if (state.tracedata?.width && state.tracedata?.height) {
-            return { width: state.tracedata.width, height: state.tracedata.height };
-        }
         if (elements.sourceImage?.naturalWidth && elements.sourceImage?.naturalHeight) {
             return { width: elements.sourceImage.naturalWidth, height: elements.sourceImage.naturalHeight };
+        }
+        if (state.tracedata?.width && state.tracedata?.height) {
+            return { width: state.tracedata.width, height: state.tracedata.height };
         }
         return null;
     }

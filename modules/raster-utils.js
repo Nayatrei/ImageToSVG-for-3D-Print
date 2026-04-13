@@ -36,10 +36,78 @@ export const RASTER_FORMAT_LABELS = {
     tga: 'TGA'
 };
 
+export const AUTO_WORKING_IMAGE_MAX_EDGE = 1024;
+export const AUTO_WORKING_IMAGE_MAX_PIXELS = 1_048_576;
+
 export function getScaledDimensions(dims, scale) {
     return {
         width: Math.max(1, Math.round(dims.width * (scale / 100))),
         height: Math.max(1, Math.round(dims.height * (scale / 100)))
+    };
+}
+
+export function getAutoWorkingImageSpec({
+    width,
+    height,
+    maxEdge = AUTO_WORKING_IMAGE_MAX_EDGE,
+    maxPixels = AUTO_WORKING_IMAGE_MAX_PIXELS
+}) {
+    const originalWidth = Number.isFinite(width) ? Math.max(1, Math.round(width)) : 0;
+    const originalHeight = Number.isFinite(height) ? Math.max(1, Math.round(height)) : 0;
+    if (!originalWidth || !originalHeight) return null;
+
+    const longestEdge = Math.max(originalWidth, originalHeight);
+    const totalPixels = originalWidth * originalHeight;
+    const edgeScale = Number.isFinite(maxEdge) && maxEdge > 0
+        ? Math.min(1, maxEdge / longestEdge)
+        : 1;
+    const pixelScale = Number.isFinite(maxPixels) && maxPixels > 0
+        ? Math.min(1, Math.sqrt(maxPixels / totalPixels))
+        : 1;
+
+    const requestedScale = Math.min(1, edgeScale, pixelScale);
+    const workingWidth = Math.max(1, Math.round(originalWidth * requestedScale));
+    const workingHeight = Math.max(1, Math.round(originalHeight * requestedScale));
+    const workingScale = Math.min(1, workingWidth / originalWidth, workingHeight / originalHeight);
+
+    return {
+        originalWidth,
+        originalHeight,
+        workingWidth,
+        workingHeight,
+        workingScale,
+        wasReduced: workingWidth !== originalWidth || workingHeight !== originalHeight
+    };
+}
+
+export function createAutoWorkingImageFromSource(
+    source,
+    {
+        maxEdge = AUTO_WORKING_IMAGE_MAX_EDGE,
+        maxPixels = AUTO_WORKING_IMAGE_MAX_PIXELS
+    } = {}
+) {
+    const width = source?.naturalWidth || source?.width || 0;
+    const height = source?.naturalHeight || source?.height || 0;
+    const spec = getAutoWorkingImageSpec({ width, height, maxEdge, maxPixels });
+    if (!spec) return null;
+
+    const canvas = document.createElement('canvas');
+    canvas.width = spec.workingWidth;
+    canvas.height = spec.workingHeight;
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    if (!ctx) return null;
+    ctx.imageSmoothingEnabled = true;
+    if ('imageSmoothingQuality' in ctx) {
+        ctx.imageSmoothingQuality = 'high';
+    }
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(source, 0, 0, spec.workingWidth, spec.workingHeight);
+
+    return {
+        ...spec,
+        canvas,
+        imageData: ctx.getImageData(0, 0, spec.workingWidth, spec.workingHeight)
     };
 }
 

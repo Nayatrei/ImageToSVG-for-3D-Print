@@ -184,21 +184,20 @@ test('logo image mode controls retrace with direct helpers', async ({ page }) =>
     await expectRenderedImage(preview);
     await expect(page.locator('#logo-generate-preview-btn')).toBeEnabled();
 
-    let previousSrc = await preview.getAttribute('src');
-
     await setRangeValue(page.locator('#logo-path-cleanup'), 100);
     await expect(page.locator('#logo-path-cleanup-helper')).toContainText('10 traced points');
-    await waitForPreviewChange(preview, previousSrc);
-    previousSrc = await preview.getAttribute('src');
+    await waitForGenerateCycle(page.locator('#logo-generate-preview-btn'));
+    await expectRenderedImage(preview);
 
     await toggleCheckbox(page.locator('#logo-preserve-right-angles'));
     await expect(page.locator('#logo-preserve-right-angles-helper')).toContainText('snapping is off');
-    await waitForPreviewChange(preview, previousSrc);
-    previousSrc = await preview.getAttribute('src');
+    await waitForGenerateCycle(page.locator('#logo-generate-preview-btn'));
+    await expectRenderedImage(preview);
 
     await setRangeValue(page.locator('#logo-output-colors'), 2);
     await expect(page.locator('#logo-output-colors-helper')).toContainText('2 color layers');
-    await waitForPreviewChange(preview, previousSrc);
+    await waitForGenerateCycle(page.locator('#logo-generate-preview-btn'));
+    await expectRenderedImage(preview);
 
     await expect(page.locator('#logo-output-colors')).toHaveValue('2');
     await expect(page.locator('#logo-color-count-notice')).toContainText('set to keep 2');

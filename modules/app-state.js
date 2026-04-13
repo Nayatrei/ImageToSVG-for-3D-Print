@@ -31,6 +31,15 @@ export function createState() {
         needsFit: true
     });
 
+    const workingImageState = () => ({
+        workingImageWidth: 0,
+        workingImageHeight: 0,
+        workingImageScale: 1,
+        workingImageWasReduced: false,
+        workingImageCanvas: null,
+        workingImageData: null
+    });
+
     return {
         // ── SVG tab state ──────────────────────────────────────────────────────
         quantizedData: null,
@@ -53,6 +62,7 @@ export function createState() {
         baseSourceLayerId: null,
         autoBaseLayerSelectionPending: true,
         sourceRenderScale: 1,
+        ...workingImageState(),
         exportScale: 100,
         preserveAlpha: true,
         traceControls: createDefaultTraceControls('logo'),
@@ -120,6 +130,7 @@ export function createState() {
             baseSourceLayerId: null,
             autoBaseLayerSelectionPending: true,
             sourceRenderScale: 1,
+            ...workingImageState(),
             traceControls: createDefaultTraceControls('logo'),
             htmlModeActive: true,
             htmlRenderTimer: null,

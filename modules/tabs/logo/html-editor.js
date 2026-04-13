@@ -742,7 +742,7 @@ export function createHtmlEditor({ ls, le, elements, syncWorkspaceView, generate
     function setHtmlMode(active) {
         ls.htmlModeActive = active;
         if (!active) {
-            ls.sourceRenderScale = 1;
+            ls.sourceRenderScale = ls.workingImageScale || 1;
         }
         if (le.htmlModeToggle) {
             le.htmlModeToggle.textContent = active ? 'Switch to Image Mode' : 'Switch to HTML Mode';

@@ -16,6 +16,7 @@ import { createPaletteManager } from '../shared/palette-manager.js';
 import { buildWeldedSilhouetteSvgString } from '../shared/silhouette-builder.js';
 import { formatObjScalePercent } from '../obj-scale.js';
 import { HTML_PRESETS, createHtmlEditor, extractDeclaredHtmlColors } from './logo/html-editor.js?v=13';
+import { createAutoWorkingImageFromSource } from '../raster-utils.js';
 import {
     buildTraceOptions,
     cycleTracePreset,
@@ -79,6 +80,13 @@ export function createLogoTabController({
         if (ls.htmlModeActive) {
             getDeclaredHtmlColors();
         }
+        if (le.resolutionNotice) {
+            if (ls.htmlModeActive) {
+                le.resolutionNotice.style.display = 'none';
+            } else if (le.sourceImage?.naturalWidth && le.sourceImage?.naturalHeight) {
+                updateResolutionNotice(le.sourceImage.naturalWidth, le.sourceImage.naturalHeight);
+            }
+        }
         if (le.htmlColorControls) {
             le.htmlColorControls.classList.toggle('hidden', ls.htmlModeActive);
         }
@@ -136,6 +144,65 @@ export function createLogoTabController({
         return Object.assign({}, tracer.optionpresets.default, buildTraceOptions(controls, {
             htmlDeclaredColorCount: declaredColorCount
         }));
+    }
+
+    function resetWorkingImageCache() {
+        ls.workingImageWidth = 0;
+        ls.workingImageHeight = 0;
+        ls.workingImageScale = 1;
+        ls.workingImageWasReduced = false;
+        ls.workingImageCanvas = null;
+        ls.workingImageData = null;
+        if (!ls.htmlModeActive) {
+            ls.sourceRenderScale = 1;
+        }
+    }
+
+    function buildWorkingImageCache() {
+        resetWorkingImageCache();
+
+        const workingImage = createAutoWorkingImageFromSource(le.sourceImage);
+        if (!workingImage?.imageData) return null;
+
+        ls.workingImageWidth = workingImage.workingWidth;
+        ls.workingImageHeight = workingImage.workingHeight;
+        ls.workingImageScale = workingImage.workingScale;
+        ls.workingImageWasReduced = workingImage.wasReduced;
+        ls.workingImageCanvas = workingImage.canvas;
+        ls.workingImageData = workingImage.imageData;
+        if (!ls.htmlModeActive) {
+            ls.sourceRenderScale = workingImage.workingScale;
+        }
+
+        return workingImage;
+    }
+
+    function getWorkingImageData() {
+        if (ls.workingImageData) {
+            if (!ls.htmlModeActive) {
+                ls.sourceRenderScale = ls.workingImageScale || 1;
+            }
+            return ls.workingImageData;
+        }
+        return buildWorkingImageCache()?.imageData || null;
+    }
+
+    function updateResolutionNotice(originalWidth, originalHeight) {
+        if (!le.resolutionNotice || ls.htmlModeActive) return;
+
+        if (ls.workingImageWasReduced && ls.workingImageWidth && ls.workingImageHeight) {
+            le.resolutionNotice.textContent = `Large source detected. Using ${ls.workingImageWidth}×${ls.workingImageHeight} internally for faster SVG/3D processing.`;
+            le.resolutionNotice.style.display = 'block';
+            return;
+        }
+
+        if (originalWidth < 512 || originalHeight < 512) {
+            le.resolutionNotice.textContent = 'Low resolution detected. For best results, use images larger than 512x512 pixels.';
+            le.resolutionNotice.style.display = 'block';
+            return;
+        }
+
+        le.resolutionNotice.style.display = 'none';
     }
 
     function findLargestBackgroundLayerIndex(tracedata) {
@@ -197,20 +264,11 @@ export function createLogoTabController({
             return;
         }
 
-        const canvas = document.createElement('canvas');
-        const srcImg = getLogoSourceImage();
-        const w = srcImg.naturalWidth;
-        const h = srcImg.naturalHeight;
-        if (!w || !h) {
+        const imageData = getWorkingImageData();
+        if (!imageData) {
             le.colorCountNotice.classList.add('hidden');
             return;
         }
-
-        canvas.width = w;
-        canvas.height = h;
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(srcImg, 0, 0, w, h);
-        const imageData = ctx.getImageData(0, 0, w, h);
 
         const estimatedColors = estimateMeaningfulColorCount(imageData);
         ls.estimatedColorCount = estimatedColors;
@@ -229,17 +287,22 @@ export function createLogoTabController({
         return new Promise((resolve, reject) => {
             setTimeout(async () => {
                 try {
-                    const srcImg = getLogoSourceImage();
-                    const width = srcImg.naturalWidth;
-                    const height = srcImg.naturalHeight;
-                    if (!width || !height) throw new Error('Invalid image dimensions');
+                    const imageData = ls.htmlModeActive
+                        ? (() => {
+                            const srcImg = getLogoSourceImage();
+                            const width = srcImg.naturalWidth;
+                            const height = srcImg.naturalHeight;
+                            if (!width || !height) return null;
 
-                    const canvas = document.createElement('canvas');
-                    canvas.width = width;
-                    canvas.height = height;
-                    const ctx = canvas.getContext('2d');
-                    ctx.drawImage(srcImg, 0, 0, width, height);
-                    const imageData = ctx.getImageData(0, 0, width, height);
+                            const canvas = document.createElement('canvas');
+                            canvas.width = width;
+                            canvas.height = height;
+                            const ctx = canvas.getContext('2d');
+                            ctx.drawImage(srcImg, 0, 0, width, height);
+                            return ctx.getImageData(0, 0, width, height);
+                        })()
+                        : getWorkingImageData();
+                    if (!imageData) throw new Error('Invalid image dimensions');
 
                     const declaredHtmlColors = ls.htmlModeActive ? getDeclaredHtmlColors() : [];
                     const options = buildOptimizedOptions({ htmlDeclaredColors: declaredHtmlColors });
@@ -506,20 +569,14 @@ export function createLogoTabController({
 
         syncWorkspaceView();
         if (le.generatePreviewBtn) le.generatePreviewBtn.disabled = false;
-        ls.sourceRenderScale = 1;
 
         const w = le.sourceImage.naturalWidth;
         const h = le.sourceImage.naturalHeight;
         le.originalResolution.textContent = `${w}×${h} px`;
+        buildWorkingImageCache();
 
         onRasterImageLoaded();
-
-        if (w < 512 || h < 512) {
-            le.resolutionNotice.textContent = 'Low resolution detected. For best results, use images larger than 512x512 pixels.';
-            le.resolutionNotice.style.display = 'block';
-        } else {
-            le.resolutionNotice.style.display = 'none';
-        }
+        updateResolutionNotice(w, h);
 
         ls.colorsAnalyzed = false;
         saveInitialSliderValues(ls, le);

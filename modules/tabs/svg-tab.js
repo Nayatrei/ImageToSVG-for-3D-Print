@@ -9,6 +9,7 @@ import { createZoomPanController } from '../shared/zoom-pan.js';
 import { svgToPng } from '../shared/svg-renderer.js';
 import { createPaletteManager } from '../shared/palette-manager.js';
 import { formatObjScalePercent } from '../obj-scale.js';
+import { createAutoWorkingImageFromSource } from '../raster-utils.js';
 import {
     buildTraceOptions,
     cycleTracePreset,
@@ -84,22 +85,67 @@ export function createSvgTabController({
 
     // ── Color analysis ─────────────────────────────────────────────────────────
 
-    function updateColorCountNotice() {
-        if (!elements.colorCountNotice || !elements.sourceImage.src) return;
+    function resetWorkingImageCache() {
+        state.workingImageWidth = 0;
+        state.workingImageHeight = 0;
+        state.workingImageScale = 1;
+        state.workingImageWasReduced = false;
+        state.workingImageCanvas = null;
+        state.workingImageData = null;
+        state.sourceRenderScale = 1;
+    }
 
-        const canvas = document.createElement('canvas');
-        const w = elements.sourceImage.naturalWidth;
-        const h = elements.sourceImage.naturalHeight;
-        if (!w || !h) {
-            elements.colorCountNotice.classList.add('hidden');
+    function buildWorkingImageCache() {
+        resetWorkingImageCache();
+
+        const workingImage = createAutoWorkingImageFromSource(elements.sourceImage);
+        if (!workingImage?.imageData) return null;
+
+        state.workingImageWidth = workingImage.workingWidth;
+        state.workingImageHeight = workingImage.workingHeight;
+        state.workingImageScale = workingImage.workingScale;
+        state.workingImageWasReduced = workingImage.wasReduced;
+        state.workingImageCanvas = workingImage.canvas;
+        state.workingImageData = workingImage.imageData;
+        state.sourceRenderScale = workingImage.workingScale;
+
+        return workingImage;
+    }
+
+    function getWorkingImageData() {
+        if (state.workingImageData) {
+            state.sourceRenderScale = state.workingImageScale || 1;
+            return state.workingImageData;
+        }
+        return buildWorkingImageCache()?.imageData || null;
+    }
+
+    function updateResolutionNotice(originalWidth, originalHeight) {
+        if (!elements.resolutionNotice) return;
+
+        if (state.workingImageWasReduced && state.workingImageWidth && state.workingImageHeight) {
+            elements.resolutionNotice.textContent = `Large source detected. Using ${state.workingImageWidth}×${state.workingImageHeight} internally for faster SVG/3D processing.`;
+            elements.resolutionNotice.style.display = 'block';
             return;
         }
 
-        canvas.width = w;
-        canvas.height = h;
-        const ctx = canvas.getContext('2d');
-        ctx.drawImage(elements.sourceImage, 0, 0, w, h);
-        const imageData = ctx.getImageData(0, 0, w, h);
+        if (originalWidth < 512 || originalHeight < 512) {
+            elements.resolutionNotice.textContent = 'Low resolution detected. For best results, use images larger than 512x512 pixels.';
+            elements.resolutionNotice.style.display = 'block';
+            return;
+        }
+
+        elements.resolutionNotice.style.display = 'none';
+    }
+
+    function updateColorCountNotice() {
+        if (!elements.colorCountNotice || !elements.sourceImage.src) return;
+
+        const imageData = getWorkingImageData();
+        if (!imageData) {
+            elements.colorCountNotice.classList.add('hidden');
+            return;
+        }
 
         const estimatedColors = estimateMeaningfulColorCount(imageData);
         state.estimatedColorCount = estimatedColors;
@@ -118,16 +164,8 @@ export function createSvgTabController({
         return new Promise((resolve, reject) => {
             setTimeout(async () => {
                 try {
-                    const width = elements.sourceImage.naturalWidth;
-                    const height = elements.sourceImage.naturalHeight;
-                    if (!width || !height) throw new Error('Invalid image dimensions');
-
-                    const canvas = document.createElement('canvas');
-                    canvas.width = width;
-                    canvas.height = height;
-                    const ctx = canvas.getContext('2d');
-                    ctx.drawImage(elements.sourceImage, 0, 0, width, height);
-                    const imageData = ctx.getImageData(0, 0, width, height);
+                    const imageData = getWorkingImageData();
+                    if (!imageData) throw new Error('Invalid image dimensions');
 
                     const options = buildOptimizedOptions();
                     state.lastOptions = options;
@@ -414,20 +452,14 @@ export function createSvgTabController({
     function onSourceImageLoaded() {
         syncWorkspaceView();
         if (elements.generatePreviewBtn) elements.generatePreviewBtn.disabled = false;
-        state.sourceRenderScale = 1;
 
         const w = elements.sourceImage.naturalWidth;
         const h = elements.sourceImage.naturalHeight;
         elements.originalResolution.textContent = `${w}×${h} px`;
+        buildWorkingImageCache();
 
         onRasterImageLoaded();
-
-        if (w < 512 || h < 512) {
-            elements.resolutionNotice.textContent = 'Low resolution detected. For best results, use images larger than 512x512 pixels.';
-            elements.resolutionNotice.style.display = 'block';
-        } else {
-            elements.resolutionNotice.style.display = 'none';
-        }
+        updateResolutionNotice(w, h);
 
         state.colorsAnalyzed = false;
         saveInitialSliderValues(state, elements);
