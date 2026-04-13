@@ -1,5 +1,4 @@
 import { buildObjGeometryBundle, buildObjModelPlan } from './obj-model-plan.js';
-import { computeObjScalePlan } from './obj-scale.js';
 import { layerHasPaths } from './shared/trace-utils.js';
 
 const THREE_MF_BLOB_TYPE = 'model/3mf';
@@ -32,7 +31,52 @@ function geometryToSTL(geometry) {
 
     const vertices = geo.getAttribute('position');
     const normals = geo.getAttribute('normal');
-    const triangleCount = vertices.count / 3;
+    const triangles = [];
+    const vA = new THREERef.Vector3();
+    const vB = new THREERef.Vector3();
+    const vC = new THREERef.Vector3();
+    const nA = new THREERef.Vector3();
+    const nB = new THREERef.Vector3();
+    const nC = new THREERef.Vector3();
+    const faceNormal = new THREERef.Vector3();
+    const edge1 = new THREERef.Vector3();
+    const edge2 = new THREERef.Vector3();
+
+    for (let idx = 0; idx < vertices.count; idx += 3) {
+        vA.fromBufferAttribute(vertices, idx);
+        vB.fromBufferAttribute(vertices, idx + 1);
+        vC.fromBufferAttribute(vertices, idx + 2);
+
+        edge1.subVectors(vB, vA);
+        edge2.subVectors(vC, vA);
+        faceNormal.crossVectors(edge1, edge2);
+        if (faceNormal.lengthSq() <= 1e-24) continue;
+
+        if (normals) {
+            nA.fromBufferAttribute(normals, idx);
+            nB.fromBufferAttribute(normals, idx + 1);
+            nC.fromBufferAttribute(normals, idx + 2);
+            faceNormal.addVectors(nA, nB).add(nC);
+            if (faceNormal.lengthSq() <= 1e-24) {
+                faceNormal.crossVectors(edge1, edge2);
+            }
+        }
+
+        triangles.push({
+            normal: faceNormal.clone().normalize(),
+            vertices: [
+                vA.clone(),
+                vB.clone(),
+                vC.clone()
+            ]
+        });
+    }
+
+    const triangleCount = triangles.length;
+    if (!triangleCount) {
+        if (geo !== geometry) geo.dispose();
+        return null;
+    }
 
     // Binary STL: 80 byte header + 4 byte triangle count + (50 bytes per triangle)
     const bufferSize = 84 + triangleCount * 50;
@@ -49,57 +93,32 @@ function geometryToSTL(geometry) {
     dataView.setUint32(80, triangleCount, true);
 
     let offset = 84;
-    const vA = new THREERef.Vector3();
-    const vB = new THREERef.Vector3();
-    const vC = new THREERef.Vector3();
-    const nA = new THREERef.Vector3();
-    const nB = new THREERef.Vector3();
-    const nC = new THREERef.Vector3();
-    const faceNormal = new THREERef.Vector3();
-
-    for (let i = 0; i < triangleCount; i++) {
-        const idx = i * 3;
-        vA.fromBufferAttribute(vertices, idx);
-        vB.fromBufferAttribute(vertices, idx + 1);
-        vC.fromBufferAttribute(vertices, idx + 2);
-
-        // Use stored normals if available, otherwise compute from vertices
-        if (normals) {
-            nA.fromBufferAttribute(normals, idx);
-            nB.fromBufferAttribute(normals, idx + 1);
-            nC.fromBufferAttribute(normals, idx + 2);
-            // Average the vertex normals to get face normal
-            faceNormal.addVectors(nA, nB).add(nC).normalize();
-        } else {
-            // Calculate face normal from vertices
-            const edge1 = new THREERef.Vector3().subVectors(vB, vA);
-            const edge2 = new THREERef.Vector3().subVectors(vC, vA);
-            faceNormal.crossVectors(edge1, edge2).normalize();
-        }
+    triangles.forEach((triangle) => {
+        const [a, b, c] = triangle.vertices;
 
         // Normal
-        dataView.setFloat32(offset, faceNormal.x, true); offset += 4;
-        dataView.setFloat32(offset, faceNormal.y, true); offset += 4;
-        dataView.setFloat32(offset, faceNormal.z, true); offset += 4;
+        dataView.setFloat32(offset, triangle.normal.x, true); offset += 4;
+        dataView.setFloat32(offset, triangle.normal.y, true); offset += 4;
+        dataView.setFloat32(offset, triangle.normal.z, true); offset += 4;
 
         // Vertex 1
-        dataView.setFloat32(offset, vA.x, true); offset += 4;
-        dataView.setFloat32(offset, vA.y, true); offset += 4;
-        dataView.setFloat32(offset, vA.z, true); offset += 4;
+        dataView.setFloat32(offset, a.x, true); offset += 4;
+        dataView.setFloat32(offset, a.y, true); offset += 4;
+        dataView.setFloat32(offset, a.z, true); offset += 4;
 
         // Vertex 2
-        dataView.setFloat32(offset, vB.x, true); offset += 4;
-        dataView.setFloat32(offset, vB.y, true); offset += 4;
-        dataView.setFloat32(offset, vB.z, true); offset += 4;
+        dataView.setFloat32(offset, b.x, true); offset += 4;
+        dataView.setFloat32(offset, b.y, true); offset += 4;
+        dataView.setFloat32(offset, b.z, true); offset += 4;
 
         // Vertex 3
-        dataView.setFloat32(offset, vC.x, true); offset += 4;
-        dataView.setFloat32(offset, vC.y, true); offset += 4;
-        dataView.setFloat32(offset, vC.z, true); offset += 4;
+        dataView.setFloat32(offset, c.x, true); offset += 4;
+        dataView.setFloat32(offset, c.y, true); offset += 4;
+        dataView.setFloat32(offset, c.z, true); offset += 4;
 
         // Attribute byte count (unused)
         dataView.setUint16(offset, 0, true); offset += 2;
-    }
+    });
 
     if (geo !== geometry) {
         geo.dispose();
@@ -623,25 +642,19 @@ export function createObjExporter({
             THREERef,
             defaultThickness,
             visibleSourceLayerIds,
-            decimatePercent: model.objDecimateSlider ? Number.parseFloat(model.objDecimateSlider.value) : 0
+            decimatePercent: model.objDecimateSlider ? Number.parseFloat(model.objDecimateSlider.value) : 0,
+            bedKey: model.objBedSelect?.value || 'x1',
+            margin: model.objMarginInput ? Number.parseFloat(model.objMarginInput.value) : 5,
+            scalePercent: model.objScaleSlider ? Number.parseFloat(model.objScaleSlider.value) : 100,
+            sourceScale: state.sourceRenderScale || 1,
+            bezelPreset: model.objBezelSelect?.value || state.objParams?.bezelPreset || 'off'
         });
         if (!plan || plan.outputLayers.length === 0) return null;
 
         const geometryBundle = buildObjGeometryBundle(plan, { THREERef, bufferUtils });
         if (!geometryBundle || geometryBundle.layers.size === 0) return null;
 
-        const bedKey = model.objBedSelect?.value || 'x1';
-        const marginValue = model.objMarginInput ? Number.parseFloat(model.objMarginInput.value) : 5;
-        const margin = Number.isFinite(marginValue) ? Math.max(0, marginValue) : 5;
-        const scaleValue = model.objScaleSlider ? Number.parseFloat(model.objScaleSlider.value) : 100;
-        const scalePlan = computeObjScalePlan({
-            rawWidth: plan.rawBounds.width,
-            rawDepth: plan.rawBounds.depth,
-            bedKey,
-            margin,
-            scalePercent: scaleValue,
-            sourceScale: state.sourceRenderScale || 1
-        });
+        const scalePlan = plan.scalePlan;
 
         geometryBundle.layers.forEach((layerData) => {
             layerData.geometry.scale(scalePlan.scale, scalePlan.scale, 1);
@@ -857,7 +870,7 @@ export function createObjExporter({
 
             // Export each layer as separate STL
             let exportedCount = 0;
-            result.layers.forEach((layerData, layerIndex) => {
+            Array.from(result.layers.values()).forEach((layerData, layerIndex) => {
                 const stlBuffer = geometryToSTL(layerData.geometry);
                 if (stlBuffer) {
                     const colorName = rgbToHex(layerData.color.r, layerData.color.g, layerData.color.b);

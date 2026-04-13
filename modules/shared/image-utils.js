@@ -76,6 +76,85 @@ function getColorDistanceSquared(a, b) {
 }
 
 /**
+ * Quantizes imageData directly onto a fixed palette.
+ * Returns an ImageTracer-style array with a 1px border.
+ */
+export function quantizeImageDataToFixedPalette(imageData, targetColors) {
+    if (!imageData || !Number.isFinite(imageData.width) || !Number.isFinite(imageData.height)) {
+        return null;
+    }
+
+    const normalizedTargets = (Array.isArray(targetColors) ? targetColors : [])
+        .filter((color) => color && Number.isFinite(color.r) && Number.isFinite(color.g) && Number.isFinite(color.b))
+        .map((color) => ({
+            r: Math.max(0, Math.min(255, Math.round(color.r))),
+            g: Math.max(0, Math.min(255, Math.round(color.g))),
+            b: Math.max(0, Math.min(255, Math.round(color.b))),
+            a: 255
+        }));
+
+    if (!normalizedTargets.length) return null;
+
+    const width = imageData.width;
+    const height = imageData.height;
+    const array = Array.from({ length: height + 2 }, () => new Array(width + 2).fill(-1));
+    const usedTargetIndices = new Set();
+    const source = imageData.data;
+
+    for (let y = 0; y < height; y++) {
+        const row = array[y + 1];
+        for (let x = 0; x < width; x++) {
+            const pixelIndex = ((y * width) + x) * 4;
+            if (source[pixelIndex + 3] <= TRANSPARENT_ALPHA_CUTOFF) {
+                row[x + 1] = -1;
+                continue;
+            }
+
+            const color = {
+                r: source[pixelIndex],
+                g: source[pixelIndex + 1],
+                b: source[pixelIndex + 2]
+            };
+
+            let bestTargetIndex = 0;
+            let bestDistance = Number.POSITIVE_INFINITY;
+            normalizedTargets.forEach((target, targetIndex) => {
+                const distance = getColorDistanceSquared(color, target);
+                if (distance < bestDistance) {
+                    bestDistance = distance;
+                    bestTargetIndex = targetIndex;
+                }
+            });
+
+            row[x + 1] = bestTargetIndex;
+            usedTargetIndices.add(bestTargetIndex);
+        }
+    }
+
+    if (!usedTargetIndices.size) {
+        return {
+            palette: [],
+            array
+        };
+    }
+
+    const compactTargetIndices = Array.from(usedTargetIndices).sort((a, b) => a - b);
+    const remap = new Map(compactTargetIndices.map((targetIndex, compactIndex) => [targetIndex, compactIndex]));
+    const palette = compactTargetIndices.map((targetIndex) => normalizedTargets[targetIndex]);
+
+    for (let y = 0; y < array.length; y++) {
+        const row = array[y];
+        for (let x = 0; x < row.length; x++) {
+            if (row[x] >= 0) {
+                row[x] = remap.get(row[x]) ?? -1;
+            }
+        }
+    }
+
+    return { palette, array };
+}
+
+/**
  * Collapses an existing quantized palette onto a fixed set of target colors.
  * Transparent pixels remain mapped to -1 in quantizedData.array.
  */

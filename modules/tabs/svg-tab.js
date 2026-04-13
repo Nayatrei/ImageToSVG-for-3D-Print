@@ -1,4 +1,4 @@
-import { SLIDER_TOOLTIPS, TRANSPARENT_ALPHA_CUTOFF } from '../config.js';
+import { SLIDER_TOOLTIPS } from '../config.js';
 import { createObjPreview } from '../preview3d.js';
 import { createObjExporter } from '../export3d.js';
 import { hasTransparentPixels, markTransparentPixels, stripTransparentPalette } from '../shared/image-utils.js';
@@ -8,6 +8,14 @@ import { saveInitialSliderValues, updateAllSliderDisplays, resetSlidersToInitial
 import { createZoomPanController } from '../shared/zoom-pan.js';
 import { svgToPng } from '../shared/svg-renderer.js';
 import { createPaletteManager } from '../shared/palette-manager.js';
+import { formatObjScalePercent } from '../obj-scale.js';
+import {
+    buildTraceOptions,
+    cycleTracePreset,
+    estimateMeaningfulColorCount,
+    getColorCountNoticeMessage,
+    readTraceControls
+} from '../shared/trace-controls.js';
 
 export function createSvgTabController({
     state,
@@ -41,137 +49,49 @@ export function createSvgTabController({
 
     // ── Debounced re-trace ─────────────────────────────────────────────────────
 
-    const debounceOptimizePaths = debounce(() => {
-        if (state.colorsAnalyzed) optimizePathsClick();
+    const debounceGeneratePreview = debounce(() => {
+        if (!state.colorsAnalyzed || !elements.sourceImage.src) return;
+        void generatePreviewClick().catch(() => {});
     });
 
     function queueAutoBaseSelection() {
         state.autoBaseLayerSelectionPending = true;
     }
 
-    // ── Fidelity ───────────────────────────────────────────────────────────────
+    function syncTraceControlUi() {
+        updateAllSliderDisplays(state, elements);
+        updateColorCountNotice();
+    }
 
-    function setHighFidelity(enabled) {
-        state.highFidelity = !!enabled;
-        if (elements.toggleFidelityBtn) {
-            elements.toggleFidelityBtn.textContent = state.highFidelity ? 'Mode: High Fidelity' : 'Mode: Logo';
-            elements.toggleFidelityBtn.classList.toggle('btn-primary', state.highFidelity);
-            elements.toggleFidelityBtn.classList.toggle('btn-secondary', !state.highFidelity);
-        }
-        if (elements.maxColorsSlider) {
-            elements.maxColorsSlider.value = state.highFidelity ? '8' : '4';
-            if (!state.isDirty) {
-                state.isDirty = true;
-                elements.resetBtn.style.display = 'inline';
-            }
-            updateAllSliderDisplays(elements);
-        }
+    function updateBezelHelperText() {
+        if (!elements.objBezelHelper) return;
+        const preset = elements.objBezelSelect?.value || 'off';
+        const helperText = preset === 'high'
+            ? 'Adds a 1.0mm inner rim with 0.8mm extra height on the support base.'
+            : preset === 'low'
+                ? 'Adds a 0.6mm inner rim with 0.4mm extra height on the support base.'
+                : 'No raised rim is added to the support base.';
+        elements.objBezelHelper.textContent = helperText;
     }
 
     // ── Tracing options ────────────────────────────────────────────────────────
 
     function buildOptimizedOptions() {
-        const P = parseInt(elements.pathSimplificationSlider.value, 10);
-        const C = parseInt(elements.cornerSharpnessSlider.value, 10);
-        const S = parseInt(elements.curveStraightnessSlider.value, 10);
-        const CP = parseInt(elements.colorPrecisionSlider.value, 10);
-        const MC = elements.maxColorsSlider ? parseInt(elements.maxColorsSlider.value, 10) : 4;
-
-        const map = (t, a, b) => (a + (b - a) * (t / 100));
-        const mapInv = (t, a, b) => (a + (b - a) * (1 - (t / 100)));
-
-        const options = Object.assign({}, tracer.optionpresets.default, {
-            viewbox: true,
-            strokewidth: 0
-        });
-
-        if (state.highFidelity) {
-            const rel = Math.max(0.5, Math.sqrt(elements.sourceImage.naturalWidth * elements.sourceImage.naturalHeight) / 512);
-            const detailScale = Math.min(rel, 1.0);
-            options.pathomit = Math.round(map(P, 0, 6) * detailScale);
-            options.roundcoords = Math.round(map(P, 1, 2));
-            options.blurradius = +map(P, 0, 0.8).toFixed(1);
-            options.qtres = +mapInv(C, 2.5, 0.15).toFixed(2);
-            options.ltres = +map(S, 0.15, 6.0).toFixed(2);
-            options.colorsampling = 2;
-            options.colorquantcycles = Math.max(1, Math.round(map(CP, 4, 12)));
-        } else {
-            options.pathomit = Math.round(map(P, 0, 5));
-            options.roundcoords = Math.round(map(P, 1, 2));
-            options.blurradius = +map(P, 0, 0.6).toFixed(1);
-            options.qtres = +mapInv(C, 0.8, 0.05).toFixed(2);
-            options.ltres = +map(S, 0.05, 1.0).toFixed(2);
-            options.colorsampling = 1;
-            options.colorquantcycles = Math.max(15, Math.round(map(CP, 10, 25)));
-        }
-
-        options.rightangleenhance = (C >= 50);
-        options.mincolorratio = +mapInv(CP, 0.03, 0.0).toFixed(3);
-        options.numberofcolors = Math.max(4, Math.min(20, 4 + Math.round(CP * 0.16)));
-        if (!Number.isNaN(MC)) {
-            options.numberofcolors = Math.max(2, Math.min(options.numberofcolors, MC));
-        }
-
-        return options;
+        const controls = readTraceControls(elements);
+        state.traceControls = controls;
+        return Object.assign({}, tracer.optionpresets.default, buildTraceOptions(controls));
     }
 
     // ── Color analysis ─────────────────────────────────────────────────────────
 
-    function estimateDominantColors(imageData) {
-        const width = imageData.width;
-        const height = imageData.height;
-        if (!width || !height) return null;
-
-        const data = imageData.data;
-        const maxSamples = 4096;
-        const step = Math.max(1, Math.floor(Math.sqrt((width * height) / maxSamples)));
-        const counts = new Map();
-        let samples = 0;
-
-        for (let y = 0; y < height; y += step) {
-            for (let x = 0; x < width; x += step) {
-                const idx = (y * width + x) * 4;
-                const a = data[idx + 3];
-                if (a <= TRANSPARENT_ALPHA_CUTOFF) continue;
-                const r = data[idx] >> 3;
-                const g = data[idx + 1] >> 3;
-                const b = data[idx + 2] >> 3;
-                const key = (r << 10) | (g << 5) | b;
-                counts.set(key, (counts.get(key) || 0) + 1);
-                samples++;
-            }
-        }
-
-        if (!samples) return null;
-
-        const bucketsAll = Array.from(counts.values()).sort((a, b) => b - a);
-        const minBucketRatio = state.highFidelity ? 0.003 : 0.006;
-        const minBucketCount = Math.max(2, Math.round(samples * minBucketRatio));
-        const buckets = bucketsAll.filter(count => count >= minBucketCount);
-        const selectedBuckets = buckets.length ? buckets : bucketsAll;
-        const total = selectedBuckets.reduce((sum, count) => sum + count, 0);
-        const targetCoverage = state.highFidelity ? 0.992 : 0.985;
-        let cumulative = 0;
-        let colorCount = 0;
-
-        for (const count of selectedBuckets) {
-            cumulative += count;
-            colorCount++;
-            if (cumulative / total >= targetCoverage) break;
-        }
-
-        return Math.max(1, Math.min(colorCount, selectedBuckets.length));
-    }
-
     function updateColorCountNotice() {
         if (!elements.colorCountNotice || !elements.sourceImage.src) return;
 
-        const maxColors = elements.maxColorsSlider ? parseInt(elements.maxColorsSlider.value, 10) : 4;
         const canvas = document.createElement('canvas');
         const w = elements.sourceImage.naturalWidth;
         const h = elements.sourceImage.naturalHeight;
         if (!w || !h) {
-            elements.colorCountNotice.style.display = 'none';
+            elements.colorCountNotice.classList.add('hidden');
             return;
         }
 
@@ -181,20 +101,16 @@ export function createSvgTabController({
         ctx.drawImage(elements.sourceImage, 0, 0, w, h);
         const imageData = ctx.getImageData(0, 0, w, h);
 
-        const estimatedColors = estimateDominantColors(imageData);
+        const estimatedColors = estimateMeaningfulColorCount(imageData);
         state.estimatedColorCount = estimatedColors;
+        const currentOutputColors = parseInt(elements.outputColorsSlider?.value || '4', 10);
+        const notice = getColorCountNoticeMessage(estimatedColors, currentOutputColors);
 
-        if (estimatedColors && estimatedColors > maxColors) {
-            elements.colorCountNotice.innerHTML =
-                `Image has ~${estimatedColors} distinct colors. Consider increasing Max Colors to ${Math.min(estimatedColors, 8)} for better accuracy. ` +
-                `<em style="opacity: 0.8">(3D printers may have filament limits)</em>`;
-            elements.colorCountNotice.style.display = 'block';
-        } else {
-            elements.colorCountNotice.style.display = 'none';
-        }
+        elements.colorCountNotice.textContent = notice;
+        elements.colorCountNotice.classList.toggle('hidden', !notice);
     }
 
-    async function analyzeColors() {
+    async function quantizeColors() {
         showLoader(true);
         elements.statusText.textContent = 'Analyzing colors...';
         disableDownloadButtons();
@@ -214,12 +130,6 @@ export function createSvgTabController({
                     const imageData = ctx.getImageData(0, 0, width, height);
 
                     const options = buildOptimizedOptions();
-                    const MC = elements.maxColorsSlider ? parseInt(elements.maxColorsSlider.value, 10) : 4;
-                    const dominantColorCount = estimateDominantColors(imageData);
-                    if (dominantColorCount && dominantColorCount > MC) {
-                        options.numberofcolors = Math.min(options.numberofcolors, dominantColorCount);
-                    }
-                    options.numberofcolors = Math.max(MC, options.numberofcolors);
                     state.lastOptions = options;
 
                     state.quantizedData = tracer.colorquantization(imageData, options);
@@ -245,17 +155,19 @@ export function createSvgTabController({
         });
     }
 
-    async function analyzeColorsClick() {
+    async function generatePreviewClick() {
+        if (!elements.sourceImage.src) return;
         state.layerThicknessById = {};
-        await analyzeColors();
-        state.colorsAnalyzed = true;
-        await optimizePathsClick();
-    }
-
-    async function optimizePathsClick() {
-        if (!state.quantizedData) return;
         queueAutoBaseSelection();
-        await traceVectorPaths();
+
+        try {
+            await quantizeColors();
+            state.colorsAnalyzed = true;
+            await traceVectorPaths();
+        } catch (error) {
+            state.colorsAnalyzed = false;
+            throw error;
+        }
     }
 
     // ── Layer helpers ──────────────────────────────────────────────────────────
@@ -315,12 +227,12 @@ export function createSvgTabController({
         if (!state.quantizedData) return;
         showLoader(true);
         elements.statusText.textContent = 'Tracing vector paths...';
-        if (elements.optimizePathsBtn) elements.optimizePathsBtn.disabled = true;
+        if (elements.generatePreviewBtn) elements.generatePreviewBtn.disabled = true;
 
         return new Promise((resolve, reject) => {
             setTimeout(async () => {
                 try {
-                    const options = buildOptimizedOptions();
+                    const options = state.lastOptions || buildOptimizedOptions();
                     state.lastOptions = options;
 
                     const ii = state.quantizedData;
@@ -371,7 +283,7 @@ export function createSvgTabController({
                     reject(error);
                 } finally {
                     showLoader(false);
-                    if (elements.optimizePathsBtn) elements.optimizePathsBtn.disabled = false;
+                    if (elements.generatePreviewBtn) elements.generatePreviewBtn.disabled = false;
                 }
             }, 50);
         });
@@ -501,7 +413,7 @@ export function createSvgTabController({
 
     function onSourceImageLoaded() {
         syncWorkspaceView();
-        elements.analyzeColorsBtn.disabled = false;
+        if (elements.generatePreviewBtn) elements.generatePreviewBtn.disabled = false;
         state.sourceRenderScale = 1;
 
         const w = elements.sourceImage.naturalWidth;
@@ -517,12 +429,10 @@ export function createSvgTabController({
             elements.resolutionNotice.style.display = 'none';
         }
 
-        updateColorCountNotice();
-
         state.colorsAnalyzed = false;
-        if (elements.optimizePathsBtn) elements.optimizePathsBtn.disabled = true;
         saveInitialSliderValues(state, elements);
-        elements.analyzeColorsBtn.click();
+        syncTraceControlUi();
+        void generatePreviewClick().catch(() => {});
 
         if (state.activeTab === 'svg') {
             onTabActivated();
@@ -539,22 +449,31 @@ export function createSvgTabController({
     // ── Event binding ──────────────────────────────────────────────────────────
 
     function bindEvents() {
-        if (elements.analyzeColorsBtn) {
-            elements.analyzeColorsBtn.addEventListener('click', analyzeColorsClick);
-        }
-        if (elements.optimizePathsBtn) {
-            elements.optimizePathsBtn.addEventListener('click', optimizePathsClick);
+        if (elements.generatePreviewBtn) {
+            elements.generatePreviewBtn.addEventListener('click', () => {
+                void generatePreviewClick().catch(() => {});
+            });
         }
         if (elements.resetBtn) {
-            elements.resetBtn.addEventListener('click', () => resetSlidersToInitial(state, elements));
+            elements.resetBtn.addEventListener('click', () => {
+                resetSlidersToInitial(state, elements);
+                syncTraceControlUi();
+                if (elements.sourceImage.src) {
+                    void generatePreviewClick().catch(() => {});
+                }
+            });
         }
-        if (elements.toggleFidelityBtn) {
-            elements.toggleFidelityBtn.addEventListener('click', () => {
-                setHighFidelity(!state.highFidelity);
-                if (state.colorsAnalyzed && elements.sourceImage.src) {
-                    state.colorsAnalyzed = false;
-                    if (elements.optimizePathsBtn) elements.optimizePathsBtn.disabled = true;
-                    elements.statusText.textContent = 'Fidelity changed. Re-analyze colors.';
+        if (elements.presetBtn) {
+            elements.presetBtn.addEventListener('click', () => {
+                cycleTracePreset(elements);
+                if (!state.isDirty) {
+                    state.isDirty = true;
+                    elements.resetBtn.style.display = 'inline';
+                }
+                syncTraceControlUi();
+                showTraceControlTooltip('trace-preset');
+                if (state.colorsAnalyzed) {
+                    debounceGeneratePreview();
                 }
             });
         }
@@ -584,10 +503,10 @@ export function createSvgTabController({
             });
         }
         if (elements.objScaleSlider && elements.objScaleValue) {
-            elements.objScaleValue.textContent = elements.objScaleSlider.value;
+            elements.objScaleValue.textContent = formatObjScalePercent(elements.objScaleSlider.value);
             elements.objScaleSlider.addEventListener('input', () => {
                 state.objParams.scale = Number.parseFloat(elements.objScaleSlider.value);
-                elements.objScaleValue.textContent = state.objParams.scale;
+                elements.objScaleValue.textContent = formatObjScalePercent(state.objParams.scale);
                 if (state.activeTab === 'svg') updateFilteredPreview();
             });
         }
@@ -602,6 +521,24 @@ export function createSvgTabController({
                 state.objParams.margin = Number.parseFloat(e.target.value);
                 if (state.activeTab === 'svg') updateFilteredPreview();
             });
+        }
+        if (elements.objBezelSelect) {
+            elements.objBezelSelect.addEventListener('change', () => {
+                state.objParams.bezelPreset = elements.objBezelSelect.value || 'off';
+                updateBezelHelperText();
+                if (state.activeTab === 'svg') updateFilteredPreview();
+
+                const tooltipEl = document.getElementById('obj-bezel-tooltip');
+                if (tooltipEl) {
+                    tooltipEl.textContent = SLIDER_TOOLTIPS['obj-bezel'];
+                    tooltipEl.style.opacity = '1';
+                    clearTimeout(state.tooltipTimeout);
+                    state.tooltipTimeout = setTimeout(() => { tooltipEl.style.opacity = '0'; }, 2000);
+                }
+            });
+            if (!state.objParams.bezelPreset) state.objParams.bezelPreset = elements.objBezelSelect.value || 'off';
+            elements.objBezelSelect.value = state.objParams.bezelPreset || 'off';
+            updateBezelHelperText();
         }
         if (elements.exportObjBtn) {
             elements.exportObjBtn.addEventListener('click', () => objExporter.exportAsOBJ());
@@ -647,36 +584,23 @@ export function createSvgTabController({
         }
 
         [
-            elements.pathSimplificationSlider,
+            elements.outputColorsSlider,
+            elements.colorCleanupSlider,
+            elements.pathCleanupSlider,
             elements.cornerSharpnessSlider,
             elements.curveStraightnessSlider,
-            elements.colorPrecisionSlider,
-            elements.maxColorsSlider
-        ].filter(Boolean).forEach((slider) => {
-            slider.addEventListener('input', (e) => {
-                if (e.target.id === 'obj-thickness' || e.target.id === 'obj-scale' || e.target.id === 'obj-decimate') return;
+            elements.preserveRightAnglesCheckbox
+        ].filter(Boolean).forEach((control) => {
+            control.addEventListener(control.type === 'checkbox' ? 'change' : 'input', (e) => {
                 if (!state.isDirty) {
                     state.isDirty = true;
                     elements.resetBtn.style.display = 'inline';
                 }
-                updateAllSliderDisplays(elements);
+                syncTraceControlUi();
+                showTraceControlTooltip(e.target.id);
 
-                const tooltipEl = document.getElementById(`${e.target.id}-tooltip`);
-                if (tooltipEl) {
-                    tooltipEl.textContent = SLIDER_TOOLTIPS[e.target.id];
-                    tooltipEl.style.opacity = '1';
-                    clearTimeout(state.tooltipTimeout);
-                    state.tooltipTimeout = setTimeout(() => { tooltipEl.style.opacity = '0'; }, 2000);
-                }
-
-                if (e.target.id === 'color-precision' || e.target.id === 'max-colors') {
-                    if (state.colorsAnalyzed && elements.sourceImage.src) {
-                        state.colorsAnalyzed = false;
-                        if (elements.optimizePathsBtn) elements.optimizePathsBtn.disabled = true;
-                    }
-                    if (e.target.id === 'max-colors') updateColorCountNotice();
-                } else if (state.colorsAnalyzed) {
-                    debounceOptimizePaths();
+                if (state.colorsAnalyzed) {
+                    debounceGeneratePreview();
                 }
             });
         });
@@ -823,11 +747,20 @@ export function createSvgTabController({
         elements.sourceImage.onload = onSourceImageLoaded;
     }
 
+    function showTraceControlTooltip(controlId, tooltipId = controlId) {
+        const tooltipEl = document.getElementById(`${tooltipId}-tooltip`);
+        if (!tooltipEl) return;
+        tooltipEl.textContent = SLIDER_TOOLTIPS[controlId] || '';
+        tooltipEl.style.opacity = '1';
+        clearTimeout(state.tooltipTimeout);
+        state.tooltipTimeout = setTimeout(() => { tooltipEl.style.opacity = '0'; }, 2000);
+    }
+
     return {
         bindEvents,
         onTabActivated,
         onSourceImageLoaded,
-        setHighFidelity,
+        syncTraceControlUi,
         updateColorCountNotice,
         renderPreviews,
         updateFilteredPreview

@@ -1,5 +1,5 @@
 import { OBJ_ZOOM_MIN, OBJ_ZOOM_MAX, BED_PRESETS } from './config.js';
-import { computeObjScalePlan } from './obj-scale.js';
+import { formatObjScalePercent } from './obj-scale.js';
 import { buildObjGeometryBundle, buildObjModelPlan } from './obj-model-plan.js';
 import { resolveMergedLayerGroups } from './shared/trace-utils.js';
 
@@ -255,6 +255,18 @@ export function createObjPreview({
         view.objBuildPlateToggle.title = showBuildPlate ? 'Hide build plate' : 'Show build plate';
     }
 
+    function syncAppliedScalePercent(appliedPercent) {
+        if (!Number.isFinite(appliedPercent)) return;
+        const roundedPercent = Number.parseFloat(
+            (appliedPercent >= 1 ? appliedPercent.toFixed(1) : appliedPercent.toFixed(2))
+        );
+        if (!Number.isFinite(roundedPercent)) return;
+
+        state.objParams.scale = roundedPercent;
+        if (model.objScaleSlider) model.objScaleSlider.value = String(roundedPercent);
+        if (model.objScaleValue) model.objScaleValue.textContent = formatObjScalePercent(roundedPercent);
+    }
+
     function updateSizeReadout(scalePlan) {
         if (!model.objSizeReadout) return;
         if (!scalePlan || !scalePlan.footprintWidth || !scalePlan.footprintDepth) {
@@ -263,10 +275,14 @@ export function createObjPreview({
         }
 
         let suffix = '';
-        if (!scalePlan.fitsBed) {
+        if (scalePlan.wasAutoFitted) {
+            suffix = ` · auto-fit to ${scalePlan.bedLabel} at ${formatObjScalePercent(scalePlan.appliedPercent)}%`;
+        } else if (!scalePlan.fitsBed) {
             const ow = scalePlan.overflowWidth > 0.05 ? ` +${scalePlan.overflowWidth.toFixed(1)}W` : '';
             const od = scalePlan.overflowDepth > 0.05 ? ` +${scalePlan.overflowDepth.toFixed(1)}D` : '';
             suffix = ` · exceeds bed${ow}${od}`;
+        } else if (scalePlan.bedLabel) {
+            suffix = ` · fits ${scalePlan.bedLabel}`;
         }
 
         model.objSizeReadout.textContent = `Footprint: ${scalePlan.footprintWidth.toFixed(1)} × ${scalePlan.footprintDepth.toFixed(1)} mm${suffix}`;
@@ -294,7 +310,7 @@ export function createObjPreview({
         }
 
         if (view.triangleControlsHint) {
-            const baseHint = 'Reduce triangles with Path Simplification, more Curve Straightness, fewer Max Colors, or Mesh Detail Reduction.';
+            const baseHint = 'Reduce triangles with more Small Shape Cleanup, more Curve Straightness, fewer Output Colors, or Mesh Detail Reduction.';
             view.triangleControlsHint.textContent = decimatePercent > 0
                 ? `${baseHint} Mesh Detail Reduction is currently ${decimatePercent}%.`
                 : `${baseHint} Corner Sharpness usually preserves detail instead of lowering it.`;
@@ -608,7 +624,12 @@ export function createObjPreview({
                 THREERef,
                 defaultThickness: thickness,
                 visibleSourceLayerIds,
-                decimatePercent
+                decimatePercent,
+                bedKey,
+                margin,
+                scalePercent: scaleValue,
+                sourceScale: state.sourceRenderScale || 1,
+                bezelPreset: model.objBezelSelect?.value || state.objParams?.bezelPreset || 'off'
             });
 
             if (!plan || plan.outputLayers.length === 0) {
@@ -622,14 +643,10 @@ export function createObjPreview({
                 return;
             }
 
-            const scalePlan = computeObjScalePlan({
-                rawWidth: plan.rawBounds.width,
-                rawDepth: plan.rawBounds.depth,
-                bedKey,
-                margin,
-                scalePercent: scaleValue,
-                sourceScale: state.sourceRenderScale || 1
-            });
+            const scalePlan = plan.scalePlan;
+            if (scalePlan?.wasAutoFitted) {
+                syncAppliedScalePercent(scalePlan.appliedPercent);
+            }
 
             const geometryBundle = buildObjGeometryBundle(plan, { THREERef, bufferUtils });
             if (!geometryBundle || geometryBundle.layers.size === 0) {

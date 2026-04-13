@@ -9,6 +9,14 @@ const PRESETS = [
     { name: 'cta', resolution: '1032×312 px' }
 ];
 
+function buildStripedSvg() {
+    const colors = ['#111827', '#2563eb', '#16a34a', '#f59e0b', '#dc2626', '#7c3aed'];
+    return `
+<svg xmlns="http://www.w3.org/2000/svg" width="360" height="120" viewBox="0 0 360 120">
+  ${colors.map((color, index) => `<rect x="${index * 60}" y="0" width="60" height="120" fill="${color}"/>`).join('\n  ')}
+</svg>`.trim();
+}
+
 function outputPath(name) {
     fs.mkdirSync(QA_DIR, { recursive: true });
     return path.join(QA_DIR, name);
@@ -63,29 +71,40 @@ test('logo sidebar controls stay isolated from SVG controls', async ({ page }) =
     await expect(page.locator('#sidebar-adjust-section #obj-thickness')).toBeVisible();
     await expect(page.locator('#sidebar-adjust-section #obj-bed')).toBeVisible();
     await expect(page.locator('#sidebar-adjust-section #obj-margin')).toBeVisible();
-    await expect(page.locator('#logo-color-precision')).toBeVisible();
-    await expect(page.locator('#color-precision')).toBeHidden();
+    await expect(page.locator('#sidebar-adjust-section #obj-bezel')).toBeVisible();
+    await expect(page.locator('#logo-html-color-summary')).toBeVisible();
+    await expect(page.locator('#logo-image-color-controls')).toBeHidden();
 
-    await setRangeValue(page.locator('#logo-color-precision'), 63);
-    await expect(page.locator('#logo-color-precision-value')).toHaveText('63');
+    await page.locator('#file-input').setInputFiles({
+        name: 'stripes.svg',
+        mimeType: 'image/svg+xml',
+        buffer: Buffer.from(buildStripedSvg())
+    });
+
+    await expect(page.locator('#logo-image-color-controls')).toBeVisible({ timeout: 30_000 });
+    await expect(page.locator('#logo-output-colors')).toBeVisible();
+    await expectRenderedImage(page.locator('#logo-svg-preview'));
+
+    await setRangeValue(page.locator('#logo-output-colors'), 6);
+    await expect(page.locator('#logo-output-colors-value')).toHaveText('6');
 
     await page.locator('.segmented-control-tab[data-tab="svg"]').click();
     await expect(page.locator('#tab-svg')).toBeVisible();
     await expect(page.locator('#svg-sidebar-controls')).toBeVisible();
     await expect(page.locator('#logo-sidebar-controls')).toBeHidden();
     await expect(page.locator('#sidebar-adjust-section #obj-scale')).toBeVisible();
-    await expect(page.locator('#color-precision')).toBeVisible();
+    await expect(page.locator('#output-colors')).toBeVisible();
 
-    await setRangeValue(page.locator('#color-precision'), 41);
-    await expect(page.locator('#color-precision-value')).toHaveText('41');
+    await setRangeValue(page.locator('#output-colors'), 3);
+    await expect(page.locator('#output-colors-value')).toHaveText('3');
 
     await page.locator('.segmented-control-tab[data-tab="logo"]').click();
     await expect(page.locator('#logo-sidebar-controls')).toBeVisible();
-    await expect(page.locator('#logo-color-precision')).toHaveValue('63');
+    await expect(page.locator('#logo-output-colors')).toHaveValue('6');
     await expect(page.locator('#sidebar-adjust-section #obj-scale')).toBeVisible();
 
     await page.locator('.segmented-control-tab[data-tab="svg"]').click();
-    await expect(page.locator('#color-precision')).toHaveValue('41');
+    await expect(page.locator('#output-colors')).toHaveValue('3');
 });
 
 test('pill, badge, and CTA render cleanly in the logo workflow', async ({ page }) => {
@@ -97,6 +116,8 @@ test('pill, badge, and CTA render cleanly in the logo workflow', async ({ page }
         await expect(page.locator('#tab-logo .svg-3d-grid')).toBeVisible();
         await expect(page.locator('#logo-use-base-layer')).toBeChecked();
         await expect(page.locator('#obj-structure-warning')).toBeHidden();
+        await expect(page.locator('#logo-html-color-summary')).toBeVisible();
+        await expect(page.locator('#logo-image-color-controls')).toBeHidden();
 
         await page.locator('#tab-logo .svg-compare-grid').screenshot({
             path: outputPath(`logo-${preset.name}-compare.png`)

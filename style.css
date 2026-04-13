@@ -2385,19 +2385,35 @@ body,
         min-height: 0;
     }
 
+    /* Workspace takes full viewport */
     .app-workspace {
         order: 1;
-        min-height: 68dvh;
+        min-height: 100dvh;
         padding-top: 0;
         overflow: visible;
     }
 
+    /* Sidebar becomes a fixed bottom sheet */
     .app-sidebar {
-        order: 2;
-        box-shadow: none;
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        z-index: 60;
+        max-height: 75dvh;
+        transform: translateY(100%);
+        transition: transform 300ms cubic-bezier(0.4, 0, 0.2, 1);
+        overflow-y: auto;
+        overscroll-behavior: contain;
         border-top: 1px solid rgba(75, 85, 99, 0.85);
+        border-radius: 1rem 1rem 0 0;
         background:
             linear-gradient(180deg, rgba(31, 41, 55, 0.98), rgba(17, 24, 39, 0.98));
+        box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.45);
+    }
+
+    .app-sidebar.mobile-open {
+        transform: translateY(0);
     }
 
     .control-panel {
@@ -2409,23 +2425,90 @@ body,
         overflow: visible;
     }
 
+    /* Compact sidebar header inside sheet */
     .app-sidebar > header {
         position: sticky;
         top: 0;
         z-index: 12;
         background: rgba(31, 41, 55, 0.96);
         backdrop-filter: blur(14px);
+        padding: 0.75rem 1rem;
     }
 
-    .app-sidebar > footer,
-    #svg-export-footer,
-    #download-footer {
+    .app-sidebar > header .app-brand-mark {
+        width: 36px;
+        height: 36px;
+        border-radius: 10px;
+    }
+
+    .app-sidebar > header .app-brand-copy h1 {
+        font-size: 1rem;
+    }
+
+    .app-sidebar > header .app-brand-copy p {
+        display: none;
+    }
+
+    .app-sidebar > footer {
         position: sticky;
         bottom: 0;
         z-index: 30;
         background: rgba(31, 41, 55, 0.94);
         backdrop-filter: blur(16px);
         box-shadow: 0 -12px 24px rgba(0, 0, 0, 0.28);
+    }
+
+    /* Mobile sidebar backdrop overlay */
+    .mobile-sidebar-backdrop {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(0, 0, 0, 0.5);
+        z-index: 55;
+    }
+
+    .mobile-sidebar-backdrop.visible {
+        display: block;
+    }
+
+    /* Mobile settings toggle button */
+    .mobile-controls-toggle {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 40px;
+        height: 40px;
+        border-radius: 10px;
+        background: rgba(55, 65, 81, 0.7);
+        border: 1px solid rgba(75, 85, 99, 0.6);
+        color: #d1d5db;
+        cursor: pointer;
+        flex-shrink: 0;
+        transition: background 150ms ease, border-color 150ms ease;
+    }
+
+    .mobile-controls-toggle:hover,
+    .mobile-controls-toggle:active {
+        background: rgba(75, 85, 99, 0.8);
+        border-color: rgba(96, 165, 250, 0.5);
+        color: #f3f4f6;
+    }
+
+    /* Export footers: compact sticky bar on mobile */
+    #svg-export-footer,
+    #logo-export-footer,
+    #download-footer,
+    #bulk-download-footer {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        z-index: 40;
+        background: rgba(31, 41, 55, 0.94);
+        backdrop-filter: blur(16px);
+        box-shadow: 0 -12px 24px rgba(0, 0, 0, 0.28);
+        max-height: 30dvh;
+        overflow-y: auto;
     }
 
     .workspace-topbar {
@@ -2444,6 +2527,7 @@ body,
 
     #output-section {
         overflow: visible;
+        padding-bottom: 5rem; /* space for sticky export footer */
     }
 
     .footer-action-stack-six {
@@ -2464,6 +2548,16 @@ body,
 
     .footer-action-stack-three > :last-child {
         grid-column: 1 / -1;
+    }
+}
+
+/* Hide mobile toggle on desktop */
+@media (min-width: 1024px) {
+    .mobile-controls-toggle {
+        display: none;
+    }
+    .mobile-sidebar-backdrop {
+        display: none !important;
     }
 }
 

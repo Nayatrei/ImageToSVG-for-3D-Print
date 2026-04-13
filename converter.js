@@ -258,8 +258,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             sourceImage: elements.sourceImage,
             outputSection: elements.outputSection,
             statusText: elements.statusText,
-            resolutionNotice: elements.resolutionNotice,
-            colorCountNotice: elements.colorCountNotice
+            resolutionNotice: elements.resolutionNotice
         },
         sidebarControls: elements.svg.sidebar,
         previewElements: elements.svg.preview,
@@ -285,8 +284,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             sourceImage: elements.sourceImage,
             outputSection: elements.outputSection,
             statusText: elements.statusText,
-            resolutionNotice: elements.resolutionNotice,
-            colorCountNotice: elements.colorCountNotice
+            resolutionNotice: elements.resolutionNotice
         },
         sidebarControls: elements.logo.sidebar,
         previewElements: elements.logo.preview,
@@ -528,8 +526,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         switchExportTab(_tabFromPath);
         rasterTab.setExportScale(state.exportScale);
         bulkTab.setExportScale(state.bulk.exportScale);
-        svgTab.setHighFidelity(state.highFidelity);
-        logoTab.setHighFidelity(state.logo.highFidelity);
+        svgTab.syncTraceControlUi();
+        logoTab.syncTraceControlUi();
         rasterTab.updateExportScaleDisplay();
         syncImportPanel();
         syncWorkspaceView();

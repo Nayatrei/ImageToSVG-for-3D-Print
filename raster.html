@@ -127,29 +127,48 @@
                     <div id="svg-sidebar-controls"></div>
                     <div id="logo-sidebar-controls"></div>
                     <div id="shared-obj-controls"></div>
-                    <input id="color-precision"><input id="max-colors"><input id="path-simplification">
+                    <div id="color-count-notice"></div>
+                    <button id="trace-preset-btn" data-preset="logo"></button>
+                    <input id="output-colors"><input id="color-cleanup"><input id="path-cleanup">
                     <input id="corner-sharpness"><input id="curve-straightness">
-                    <button id="toggle-fidelity-btn"></button>
-                    <input id="logo-color-precision"><input id="logo-max-colors">
-                    <input id="logo-path-simplification"><input id="logo-corner-sharpness">
-                    <input id="logo-curve-straightness"><button id="logo-toggle-fidelity-btn"></button>
-                    <input id="obj-scale"><input id="obj-thickness"><input id="obj-decimate">
-                    <select id="obj-bed"><option value="x1"></option></select>
+                    <input id="preserve-right-angles" type="checkbox">
+                    <div id="logo-color-count-notice"></div>
+                    <div id="logo-image-color-controls"></div>
+                    <div id="logo-html-color-summary"></div>
+                    <button id="logo-trace-preset-btn" data-preset="logo"></button>
+                    <input id="logo-output-colors"><input id="logo-color-cleanup">
+                    <input id="logo-path-cleanup"><input id="logo-corner-sharpness">
+                    <input id="logo-curve-straightness"><input id="logo-preserve-right-angles" type="checkbox">
+                    <input id="obj-scale" min="0.1" max="200" step="0.1"><input id="obj-thickness"><input id="obj-decimate">
+                    <select id="obj-bed">
+                        <option value="x1">Bambu X1/X1C (256×256)</option>
+                        <option value="a1">Bambu A1 (256×256)</option>
+                        <option value="a1mini">Bambu A1 mini (180×180)</option>
+                        <option value="h2d">Bambu H2D (325×320, single nozzle)</option>
+                    </select>
                     <input id="obj-margin">
-                    <span id="color-precision-value"></span><span id="max-colors-value"></span>
-                    <span id="path-simplification-value"></span><span id="corner-sharpness-value"></span>
+                    <span id="output-colors-value"></span><span id="color-cleanup-value"></span>
+                    <span id="path-cleanup-value"></span><span id="corner-sharpness-value"></span>
                     <span id="curve-straightness-value"></span>
-                    <span id="logo-color-precision-value"></span><span id="logo-max-colors-value"></span>
-                    <span id="logo-path-simplification-value"></span><span id="logo-corner-sharpness-value"></span>
+                    <span id="logo-output-colors-value"></span><span id="logo-color-cleanup-value"></span>
+                    <span id="logo-path-cleanup-value"></span><span id="logo-corner-sharpness-value"></span>
                     <span id="logo-curve-straightness-value"></span>
                     <span id="obj-scale-value"></span><span id="obj-thickness-value"></span>
                     <span id="obj-decimate-value"></span><p id="obj-size-readout"></p>
                     <p id="obj-structure-warning"></p>
-                    <p id="color-precision-tooltip"></p><p id="max-colors-tooltip"></p>
-                    <p id="path-simplification-tooltip"></p><p id="corner-sharpness-tooltip"></p>
-                    <p id="curve-straightness-tooltip"></p><p id="logo-color-precision-tooltip"></p>
-                    <p id="logo-max-colors-tooltip"></p><p id="logo-path-simplification-tooltip"></p>
-                    <p id="logo-corner-sharpness-tooltip"></p><p id="logo-curve-straightness-tooltip"></p>
+                    <p id="trace-preset-tooltip"></p><p id="output-colors-tooltip"></p>
+                    <p id="color-cleanup-tooltip"></p><p id="path-cleanup-tooltip"></p>
+                    <p id="corner-sharpness-tooltip"></p><p id="curve-straightness-tooltip"></p>
+                    <p id="preserve-right-angles-tooltip"></p><p id="logo-trace-preset-tooltip"></p>
+                    <p id="logo-output-colors-tooltip"></p><p id="logo-color-cleanup-tooltip"></p>
+                    <p id="logo-path-cleanup-tooltip"></p><p id="logo-corner-sharpness-tooltip"></p>
+                    <p id="logo-curve-straightness-tooltip"></p><p id="logo-preserve-right-angles-tooltip"></p>
+                    <p id="output-colors-helper"></p><p id="color-cleanup-helper"></p>
+                    <p id="path-cleanup-helper"></p><p id="corner-sharpness-helper"></p>
+                    <p id="curve-straightness-helper"></p><p id="preserve-right-angles-helper"></p>
+                    <p id="logo-output-colors-helper"></p><p id="logo-color-cleanup-helper"></p>
+                    <p id="logo-path-cleanup-helper"></p><p id="logo-corner-sharpness-helper"></p>
+                    <p id="logo-curve-straightness-helper"></p><p id="logo-preserve-right-angles-helper"></p>
                     <p id="obj-decimate-tooltip"></p>
                 </div>
 
@@ -160,12 +179,10 @@
                 <!-- Hidden: JS-referenced elements for SVG/Logo tabs (not used on this page) -->
                 <div class="hidden" aria-hidden="true">
                     <div id="svg-sidebar-actions">
-                        <button id="analyze-colors-btn" disabled></button>
-                        <button id="optimize-paths-btn" disabled></button>
+                        <button id="generate-preview-btn" disabled></button>
                     </div>
                     <div id="logo-sidebar-actions">
-                        <button id="logo-analyze-colors-btn" disabled></button>
-                        <button id="logo-optimize-paths-btn" disabled></button>
+                        <button id="logo-generate-preview-btn" disabled></button>
                     </div>
                 </div>
             </footer>

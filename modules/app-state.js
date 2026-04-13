@@ -1,3 +1,5 @@
+import { createDefaultTraceControls } from './shared/trace-controls.js';
+
 /**
  * Returns the initial application state object.
  * Logo-tab state lives under state.logo and is passed as `ls` to the logo tab controller.
@@ -53,8 +55,7 @@ export function createState() {
         sourceRenderScale: 1,
         exportScale: 100,
         preserveAlpha: true,
-
-        highFidelity: false,
+        traceControls: createDefaultTraceControls('logo'),
 
         // ── Shared 3D Parameters ──────────────────────────────────────────────
         objParams: {
@@ -63,6 +64,7 @@ export function createState() {
             decimate: 0,
             bedKey: 'x1',
             margin: 5,
+            bezelPreset: 'off',
             showBuildPlate: true,
             layerDisplayMode: 'ghost',
             targetLocked: true
@@ -118,7 +120,7 @@ export function createState() {
             baseSourceLayerId: null,
             autoBaseLayerSelectionPending: true,
             sourceRenderScale: 1,
-            highFidelity: false,
+            traceControls: createDefaultTraceControls('logo'),
             htmlModeActive: true,
             htmlRenderTimer: null,
             htmlDeclaredColors: [],

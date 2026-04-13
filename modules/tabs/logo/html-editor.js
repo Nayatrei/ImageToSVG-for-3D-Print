@@ -622,11 +622,12 @@ export function renderHtmlToDataUrl(html, font = '', widthPx = 0) {
  * @param {object} le  - logo-tab local elements
  * @param {object} elements - global elements (for sourceImage access when leaving HTML mode)
  * @param {function} syncWorkspaceView
- * @param {function} analyzeColorsClick - triggers full re-analysis after render
+ * @param {function} generatePreviewClick - triggers full preview regeneration after render
+ * @param {function} [onModeChanged] - syncs sidebar UI when HTML/image mode changes
  *
  * @returns {{ setHtmlStatus, triggerHtmlRender, scheduleHtmlRender, onHtmlRendered, setHtmlMode }}
  */
-export function createHtmlEditor({ ls, le, elements, syncWorkspaceView, analyzeColorsClick }) {
+export function createHtmlEditor({ ls, le, elements, syncWorkspaceView, generatePreviewClick, onModeChanged }) {
 
     function setHtmlStatus(text, isError = false) {
         if (!le.htmlStatus) return;
@@ -710,10 +711,11 @@ export function createHtmlEditor({ ls, le, elements, syncWorkspaceView, analyzeC
         if (le.originalResolution) le.originalResolution.textContent = `${w}×${h} px`;
         ls.colorsAnalyzed = false;
         ls.layerThicknessById = {};
-        if (le.analyzeColorsBtn) {
-            le.analyzeColorsBtn.disabled = false;
+        if (le.generatePreviewBtn) {
+            le.generatePreviewBtn.disabled = false;
         }
-        await analyzeColorsClick();
+        if (typeof onModeChanged === 'function') onModeChanged(true);
+        await generatePreviewClick();
 
         // Scroll the compare panels into view so the result is visible without manual scrolling
         le.svgSourceMirror?.closest('.svg-compare-grid')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
@@ -748,6 +750,7 @@ export function createHtmlEditor({ ls, le, elements, syncWorkspaceView, analyzeC
         if (!active && elements.sourceImage?.src) {
             if (le.svgSourceMirror) le.svgSourceMirror.src = elements.sourceImage.src;
         }
+        if (typeof onModeChanged === 'function') onModeChanged(active);
         syncWorkspaceView();
     }
 
