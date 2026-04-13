@@ -1,6 +1,7 @@
 import { resolveMergedLayerGroups } from './shared/trace-utils.js';
 import { buildShapesFromTracedataLayers, buildWeldedShapeSet } from './shared/silhouette-builder.js';
 import { computeObjScalePlan } from './obj-scale.js';
+import { applyCanonicalRawExtrudeTransform } from './shared/canonical-3d.js';
 import {
     BEZEL_PRESETS,
     DEFAULT_PRINT_PROFILE,
@@ -785,8 +786,7 @@ function buildMaskExtrusionGeometries({
             curveSegments: 1,
             bevelEnabled: false
         });
-        geometry.rotateX(Math.PI);
-        geometry.translate(0, 0, extrusionDepth + zOffset + shiftZ);
+        geometry.translate(0, 0, zOffset + shiftZ);
         geometry.computeVertexNormals();
         geometries.push(geometry);
     });
@@ -1037,11 +1037,7 @@ export function buildObjModelPlan({
                     maskSpace,
                     zStart: layer.thickness,
                     depth: bezelSpec.extraHeightMm,
-                    simplifyTolerance: getMaskLoopSimplifyTolerance(Math.min(normalizedDecimatePercent, 20), maskSpace.pixelsPerUnit, {
-                        baseTolerancePx: 0,
-                        maxExtraTolerancePx: 1.5,
-                        minimumTolerancePx: 1.25
-                    })
+                    simplifyTolerance: null
                 });
             }
 
@@ -1132,15 +1128,18 @@ export function buildObjModelPlan({
         layer.bounds = repairedDetailShapeSet.bounds;
         layer.printMask = split.keptMask;
         layer.printMaskSpace = maskSpace;
+        const clippedForBezel = layer.repairActions.some((action) => action?.type === 'clipped-for-bezel');
         layer.geometrySegments = [{
             maskData: layer.printMask,
             maskSpace: layer.printMaskSpace,
             depth: layer.thickness,
-            simplifyTolerance: getMaskLoopSimplifyTolerance(detailDecimatePercent, maskSpace.pixelsPerUnit, {
-                baseTolerancePx: 0,
-                maxExtraTolerancePx: 2,
-                minimumTolerancePx: 1
-            })
+            simplifyTolerance: clippedForBezel
+                ? null
+                : getMaskLoopSimplifyTolerance(detailDecimatePercent, maskSpace.pixelsPerUnit, {
+                    baseTolerancePx: 0,
+                    maxExtraTolerancePx: 2,
+                    minimumTolerancePx: 1
+                })
         }];
         finalizedOutputLayers.push(layer);
         repairSummary.preservedDetailLayers += 1;
@@ -1269,12 +1268,12 @@ function createLayerGeometry({ layer, plan, THREERef }) {
                 curveSegments: plan.curveSegments,
                 bevelEnabled: false
             });
-            geometry.rotateX(Math.PI);
-            geometry.translate(
-                plan.normalization.shiftX + offsetX,
-                -plan.normalization.shiftY - offsetY,
-                depth + zStart + plan.normalization.shiftZ
-            );
+            applyCanonicalRawExtrudeTransform(geometry, plan, {
+                offsetX,
+                offsetY,
+                zStart,
+                depth
+            });
             geometry.computeVertexNormals();
             geometries.push(geometry);
         });

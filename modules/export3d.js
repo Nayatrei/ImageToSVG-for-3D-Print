@@ -1,5 +1,11 @@
-import { buildObjGeometryBundle, buildObjModelPlan } from './obj-model-plan.js';
+import { buildObjGeometryBundle, buildObjModelPlan } from './obj-model-plan.js?v=20260412b';
+import { buildBambuProjectFiles } from './bambu-project.js';
+import { createBambuBridgeClient, canUseChromeDownloadsOpen } from './bambu-bridge.js';
+import { BAMBU_PROJECT_NOZZLE_DIAMETER } from './config.js';
+import { canvasToBlobAsync, dataUrlToBlob } from './raster-utils.js';
 import { layerHasPaths } from './shared/trace-utils.js';
+import { svgToPng } from './shared/svg-renderer.js';
+import { getCanonicalBedCenter } from './shared/canonical-3d.js';
 
 const THREE_MF_BLOB_TYPE = 'model/3mf';
 
@@ -127,135 +133,164 @@ function geometryToSTL(geometry) {
     return buffer;
 }
 
-// Generate 3MF file (ZIP archive with XML)
-async function generate3MF(layers, baseName) {
-    // 3MF is a ZIP file containing XML
-    // We'll create it manually using the Compression Streams API or JSZip if available
-
-    const objects = [];
-    const colorGroups = [];
-    let vertexOffset = 0;
-
-    layers.forEach((layerData, layerIndex) => {
-        const geo = layerData.geometry;
-        const color = layerData.color;
-
-        // Get vertices and triangles
-        let vertices = [];
-        let triangles = [];
-
-        const posAttr = geo.getAttribute('position');
-        const indexAttr = geo.index;
-
-        // Extract vertices
-        for (let i = 0; i < posAttr.count; i++) {
-            vertices.push({
-                x: posAttr.getX(i),
-                y: posAttr.getY(i),
-                z: posAttr.getZ(i)
-            });
-        }
-
-        // Extract triangles
-        if (indexAttr) {
-            for (let i = 0; i < indexAttr.count; i += 3) {
-                triangles.push({
-                    v1: indexAttr.getX(i),
-                    v2: indexAttr.getX(i + 1),
-                    v3: indexAttr.getX(i + 2)
-                });
-            }
-        } else {
-            for (let i = 0; i < posAttr.count; i += 3) {
-                triangles.push({
-                    v1: i,
-                    v2: i + 1,
-                    v3: i + 2
-                });
-            }
-        }
-
-        objects.push({
-            id: layerIndex + 1,
-            vertices,
-            triangles,
-            color: {
-                r: Math.round(color.r),
-                g: Math.round(color.g),
-                b: Math.round(color.b)
-            }
-        });
+function loadImageFromDataUrl(dataUrl) {
+    return new Promise((resolve, reject) => {
+        const image = new Image();
+        image.onload = () => resolve(image);
+        image.onerror = () => reject(new Error('Failed to load project preview image.'));
+        image.src = dataUrl;
     });
-
-    // Build 3MF XML content
-    const modelXml = build3MFModel(objects);
-    const contentTypesXml = `<?xml version="1.0" encoding="UTF-8"?>
-<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
-  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
-  <Default Extension="model" ContentType="application/vnd.ms-package.3dmanufacturing-3dmodel+xml"/>
-</Types>`;
-
-    const relsXml = `<?xml version="1.0" encoding="UTF-8"?>
-<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
-  <Relationship Target="/3D/3dmodel.model" Id="rel0" Type="http://schemas.microsoft.com/3dmanufacturing/2013/01/3dmodel"/>
-</Relationships>`;
-
-    // Create ZIP file
-    const zipBlob = await createZipFile({
-        '[Content_Types].xml': contentTypesXml,
-        '_rels/.rels': relsXml,
-        '3D/3dmodel.model': modelXml
-    });
-
-    return zipBlob;
 }
 
-function build3MFModel(objects) {
-    let verticesXml = '';
-    let trianglesXml = '';
-    let objectsXml = '';
-    let buildItemsXml = '';
-    let materialsXml = '';
-    let baseMaterialsXml = '';
+async function blobToUint8Array(blob) {
+    return new Uint8Array(await blob.arrayBuffer());
+}
 
-    // Build base materials (colors)
-    objects.forEach((obj, idx) => {
-        const hexColor = rgbToHex(obj.color.r, obj.color.g, obj.color.b);
-        baseMaterialsXml += `      <base name="Color_${idx}" displaycolor="#${hexColor}"/>\n`;
+async function renderCanvasToPngBytes(width, height, drawFn) {
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d', { alpha: true });
+    drawFn(ctx, canvas);
+    const blob = await canvasToBlobAsync(canvas, 'image/png');
+    return blobToUint8Array(blob);
+}
+
+function drawContainedImage(ctx, image, width, height, { padding = 0, background = null } = {}) {
+    if (background) {
+        ctx.fillStyle = background;
+        ctx.fillRect(0, 0, width, height);
+    } else {
+        ctx.clearRect(0, 0, width, height);
+    }
+
+    const contentWidth = Math.max(1, width - padding * 2);
+    const contentHeight = Math.max(1, height - padding * 2);
+    const scale = Math.min(contentWidth / image.width, contentHeight / image.height);
+    const drawWidth = image.width * scale;
+    const drawHeight = image.height * scale;
+    const drawX = (width - drawWidth) / 2;
+    const drawY = (height - drawHeight) / 2;
+    ctx.drawImage(image, drawX, drawY, drawWidth, drawHeight);
+}
+
+async function buildBambuPreviewAssets({ tracer, state, getDataToExport, bedKey, scalePlan }) {
+    if (!tracer || !state?.lastOptions || !getDataToExport) return {};
+
+    const exportData = getDataToExport();
+    if (!exportData) return {};
+
+    const svgString = tracer.getsvgstring(exportData, state.lastOptions);
+    const previewDataUrl = await svgToPng(svgString, 1024, null, true, null);
+    const previewImage = await loadImageFromDataUrl(previewDataUrl);
+    const { bed } = getCanonicalBedCenter(bedKey);
+
+    const thumbnailLarge = await renderCanvasToPngBytes(512, 512, (ctx, canvas) => {
+        drawContainedImage(ctx, previewImage, canvas.width, canvas.height, {
+            padding: 24,
+            background: '#ffffff'
+        });
     });
 
-    objects.forEach((obj, idx) => {
-        let vXml = '';
-        obj.vertices.forEach(v => {
-            vXml += `          <vertex x="${v.x.toFixed(6)}" y="${v.y.toFixed(6)}" z="${v.z.toFixed(6)}"/>\n`;
+    const thumbnailSmall = await renderCanvasToPngBytes(256, 256, (ctx, canvas) => {
+        drawContainedImage(ctx, previewImage, canvas.width, canvas.height, {
+            padding: 18,
+            background: '#ffffff'
         });
-
-        let tXml = '';
-        obj.triangles.forEach(t => {
-            tXml += `          <triangle v1="${t.v1}" v2="${t.v2}" v3="${t.v3}" pid="1" p1="${idx}"/>\n`;
-        });
-
-        objectsXml += `    <object id="${obj.id}" type="model">
-      <mesh>
-        <vertices>
-${vXml}        </vertices>
-        <triangles>
-${tXml}        </triangles>
-      </mesh>
-    </object>\n`;
-
-        buildItemsXml += `    <item objectid="${obj.id}"/>\n`;
     });
 
-    return `<?xml version="1.0" encoding="UTF-8"?>
-<model unit="millimeter" xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02" xmlns:m="http://schemas.microsoft.com/3dmanufacturing/material/2015/02">
-  <resources>
-    <m:basematerials id="1">
-${baseMaterialsXml}    </m:basematerials>
-${objectsXml}  </resources>
-  <build>
-${buildItemsXml}  </build>
-</model>`;
+    const renderPlate = async (size) => renderCanvasToPngBytes(size, size, (ctx, canvas) => {
+        const plateInset = Math.round(size * 0.08);
+        const plateX = plateInset;
+        const plateY = plateInset;
+        const plateWidth = canvas.width - plateInset * 2;
+        const plateHeight = canvas.height - plateInset * 2;
+
+        ctx.fillStyle = '#111827';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = '#20242d';
+        ctx.fillRect(plateX, plateY, plateWidth, plateHeight);
+
+        ctx.strokeStyle = 'rgba(209, 213, 219, 0.18)';
+        const gridStepX = plateWidth / 10;
+        const gridStepY = plateHeight / 10;
+        for (let x = plateX; x <= plateX + plateWidth + 0.5; x += gridStepX) {
+            ctx.beginPath();
+            ctx.moveTo(x, plateY);
+            ctx.lineTo(x, plateY + plateHeight);
+            ctx.stroke();
+        }
+        for (let y = plateY; y <= plateY + plateHeight + 0.5; y += gridStepY) {
+            ctx.beginPath();
+            ctx.moveTo(plateX, y);
+            ctx.lineTo(plateX + plateWidth, y);
+            ctx.stroke();
+        }
+
+        const bedScaleX = plateWidth / bed.width;
+        const bedScaleY = plateHeight / bed.depth;
+        const drawWidth = Math.max(1, (scalePlan?.footprintWidth || previewImage.width) * bedScaleX);
+        const drawHeight = Math.max(1, (scalePlan?.footprintDepth || previewImage.height) * bedScaleY);
+        const drawX = plateX + (plateWidth - drawWidth) / 2;
+        const drawY = plateY + (plateHeight - drawHeight) / 2;
+        ctx.drawImage(previewImage, drawX, drawY, drawWidth, drawHeight);
+    });
+
+    return {
+        thumbnailLarge,
+        thumbnailSmall,
+        plateLarge: await renderPlate(1024),
+        plateSmall: await renderPlate(512)
+    };
+}
+
+function buildBambuProjectGeometryLayers(geometryBundle, bedKey = 'x1') {
+    const placement = getCanonicalBedCenter(bedKey);
+    const layers = [];
+
+    geometryBundle.layers.forEach((layerData) => {
+        const geometry = layerData.geometry.clone();
+        geometry.translate(placement.x, placement.y, placement.z);
+        geometry.computeVertexNormals();
+        layers.push({
+            ...layerData,
+            geometry
+        });
+    });
+
+    return layers;
+}
+
+async function generateBambuProject3MF({
+    geometryBundle,
+    baseName,
+    bedKey,
+    tracer,
+    state,
+    getDataToExport
+}) {
+    const placedLayers = buildBambuProjectGeometryLayers(geometryBundle, bedKey);
+    try {
+        const previewAssets = await buildBambuPreviewAssets({
+            tracer,
+            state,
+            getDataToExport,
+            bedKey,
+            scalePlan: geometryBundle?.plan?.scalePlan
+        });
+        const project = buildBambuProjectFiles({
+            layers: placedLayers,
+            baseName,
+            bedKey,
+            nozzleDiameter: BAMBU_PROJECT_NOZZLE_DIAMETER,
+            previewAssets
+        });
+        if (!project) return null;
+        const blob = await createZipFile(project.files);
+        return { blob, project };
+    } finally {
+        placedLayers.forEach((layerData) => layerData.geometry?.dispose?.());
+    }
 }
 
 function rgbToHex(r, g, b) {
@@ -585,7 +620,8 @@ async function download3MF({
         return {
             downloadedViaChrome: false,
             openedViaChrome: false,
-            filename: ''
+            filename: '',
+            downloadId: null
         };
     }
 
@@ -600,7 +636,8 @@ async function download3MF({
     return {
         downloadedViaChrome: true,
         openedViaChrome,
-        filename: chromeDownload.filename || ''
+        filename: chromeDownload.filename || '',
+        downloadId: chromeDownload.downloadId || null
     };
 }
 
@@ -750,7 +787,7 @@ export function createObjExporter({
 
         try {
             showLoader(true);
-            if (statusText) statusText.textContent = 'Exporting 3MF...';
+            if (statusText) statusText.textContent = 'Exporting Bambu Studio project...';
 
             const result = buildExportGeometry(defaultThickness);
             if (!result || result.layers.size === 0) {
@@ -758,11 +795,20 @@ export function createObjExporter({
             }
 
             const baseName = `${getImageBaseName()}_${Math.round(result.plan.maxHeight || defaultThickness)}mm`;
-
-            const blob = await generate3MF(result.layers, baseName);
+            const exportResult = await generateBambuProject3MF({
+                geometryBundle: result,
+                baseName,
+                bedKey: model.objBedSelect?.value || 'x1',
+                tracer,
+                state,
+                getDataToExport
+            });
+            if (!exportResult?.blob) {
+                throw new Error('Failed to assemble the Bambu Studio project.');
+            }
             const filename = `${baseName}.3mf`;
             const downloadResult = await download3MF({
-                blob,
+                blob: exportResult.blob,
                 filename,
                 statusText,
                 downloadBlob,
@@ -770,8 +816,8 @@ export function createObjExporter({
             });
             if (statusText) {
                 statusText.textContent = downloadResult.downloadedViaChrome
-                    ? '3MF export complete.'
-                    : '3MF downloaded. If Chrome warns about the file, keep it and open it manually from Downloads.';
+                    ? 'Bambu Studio project export complete.'
+                    : 'Bambu Studio project downloaded. If Chrome warns about the file, keep it and open it manually from Downloads.';
             }
 
             // Cleanup
@@ -799,16 +845,9 @@ export function createObjExporter({
         const thicknessValue = model.objThicknessSlider ? parseFloat(model.objThicknessSlider.value) : 4;
         const defaultThickness = Number.isFinite(thicknessValue) ? thicknessValue : 4;
 
-        if (!getChromeDownloadsApi()) {
-            if (statusText) {
-                statusText.textContent = 'Open in Bambu Studio requires the installed extension context. In a normal browser tab, export the 3MF and open it from Downloads/Finder/Explorer.';
-            }
-            return;
-        }
-
         try {
             showLoader(true);
-            if (statusText) statusText.textContent = 'Preparing for Bambu Studio…';
+            if (statusText) statusText.textContent = 'Preparing Bambu Studio project…';
 
             const result = buildExportGeometry(defaultThickness);
             if (!result || result.layers.size === 0) {
@@ -817,19 +856,78 @@ export function createObjExporter({
 
             const baseName = `${getImageBaseName()}_${Math.round(result.plan.maxHeight || defaultThickness)}mm`;
             const filename = `${baseName}.3mf`;
-            const blob = await generate3MF(result.layers, baseName);
-            const downloadResult = await download3MF({
-                blob,
-                filename,
-                statusText,
-                downloadBlob,
-                openAfterDownload: true
+            const bridge = createBambuBridgeClient();
+            const bridgeStatus = await bridge.probe();
+            const exportResult = await generateBambuProject3MF({
+                geometryBundle: result,
+                baseName,
+                bedKey: model.objBedSelect?.value || 'x1',
+                tracer,
+                state,
+                getDataToExport
             });
+            if (!exportResult?.blob) {
+                throw new Error('Failed to assemble the Bambu Studio project.');
+            }
 
-            if (statusText) {
-                statusText.textContent = downloadResult.openedViaChrome
-                    ? '3MF exported and opened via your system default app for .3mf files.'
-                    : '3MF exported. If Bambu Studio did not open automatically, set it as the default app for .3mf files and open the saved file from Downloads.';
+            if (getChromeDownloadsApi()) {
+                const downloadResult = await download3MF({
+                    blob: exportResult.blob,
+                    filename,
+                    statusText,
+                    downloadBlob,
+                    openAfterDownload: false
+                });
+
+                let openedViaBridge = false;
+                let openedViaChrome = false;
+
+                if (bridgeStatus?.available && downloadResult.filename) {
+                    const openResult = await bridge.openProject(downloadResult.filename);
+                    openedViaBridge = Boolean(openResult?.ok && openResult?.opened);
+                }
+
+                if (!openedViaBridge && downloadResult.downloadId && canUseChromeDownloadsOpen()) {
+                    openedViaChrome = await openChromeDownloadedFile(downloadResult.downloadId);
+                    if (!openedViaChrome) revealChromeDownloadedFile(downloadResult.downloadId);
+                }
+
+                if (statusText) {
+                    statusText.textContent = openedViaBridge
+                        ? 'Bambu Studio project exported and opened with the macOS bridge.'
+                        : openedViaChrome
+                            ? 'Bambu Studio project exported. Chrome asked your system to open the file.'
+                            : bridgeStatus?.available
+                                ? 'Bambu Studio project exported. The bridge could not launch Studio automatically, so the file was left in Downloads.'
+                                : 'Bambu Studio project exported. Install the Genesis macOS bridge to open it directly from the browser.';
+                }
+            } else if (bridgeStatus?.available) {
+                const projectDataUrl = await new Promise((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onload = () => resolve(reader.result);
+                    reader.onerror = () => reject(new Error('Failed to prepare the Bambu Studio project for launch.'));
+                    reader.readAsDataURL(exportResult.blob);
+                });
+                const openResult = await bridge.downloadAndOpenProject({
+                    dataUrl: projectDataUrl,
+                    filename
+                });
+
+                if (openResult?.ok && openResult?.opened) {
+                    if (statusText) statusText.textContent = 'Bambu Studio project exported and opened with the macOS bridge.';
+                } else {
+                    downloadBlob(new Blob([exportResult.blob], { type: THREE_MF_BLOB_TYPE }), filename);
+                    if (statusText) {
+                        statusText.textContent = openResult?.message
+                            ? `${openResult.message} The Bambu Studio project was also downloaded.`
+                            : 'The macOS bridge could not open Bambu Studio automatically. The Bambu Studio project was downloaded instead.';
+                    }
+                }
+            } else {
+                downloadBlob(new Blob([exportResult.blob], { type: THREE_MF_BLOB_TYPE }), filename);
+                if (statusText) {
+                    statusText.textContent = 'The hosted app cannot open Bambu Studio directly until the Genesis extension bridge is installed. The Bambu Studio project was downloaded instead.';
+                }
             }
 
             // Cleanup geometry

@@ -13,7 +13,22 @@ export const SLIDER_TOOLTIPS = {
 export const TRANSPARENT_ALPHA_CUTOFF = 10;
 export const OBJ_ZOOM_MIN = 0.5;
 export const OBJ_ZOOM_MAX = 3;
-export const OBJ_DEFAULT_ROTATION = { x: -0.65, y: 0.45 };
+export const OBJ_DEFAULT_ROTATION = { x: -0.65, y: -0.45 };
+
+export const BAMBU_PROJECT_APP_VERSION = '02.05.00.66';
+export const BAMBU_PROJECT_3MF_VERSION = '1';
+export const BAMBU_PROJECT_NOZZLE_DIAMETER = 0.4;
+export const BAMBU_NATIVE_HOST_NAME = 'com.genesisframeworks.bambu_bridge';
+export const BAMBU_STUDIO_APP_NAME = 'Bambu Studio';
+export const BAMBU_BRIDGE_EXTENSION_STORAGE_KEY = 'genesisBambuBridgeExtensionId';
+export const BAMBU_BRIDGE_EXTENSION_ID = 'efcicfljpkpmgmackiblgojcpnnkjhah';
+export const BAMBU_BRIDGE_ALLOWED_MATCHES = [
+    'https://editor.genesisframeworks.com/*',
+    'http://localhost/*',
+    'http://localhost:*/*',
+    'http://127.0.0.1/*',
+    'http://127.0.0.1:*/*'
+];
 
 export const BED_PRESETS = {
     x1: { width: 256, depth: 256, height: 256, label: 'Bambu X1/X1C' },

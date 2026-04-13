@@ -1,4 +1,5 @@
 import { createDefaultTraceControls } from './shared/trace-controls.js';
+import { OBJ_DEFAULT_ROTATION } from './config.js';
 
 /**
  * Returns the initial application state object.
@@ -15,8 +16,8 @@ export function createState() {
         isDragging: false,
         lastX: 0,
         lastY: 0,
-        rotationX: -0.65,
-        rotationY: 0.45,
+        rotationX: OBJ_DEFAULT_ROTATION.x,
+        rotationY: OBJ_DEFAULT_ROTATION.y,
         interactionsBound: false,
         retryScheduled: false,
         zoom: 1,

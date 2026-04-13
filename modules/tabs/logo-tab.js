@@ -1,6 +1,7 @@
 import { SLIDER_TOOLTIPS } from '../config.js';
-import { createObjPreview } from '../preview3d.js';
-import { createObjExporter } from '../export3d.js';
+import { createBambuBridgeClient, canUseChromeDownloadsOpen } from '../bambu-bridge.js';
+import { createObjPreview } from '../preview3d.js?v=20260412b';
+import { createObjExporter } from '../export3d.js?v=20260412b';
 import {
     hasTransparentPixels,
     markTransparentPixels,
@@ -47,6 +48,7 @@ export function createLogoTabController({
     onRasterExportStateChanged
 }) {
     const tracer = window.ImageTracer;
+    const bambuBridge = createBambuBridgeClient();
 
     const le = {
         ...sharedElements,
@@ -527,20 +529,33 @@ export function createLogoTabController({
         if (le.bambuOpenBtn) le.bambuOpenBtn.disabled = true;
     }
 
+    async function refreshBambuOpenButtonState() {
+        if (!le.bambuOpenBtn) return;
+
+        if (canUseChromeDownloadsOpen()) {
+            const probe = await bambuBridge.probe();
+            le.bambuOpenBtn.disabled = false;
+            le.bambuOpenBtn.title = probe?.available
+                ? 'Export a Bambu Studio project and open it with the installed macOS bridge.'
+                : 'Export a Bambu Studio project and ask Chrome to open it with your default .3mf app.';
+            return;
+        }
+
+        le.bambuOpenBtn.disabled = true;
+        const probe = await bambuBridge.probe();
+        le.bambuOpenBtn.disabled = !probe?.available;
+        le.bambuOpenBtn.title = probe?.available
+            ? 'Export a Bambu Studio project and open it with the installed macOS bridge.'
+            : 'Install the Genesis extension bridge to open Bambu Studio directly from the hosted app.';
+    }
+
     function enableDownloadButtons() {
         [
             le.exportObjBtn,
             le.export3mfBtn,
             le.exportStlBtn
         ].forEach(btn => { if (btn) btn.disabled = false; });
-        if (le.bambuOpenBtn) {
-            const canOpenInExtension = typeof chrome !== 'undefined'
-                && Boolean(chrome.downloads?.download && chrome.downloads?.open);
-            le.bambuOpenBtn.disabled = !canOpenInExtension;
-            le.bambuOpenBtn.title = canOpenInExtension
-                ? 'Export a 3MF and ask Chrome to open it with your default .3mf app'
-                : 'Requires the installed Chrome extension context. In a regular browser tab, export the 3MF and open it manually.';
-        }
+        refreshBambuOpenButtonState();
     }
 
     // ── Palette manager ────────────────────────────────────────────────────────
