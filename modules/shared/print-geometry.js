@@ -266,10 +266,9 @@ export function subtractMaskData(left, right) {
     return result;
 }
 
-function applyBinaryBoxPassHorizontal(data, width, height, radius, mode) {
+function applyBinaryBoxPassHorizontal(data, width, height, radius, threshold) {
     if (radius <= 0) return data.slice();
     const output = new Uint8Array(data.length);
-    const windowSize = (radius * 2) + 1;
 
     for (let row = 0; row < height; row++) {
         const rowOffset = row * width;
@@ -282,9 +281,7 @@ function applyBinaryBoxPassHorizontal(data, width, height, radius, mode) {
         }
 
         for (let column = 0; column < width; column++) {
-            output[rowOffset + column] = mode === 'dilate'
-                ? (sum > 0 ? 1 : 0)
-                : (sum === windowSize ? 1 : 0);
+            output[rowOffset + column] = sum >= threshold ? 1 : 0;
 
             const removeColumn = column - radius;
             const addColumn = column + radius + 1;
@@ -300,10 +297,9 @@ function applyBinaryBoxPassHorizontal(data, width, height, radius, mode) {
     return output;
 }
 
-function applyBinaryBoxPassVertical(data, width, height, radius, mode) {
+function applyBinaryBoxPassVertical(data, width, height, radius, threshold) {
     if (radius <= 0) return data.slice();
     const output = new Uint8Array(data.length);
-    const windowSize = (radius * 2) + 1;
 
     for (let column = 0; column < width; column++) {
         let sum = 0;
@@ -315,9 +311,7 @@ function applyBinaryBoxPassVertical(data, width, height, radius, mode) {
         }
 
         for (let row = 0; row < height; row++) {
-            output[(row * width) + column] = mode === 'dilate'
-                ? (sum > 0 ? 1 : 0)
-                : (sum === windowSize ? 1 : 0);
+            output[(row * width) + column] = sum >= threshold ? 1 : 0;
 
             const removeRow = row - radius;
             const addRow = row + radius + 1;
@@ -337,8 +331,10 @@ function applyBinaryBoxFilter(maskSpace, maskData, radiusPx, mode) {
     if (!(maskData instanceof Uint8Array)) return createEmptyMask(maskSpace);
     const radius = Math.max(0, Math.round(radiusPx));
     if (radius <= 0) return maskData.slice();
-    const horizontal = applyBinaryBoxPassHorizontal(maskData, maskSpace.width, maskSpace.height, radius, mode);
-    return applyBinaryBoxPassVertical(horizontal, maskSpace.width, maskSpace.height, radius, mode);
+    const windowSize = (radius * 2) + 1;
+    const threshold = mode === 'dilate' ? 1 : windowSize;
+    const horizontal = applyBinaryBoxPassHorizontal(maskData, maskSpace.width, maskSpace.height, radius, threshold);
+    return applyBinaryBoxPassVertical(horizontal, maskSpace.width, maskSpace.height, radius, threshold);
 }
 
 export function dilateMaskData(maskSpace, maskData, radiusPx) {
@@ -611,6 +607,52 @@ export function splitMaskByPrintability(maskSpace, maskData, {
     };
 }
 
+function countPixelsAndBounds(maskData, width, height) {
+    let count = 0;
+    let minX = width;
+    let maxX = -1;
+    let minY = -1;
+    let maxY = -1;
+
+    for (let row = 0; row < height; row++) {
+        const rowOffset = row * width;
+        let rowHasPixel = false;
+        for (let column = 0; column < width; column++) {
+            if (!maskData[rowOffset + column]) continue;
+            count++;
+            rowHasPixel = true;
+            if (column < minX) minX = column;
+            if (column > maxX) maxX = column;
+        }
+        if (rowHasPixel) {
+            if (minY < 0) minY = row;
+            maxY = row;
+        }
+    }
+
+    const isValid = count > 0;
+    return {
+        count,
+        isValid,
+        widthPx: isValid ? (maxX - minX) + 1 : 0,
+        heightPx: isValid ? (maxY - minY) + 1 : 0
+    };
+}
+
+function buildSkippedBezelResult(baseMask, maskSpace, preset) {
+    return {
+        innerMask: cloneMask(baseMask),
+        bezelMask: createEmptyMask(maskSpace),
+        bezelSpec: {
+            enabled: false,
+            widthMm: preset.widthMm,
+            extraHeightMm: preset.extraHeightMm,
+            effectiveWidthMm: 0,
+            skippedReason: 'Model is too small for a printable inner bezel.'
+        }
+    };
+}
+
 export function resolveBezelMaskSet({
     maskSpace,
     baseMask,
@@ -639,43 +681,48 @@ export function resolveBezelMaskSet({
     const minInteriorSpanPx = Math.max(1, Math.ceil((printProfile.minFeatureWidthMm * 2) * maskSpace.pixelsPerMm));
     const minInteriorAreaPx = Math.max(1, Math.ceil(printProfile.minIslandAreaMm2 * maskSpace.pixelsPerMm * maskSpace.pixelsPerMm));
 
-    for (let radiusPx = desiredRadiusPx; radiusPx >= minimumRadiusPx; radiusPx--) {
-        const innerMask = erodeMaskData(maskSpace, baseMask, radiusPx);
-        const innerAreaPx = countMaskPixels(innerMask);
-        if (innerAreaPx < minInteriorAreaPx) continue;
-
-        const innerBounds = getFilledPixelBounds(maskSpace, innerMask);
-        if (!innerBounds.isValid) continue;
-
-        if (Math.min(innerBounds.widthPx, innerBounds.heightPx) < minInteriorSpanPx) {
-            continue;
-        }
-
-        const bezelMask = subtractMaskData(baseMask, innerMask);
-        if (!hasMaskPixels(bezelMask)) continue;
-
-        return {
-            innerMask,
-            bezelMask,
-            bezelSpec: {
-                enabled: true,
-                widthMm: preset.widthMm,
-                extraHeightMm: preset.extraHeightMm,
-                effectiveWidthMm: Number.parseFloat((radiusPx / maskSpace.pixelsPerMm).toFixed(2)),
-                skippedReason: ''
-            }
-        };
+    if (minimumRadiusPx > desiredRadiusPx) {
+        return buildSkippedBezelResult(baseMask, maskSpace, preset);
     }
 
+    const width = maskSpace.width || 0;
+    const height = maskSpace.height || 0;
+    let lo = minimumRadiusPx;
+    let hi = desiredRadiusPx;
+    let bestRadius = -1;
+    let bestInnerMask = null;
+
+    while (lo <= hi) {
+        const mid = (lo + hi) >>> 1;
+        const innerMask = erodeMaskData(maskSpace, baseMask, mid);
+        const stats = countPixelsAndBounds(innerMask, width, height);
+
+        if (stats.count >= minInteriorAreaPx
+            && stats.isValid
+            && Math.min(stats.widthPx, stats.heightPx) >= minInteriorSpanPx) {
+            bestRadius = mid;
+            bestInnerMask = innerMask;
+            lo = mid + 1;
+        } else {
+            hi = mid - 1;
+        }
+    }
+
+    if (bestRadius < 0) {
+        return buildSkippedBezelResult(baseMask, maskSpace, preset);
+    }
+
+    const bezelMask = subtractMaskData(baseMask, bestInnerMask);
+
     return {
-        innerMask: cloneMask(baseMask),
-        bezelMask: createEmptyMask(maskSpace),
+        innerMask: bestInnerMask,
+        bezelMask,
         bezelSpec: {
-            enabled: false,
+            enabled: true,
             widthMm: preset.widthMm,
             extraHeightMm: preset.extraHeightMm,
-            effectiveWidthMm: 0,
-            skippedReason: 'Model is too small for a printable inner bezel.'
+            effectiveWidthMm: Number.parseFloat((bestRadius / maskSpace.pixelsPerMm).toFixed(2)),
+            skippedReason: ''
         }
     };
 }
