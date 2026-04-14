@@ -1,6 +1,5 @@
 import { buildObjGeometryBundle, buildObjModelPlan } from './obj-model-plan.js?v=20260412b';
 import { buildBambuProjectFiles } from './bambu-project.js';
-import { createBambuBridgeClient, canUseChromeDownloadsOpen } from './bambu-bridge.js';
 import { BAMBU_PROJECT_NOZZLE_DIAMETER } from './config.js';
 import { canvasToBlobAsync, dataUrlToBlob } from './raster-utils.js';
 import { layerHasPaths } from './shared/trace-utils.js';
@@ -856,8 +855,6 @@ export function createObjExporter({
 
             const baseName = `${getImageBaseName()}_${Math.round(result.plan.maxHeight || defaultThickness)}mm`;
             const filename = `${baseName}.3mf`;
-            const bridge = createBambuBridgeClient();
-            const bridgeStatus = await bridge.probe();
             const exportResult = await generateBambuProject3MF({
                 geometryBundle: result,
                 baseName,
@@ -870,67 +867,22 @@ export function createObjExporter({
                 throw new Error('Failed to assemble the Bambu Studio project.');
             }
 
-            if (getChromeDownloadsApi()) {
-                const downloadResult = await download3MF({
-                    blob: exportResult.blob,
-                    filename,
-                    statusText,
-                    downloadBlob,
-                    openAfterDownload: false
-                });
+            const downloadResult = await download3MF({
+                blob: exportResult.blob,
+                filename,
+                statusText,
+                downloadBlob,
+                openAfterDownload: true
+            });
 
-                let openedViaBridge = false;
-                let openedViaChrome = false;
-
-                if (bridgeStatus?.available && downloadResult.filename) {
-                    const openResult = await bridge.openProject(downloadResult.filename);
-                    openedViaBridge = Boolean(openResult?.ok && openResult?.opened);
-                }
-
-                if (!openedViaBridge && downloadResult.downloadId && canUseChromeDownloadsOpen()) {
-                    openedViaChrome = await openChromeDownloadedFile(downloadResult.downloadId);
-                    if (!openedViaChrome) revealChromeDownloadedFile(downloadResult.downloadId);
-                }
-
-                if (statusText) {
-                    statusText.textContent = openedViaBridge
-                        ? 'Bambu Studio project exported and opened with the macOS bridge.'
-                        : openedViaChrome
-                            ? 'Bambu Studio project exported. Chrome asked your system to open the file.'
-                            : bridgeStatus?.available
-                                ? 'Bambu Studio project exported. The bridge could not launch Studio automatically, so the file was left in Downloads.'
-                                : 'Bambu Studio project exported. Install the Genesis macOS bridge to open it directly from the browser.';
-                }
-            } else if (bridgeStatus?.available) {
-                const projectDataUrl = await new Promise((resolve, reject) => {
-                    const reader = new FileReader();
-                    reader.onload = () => resolve(reader.result);
-                    reader.onerror = () => reject(new Error('Failed to prepare the Bambu Studio project for launch.'));
-                    reader.readAsDataURL(exportResult.blob);
-                });
-                const openResult = await bridge.downloadAndOpenProject({
-                    dataUrl: projectDataUrl,
-                    filename
-                });
-
-                if (openResult?.ok && openResult?.opened) {
-                    if (statusText) statusText.textContent = 'Bambu Studio project exported and opened with the macOS bridge.';
-                } else {
-                    downloadBlob(new Blob([exportResult.blob], { type: THREE_MF_BLOB_TYPE }), filename);
-                    if (statusText) {
-                        statusText.textContent = openResult?.message
-                            ? `${openResult.message} The Bambu Studio project was also downloaded.`
-                            : 'The macOS bridge could not open Bambu Studio automatically. The Bambu Studio project was downloaded instead.';
-                    }
-                }
-            } else {
-                downloadBlob(new Blob([exportResult.blob], { type: THREE_MF_BLOB_TYPE }), filename);
-                if (statusText) {
-                    statusText.textContent = 'The hosted app cannot open Bambu Studio directly until the Genesis extension bridge is installed. The Bambu Studio project was downloaded instead.';
-                }
+            if (statusText) {
+                statusText.textContent = downloadResult.openedViaChrome
+                    ? 'Bambu Studio project exported and opened via OS file association.'
+                    : downloadResult.downloadedViaChrome
+                        ? 'Bambu Studio project exported. Open the file from Downloads to launch Bambu Studio.'
+                        : 'Bambu Studio project downloaded. Open the .3mf file to launch Bambu Studio.';
             }
 
-            // Cleanup geometry
             result.layers.forEach((layerData) => layerData.geometry.dispose());
         } catch (error) {
             console.error('Bambu Studio export failed:', error);

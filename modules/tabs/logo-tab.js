@@ -1,5 +1,5 @@
 import { SLIDER_TOOLTIPS } from '../config.js';
-import { createBambuBridgeClient, canUseChromeDownloadsOpen } from '../bambu-bridge.js';
+import { canOpenDownloadedFiles } from '../bambu-bridge.js';
 import { createObjPreview } from '../preview3d.js?v=20260412b';
 import { createObjExporter } from '../export3d.js?v=20260412b';
 import {
@@ -48,7 +48,6 @@ export function createLogoTabController({
     onRasterExportStateChanged
 }) {
     const tracer = window.ImageTracer;
-    const bambuBridge = createBambuBridgeClient();
 
     const le = {
         ...sharedElements,
@@ -529,24 +528,13 @@ export function createLogoTabController({
         if (le.bambuOpenBtn) le.bambuOpenBtn.disabled = true;
     }
 
-    async function refreshBambuOpenButtonState() {
+    function refreshBambuOpenButtonState() {
         if (!le.bambuOpenBtn) return;
-
-        if (canUseChromeDownloadsOpen()) {
-            const probe = await bambuBridge.probe();
-            le.bambuOpenBtn.disabled = false;
-            le.bambuOpenBtn.title = probe?.available
-                ? 'Export a Bambu Studio project and open it with the installed macOS bridge.'
-                : 'Export a Bambu Studio project and ask Chrome to open it with your default .3mf app.';
-            return;
-        }
-
-        le.bambuOpenBtn.disabled = true;
-        const probe = await bambuBridge.probe();
-        le.bambuOpenBtn.disabled = !probe?.available;
-        le.bambuOpenBtn.title = probe?.available
-            ? 'Export a Bambu Studio project and open it with the installed macOS bridge.'
-            : 'Install the Genesis extension bridge to open Bambu Studio directly from the hosted app.';
+        const canOpen = canOpenDownloadedFiles();
+        le.bambuOpenBtn.disabled = !canOpen;
+        le.bambuOpenBtn.title = canOpen
+            ? 'Export a Bambu Studio project and open it via OS file association.'
+            : 'Export a Bambu Studio project. Open the downloaded .3mf to launch Bambu Studio.';
     }
 
     function enableDownloadButtons() {

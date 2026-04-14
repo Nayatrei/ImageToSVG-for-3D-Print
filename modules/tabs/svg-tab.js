@@ -1,5 +1,5 @@
 import { SLIDER_TOOLTIPS } from '../config.js';
-import { createBambuBridgeClient, canUseChromeDownloadsOpen } from '../bambu-bridge.js';
+import { canOpenDownloadedFiles } from '../bambu-bridge.js';
 import { createObjPreview } from '../preview3d.js?v=20260412b';
 import { createObjExporter } from '../export3d.js?v=20260412b';
 import { hasTransparentPixels, markTransparentPixels, stripTransparentPalette } from '../shared/image-utils.js';
@@ -39,7 +39,6 @@ export function createSvgTabController({
     onRasterExportStateChanged
 }) {
     const tracer = window.ImageTracer;
-    const bambuBridge = createBambuBridgeClient();
     const elements = {
         ...sharedElements,
         ...sidebarControls,
@@ -419,24 +418,13 @@ export function createSvgTabController({
         ].forEach(btn => { if (btn) btn.disabled = true; });
     }
 
-    async function refreshBambuOpenButtonState() {
+    function refreshBambuOpenButtonState() {
         if (!elements.bambuOpenBtn) return;
-
-        if (canUseChromeDownloadsOpen()) {
-            const probe = await bambuBridge.probe();
-            elements.bambuOpenBtn.disabled = false;
-            elements.bambuOpenBtn.title = probe?.available
-                ? 'Export a Bambu Studio project and open it with the installed macOS bridge.'
-                : 'Export a Bambu Studio project and ask Chrome to open it with your default .3mf app.';
-            return;
-        }
-
-        elements.bambuOpenBtn.disabled = true;
-        const probe = await bambuBridge.probe();
-        elements.bambuOpenBtn.disabled = !probe?.available;
-        elements.bambuOpenBtn.title = probe?.available
-            ? 'Export a Bambu Studio project and open it with the installed macOS bridge.'
-            : 'Install the Genesis extension bridge to open Bambu Studio directly from the hosted app.';
+        const canOpen = canOpenDownloadedFiles();
+        elements.bambuOpenBtn.disabled = !canOpen;
+        elements.bambuOpenBtn.title = canOpen
+            ? 'Export a Bambu Studio project and open it via OS file association.'
+            : 'Export a Bambu Studio project. Open the downloaded .3mf to launch Bambu Studio.';
     }
 
     function enableDownloadButtons() {

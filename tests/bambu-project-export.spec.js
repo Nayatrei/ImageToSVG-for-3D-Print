@@ -137,53 +137,13 @@ test('Bambu project export includes native package metadata and preserves handed
     expect(project.detailCentroidX).toBeLessThan(128);
 });
 
-test('hosted-page bridge client targets the configured extension and forwards open requests', async ({ page }) => {
+test('canOpenDownloadedFiles returns false in non-extension context', async ({ page }) => {
     await page.goto('/converter.html');
 
     const result = await page.evaluate(async () => {
-        localStorage.setItem('genesisBambuBridgeExtensionId', 'bridge-test-id');
-        const calls = [];
-        window.chrome = {
-            runtime: {
-                sendMessage(...args) {
-                    calls.push(args);
-                    const callback = args[args.length - 1];
-                    const payload = args[1] || args[0];
-                    if (payload?.type === 'genesis:probeBambuBridge') {
-                        callback({ ok: true, available: true, appPath: '/Applications/Bambu Studio.app' });
-                        return;
-                    }
-                    callback({ ok: true, opened: true, path: '/Users/test/Downloads/example.3mf' });
-                }
-            }
-        };
-
         const mod = await import('/modules/bambu-bridge.js');
-        const client = mod.createBambuBridgeClient();
-        const probe = await client.probe({ force: true });
-        const open = await client.downloadAndOpenProject({
-            dataUrl: 'data:model/3mf;base64,AAAA',
-            filename: 'example.3mf'
-        });
-
-        return {
-            probe,
-            open,
-            calls: calls.map((args) => ({
-                extensionId: args.length === 3 ? args[0] : '',
-                type: (args[1] || args[0])?.type || ''
-            }))
-        };
+        return mod.canOpenDownloadedFiles();
     });
 
-    expect(result.probe.available).toBe(true);
-    expect(result.open.opened).toBe(true);
-    expect(result.calls[0]).toMatchObject({
-        extensionId: 'bridge-test-id',
-        type: 'genesis:probeBambuBridge'
-    });
-    expect(result.calls[1]).toMatchObject({
-        extensionId: 'bridge-test-id',
-        type: 'genesis:downloadAndOpenBambuProject'
-    });
+    expect(result).toBe(false);
 });
