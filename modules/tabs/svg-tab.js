@@ -1,5 +1,4 @@
 import { SLIDER_TOOLTIPS } from '../config.js';
-import { canOpenDownloadedFiles } from '../bambu-bridge.js';
 import { createObjPreview } from '../preview3d.js?v=20260412b';
 import { createObjExporter } from '../export3d.js?v=20260412b';
 import { hasTransparentPixels, markTransparentPixels, stripTransparentPalette } from '../shared/image-utils.js';
@@ -11,6 +10,7 @@ import { svgToPng } from '../shared/svg-renderer.js';
 import { createPaletteManager } from '../shared/palette-manager.js';
 import { formatObjScalePercent } from '../obj-scale.js';
 import { createAutoWorkingImageFromSource } from '../raster-utils.js';
+import { canAttemptBambuLaunch } from '../bambu-bridge.js';
 import {
     buildTraceOptions,
     cycleTracePreset,
@@ -413,18 +413,18 @@ export function createSvgTabController({
             elements.downloadCombinedLayersBtn,
             elements.exportObjBtn,
             elements.export3mfBtn,
-            elements.exportStlBtn,
-            elements.bambuOpenBtn
+            elements.bambuOpenBtn,
+            elements.exportStlBtn
         ].forEach(btn => { if (btn) btn.disabled = true; });
     }
 
     function refreshBambuOpenButtonState() {
         if (!elements.bambuOpenBtn) return;
-        const canOpen = canOpenDownloadedFiles();
-        elements.bambuOpenBtn.disabled = !canOpen;
-        elements.bambuOpenBtn.title = canOpen
-            ? 'Export a Bambu Studio project and open it via OS file association.'
-            : 'Export a Bambu Studio project. Open the downloaded .3mf to launch Bambu Studio.';
+        const canLaunch = canAttemptBambuLaunch();
+        elements.bambuOpenBtn.disabled = !state.tracedata || !canLaunch;
+        elements.bambuOpenBtn.title = canLaunch
+            ? 'Download the Bambu project and attempt to launch Bambu Studio.'
+            : 'Bambu Studio launch is only available on desktop browsers.';
     }
 
     function enableDownloadButtons() {
@@ -581,11 +581,14 @@ export function createSvgTabController({
         if (elements.export3mfBtn) {
             elements.export3mfBtn.addEventListener('click', () => objExporter.exportAs3MF());
         }
+        if (elements.bambuOpenBtn) {
+            refreshBambuOpenButtonState();
+            elements.bambuOpenBtn.addEventListener('click', () => {
+                void objExporter.exportAndOpenInBambu();
+            });
+        }
         if (elements.exportStlBtn) {
             elements.exportStlBtn.addEventListener('click', () => objExporter.exportAsSTL());
-        }
-        if (elements.bambuOpenBtn) {
-            elements.bambuOpenBtn.addEventListener('click', () => objExporter.exportAndOpenInBambu());
         }
 
         setupZoomControls(['all', 'selected']);

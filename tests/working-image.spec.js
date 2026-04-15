@@ -63,6 +63,50 @@ test('auto working image helper chooses expected dimensions', async ({ page }) =
     });
 });
 
+test('color and path settings start collapsed in svg and logo sidebars', async ({ page }) => {
+    await page.goto('/converter.html');
+
+    const accordionState = await page.evaluate(() => {
+        const readState = (bodyId) => {
+            const button = document.querySelector(`[onclick*="${bodyId}"]`);
+            const body = document.getElementById(bodyId);
+            return {
+                expanded: button?.classList.contains('expanded') || false,
+                ariaExpanded: button?.getAttribute('aria-expanded'),
+                maxHeight: body ? getComputedStyle(body).maxHeight : null
+            };
+        };
+
+        return {
+            svgColor: readState('color-controls-body'),
+            svgPath: readState('path-controls-body'),
+            logoColor: readState('logo-color-controls-body'),
+            logoPath: readState('logo-path-controls-body')
+        };
+    });
+
+    expect(accordionState.svgColor).toMatchObject({
+        expanded: false,
+        ariaExpanded: 'false',
+        maxHeight: '0px'
+    });
+    expect(accordionState.svgPath).toMatchObject({
+        expanded: false,
+        ariaExpanded: 'false',
+        maxHeight: '0px'
+    });
+    expect(accordionState.logoColor).toMatchObject({
+        expanded: false,
+        ariaExpanded: 'false',
+        maxHeight: '0px'
+    });
+    expect(accordionState.logoPath).toMatchObject({
+        expanded: false,
+        ariaExpanded: 'false',
+        maxHeight: '0px'
+    });
+});
+
 test('small source keeps full size and avoids oversized notice', async ({ page }) => {
     await page.goto('/converter.html');
     await page.locator('#file-input').setInputFiles(path.join(process.cwd(), 'genesis-logo.png'));

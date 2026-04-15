@@ -88,13 +88,68 @@ document.addEventListener('DOMContentLoaded', async () => {
         elements.loaderOverlay.style.display = show ? 'flex' : 'none';
     }
 
-    function readBlobAsDataUrl(blob) {
+    function readBlobAsDataUrl(blob, { onProgress } = {}) {
         return new Promise((resolve, reject) => {
             const reader = new FileReader();
-            reader.onload = (event) => resolve(event.target?.result);
+            reader.onprogress = (event) => {
+                if (event.lengthComputable) {
+                    onProgress?.(event.loaded / event.total);
+                }
+            };
+            reader.onload = (event) => {
+                onProgress?.(1);
+                resolve(event.target?.result);
+            };
             reader.onerror = () => reject(new Error('Failed to read image data.'));
             reader.readAsDataURL(blob);
         });
+    }
+
+    async function fetchImageBlobWithProgress(url, onProgress) {
+        const response = await fetch(url);
+        if (!response.ok) {
+            throw new Error(`Failed to fetch image (${response.status}).`);
+        }
+
+        const contentType = response.headers.get('content-type') || undefined;
+        const contentLength = Number.parseInt(response.headers.get('content-length') || '', 10);
+
+        if (!response.body || !Number.isFinite(contentLength) || contentLength <= 0) {
+            const blob = await response.blob();
+            onProgress?.(1);
+            return blob;
+        }
+
+        const reader = response.body.getReader();
+        const chunks = [];
+        let loaded = 0;
+
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            if (!value) continue;
+
+            chunks.push(value);
+            loaded += value.byteLength;
+            onProgress?.(loaded / contentLength);
+        }
+
+        onProgress?.(1);
+        return new Blob(chunks, { type: contentType });
+    }
+
+    function getImportDisplayName(source) {
+        if (!source) return 'image';
+        if (source.startsWith('data:')) return 'pasted image';
+
+        try {
+            const parsed = new URL(source);
+            const pathname = parsed.pathname.split('/').filter(Boolean).pop();
+            return pathname || parsed.hostname || 'remote image';
+        } catch {
+            const fallback = source.split('?')[0].split('#')[0];
+            return fallback.split('/').filter(Boolean).pop() || 'remote image';
+        }
     }
 
     function validateImageSource(src) {
@@ -370,14 +425,25 @@ document.addEventListener('DOMContentLoaded', async () => {
         state.originalImageSize = file.size;
 
         try {
-            showLoader(true, {
-                title: 'Loading Image...',
-                subtitle: `Opening ${file.name}`
-            });
+            const updateImportProgress = (progress, subtitle) => {
+                showLoader(true, {
+                    title: 'Loading Image...',
+                    subtitle,
+                    progress
+                });
+            };
 
+            updateImportProgress(0.05, `Preparing ${file.name}`);
             const normalizedFile = normalizeImageBlob(file, file.name);
-            const dataUrl = await readBlobAsDataUrl(normalizedFile);
+            updateImportProgress(0.15, `Reading ${file.name}`);
+            const dataUrl = await readBlobAsDataUrl(normalizedFile, {
+                onProgress: (progress) => {
+                    updateImportProgress(0.15 + (progress * 0.6), `Reading ${file.name}`);
+                }
+            });
+            updateImportProgress(0.82, `Validating ${file.name}`);
             await validateImageSource(dataUrl);
+            updateImportProgress(0.96, `Rendering ${file.name}`);
             loadImage(dataUrl, file.name);
             elements.statusText.textContent = `${file.name} loaded.`;
         } catch (error) {
@@ -390,13 +456,24 @@ document.addEventListener('DOMContentLoaded', async () => {
     async function loadImageFromUrl(url) {
         resetImageInfo();
 
-        showLoader(true);
+        const displayName = getImportDisplayName(url);
+        const updateImportProgress = (progress, subtitle) => {
+            showLoader(true, {
+                title: 'Loading Image...',
+                subtitle,
+                progress
+            });
+        };
+
+        updateImportProgress(0.05, url.startsWith('data:') ? 'Preparing pasted image' : `Fetching ${displayName}`);
         elements.statusText.textContent = 'Fetching image...';
         try {
             let dataUrl;
             if (url.startsWith('data:')) {
                 dataUrl = url;
+                updateImportProgress(0.75, 'Reading pasted image');
             } else if (typeof chrome !== 'undefined' && chrome.runtime?.connect) {
+                updateImportProgress(0.2, `Fetching ${displayName}`);
                 dataUrl = await new Promise((resolve, reject) => {
                     const port = chrome.runtime.connect({ name: 'fetchImagePort' });
                     port.postMessage({ type: 'fetchImage', url });
@@ -405,13 +482,26 @@ document.addEventListener('DOMContentLoaded', async () => {
                         else reject(new Error(response.error || 'Failed to fetch'));
                     });
                 });
+                updateImportProgress(0.82, `Downloaded ${displayName}`);
             } else {
-                const response = await fetch(url);
-                const blob = normalizeImageBlob(await response.blob(), url.split('/').pop());
-                dataUrl = await readBlobAsDataUrl(blob);
+                const blob = normalizeImageBlob(
+                    await fetchImageBlobWithProgress(url, (progress) => {
+                        updateImportProgress(0.1 + (progress * 0.6), `Fetching ${displayName}`);
+                    }),
+                    displayName
+                );
+                updateImportProgress(0.78, `Reading ${displayName}`);
+                dataUrl = await readBlobAsDataUrl(blob, {
+                    onProgress: (progress) => {
+                        updateImportProgress(0.78 + (progress * 0.14), `Reading ${displayName}`);
+                    }
+                });
             }
+            updateImportProgress(0.94, `Validating ${displayName}`);
             await validateImageSource(dataUrl);
-            loadImage(dataUrl, url.split('/').pop());
+            updateImportProgress(0.98, `Rendering ${displayName}`);
+            loadImage(dataUrl, displayName);
+            elements.statusText.textContent = `${displayName} loaded.`;
         } catch (error) {
             console.error('URL load error:', error);
             elements.statusText.textContent = error.message || `Failed to load image from URL. Supported imports include ${IMPORTABLE_IMAGE_PROMPT}.`;

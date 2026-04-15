@@ -107,7 +107,7 @@
                         
                         <div id="svg-sidebar-controls" class="sidebar-sub-sections">
                             <div class="sidebar-sub-accordion">
-                                <button class="sidebar-sub-header expanded" onclick="toggleSidebarAccordion(this, 'color-controls-body')">
+                                <button class="sidebar-sub-header" aria-expanded="false" onclick="toggleSidebarAccordion(this, 'color-controls-body')">
                                     <span class="sidebar-sub-label">
                                         <svg class="sidebar-sub-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                             <circle cx="12" cy="12" r="10"/><path d="M12 2a10 10 0 010 20"/>
@@ -119,7 +119,7 @@
                                         <path d="M19 9l-7 7-7-7"/>
                                     </svg>
                                 </button>
-                                <div id="color-controls-body" class="sidebar-sub-body">
+                                <div id="color-controls-body" class="sidebar-sub-body" style="max-height: 0;">
                                     <div class="sidebar-sub-body-inner">
                                     <fieldset id="color-controls">
                                         <div id="color-count-notice" class="text-xs text-amber-300 mb-3 hidden"></div>
@@ -154,7 +154,7 @@
                             </div>
 
                             <div class="sidebar-sub-accordion">
-                                <button class="sidebar-sub-header expanded" onclick="toggleSidebarAccordion(this, 'path-controls-body')">
+                                <button class="sidebar-sub-header" aria-expanded="false" onclick="toggleSidebarAccordion(this, 'path-controls-body')">
                                     <span class="sidebar-sub-label">
                                         <svg class="sidebar-sub-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                             <path d="M3 3c0 0 4 0 7 3s3 7 3 7 0-4 3-7 7-3 7-3"/>
@@ -165,7 +165,7 @@
                                         <path d="M19 9l-7 7-7-7"/>
                                     </svg>
                                 </button>
-                                <div id="path-controls-body" class="sidebar-sub-body">
+                                <div id="path-controls-body" class="sidebar-sub-body" style="max-height: 0;">
                                     <div class="sidebar-sub-body-inner">
                                     <fieldset id="path-controls">
                                         <div>
@@ -211,7 +211,7 @@
 
                         <div id="logo-sidebar-controls" class="sidebar-sub-sections hidden">
                             <div class="sidebar-sub-accordion">
-                                <button class="sidebar-sub-header expanded" onclick="toggleSidebarAccordion(this, 'logo-color-controls-body')">
+                                <button class="sidebar-sub-header" aria-expanded="false" onclick="toggleSidebarAccordion(this, 'logo-color-controls-body')">
                                     <span class="sidebar-sub-label">
                                         <svg class="sidebar-sub-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                             <circle cx="12" cy="12" r="10"/><path d="M12 2a10 10 0 010 20"/>
@@ -223,7 +223,7 @@
                                         <path d="M19 9l-7 7-7-7"/>
                                     </svg>
                                 </button>
-                                <div id="logo-color-controls-body" class="sidebar-sub-body">
+                                <div id="logo-color-controls-body" class="sidebar-sub-body" style="max-height: 0;">
                                     <div class="sidebar-sub-body-inner">
                                     <fieldset id="logo-color-controls">
                                         <div id="logo-color-count-notice" class="text-xs text-amber-300 mb-3 hidden"></div>
@@ -261,7 +261,7 @@
                             </div>
 
                             <div class="sidebar-sub-accordion">
-                                <button class="sidebar-sub-header expanded" onclick="toggleSidebarAccordion(this, 'logo-path-controls-body')">
+                                <button class="sidebar-sub-header" aria-expanded="false" onclick="toggleSidebarAccordion(this, 'logo-path-controls-body')">
                                     <span class="sidebar-sub-label">
                                         <svg class="sidebar-sub-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                                             <path d="M3 3c0 0 4 0 7 3s3 7 3 7 0-4 3-7 7-3 7-3"/>
@@ -272,7 +272,7 @@
                                         <path d="M19 9l-7 7-7-7"/>
                                     </svg>
                                 </button>
-                                <div id="logo-path-controls-body" class="sidebar-sub-body">
+                                <div id="logo-path-controls-body" class="sidebar-sub-body" style="max-height: 0;">
                                     <div class="sidebar-sub-body-inner">
                                     <fieldset id="logo-path-controls">
                                         <div>
@@ -511,6 +511,7 @@
             const content = document.getElementById(contentId);
             if (!content) return;
             const isExpanded = btn.classList.contains('expanded');
+            btn.setAttribute('aria-expanded', String(!isExpanded));
             if (isExpanded) {
                 btn.classList.remove('expanded');
                 content.style.maxHeight = content.scrollHeight + 'px';

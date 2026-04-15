@@ -1,5 +1,4 @@
 import { SLIDER_TOOLTIPS } from '../config.js';
-import { canOpenDownloadedFiles } from '../bambu-bridge.js';
 import { createObjPreview } from '../preview3d.js?v=20260412b';
 import { createObjExporter } from '../export3d.js?v=20260412b';
 import {
@@ -18,6 +17,7 @@ import { buildWeldedSilhouetteSvgString } from '../shared/silhouette-builder.js'
 import { formatObjScalePercent } from '../obj-scale.js';
 import { HTML_PRESETS, createHtmlEditor, extractDeclaredHtmlColors } from './logo/html-editor.js?v=13';
 import { createAutoWorkingImageFromSource } from '../raster-utils.js';
+import { canAttemptBambuLaunch } from '../bambu-bridge.js';
 import {
     buildTraceOptions,
     cycleTracePreset,
@@ -523,18 +523,18 @@ export function createLogoTabController({
         [
             le.exportObjBtn,
             le.export3mfBtn,
+            le.bambuOpenBtn,
             le.exportStlBtn
         ].forEach(btn => { if (btn) btn.disabled = true; });
-        if (le.bambuOpenBtn) le.bambuOpenBtn.disabled = true;
     }
 
     function refreshBambuOpenButtonState() {
         if (!le.bambuOpenBtn) return;
-        const canOpen = canOpenDownloadedFiles();
-        le.bambuOpenBtn.disabled = !canOpen;
-        le.bambuOpenBtn.title = canOpen
-            ? 'Export a Bambu Studio project and open it via OS file association.'
-            : 'Export a Bambu Studio project. Open the downloaded .3mf to launch Bambu Studio.';
+        const canLaunch = canAttemptBambuLaunch();
+        le.bambuOpenBtn.disabled = !ls.tracedata || !canLaunch;
+        le.bambuOpenBtn.title = canLaunch
+            ? 'Download the Bambu project and attempt to launch Bambu Studio.'
+            : 'Bambu Studio launch is only available on desktop browsers.';
     }
 
     function enableDownloadButtons() {
@@ -718,7 +718,10 @@ export function createLogoTabController({
             le.export3mfBtn.addEventListener('click', () => objExporter.exportAs3MF());
         }
         if (le.bambuOpenBtn) {
-            le.bambuOpenBtn.addEventListener('click', () => objExporter.exportAndOpenInBambu());
+            refreshBambuOpenButtonState();
+            le.bambuOpenBtn.addEventListener('click', () => {
+                void objExporter.exportAndOpenInBambu();
+            });
         }
         if (le.exportStlBtn) {
             le.exportStlBtn.addEventListener('click', () => objExporter.exportAsSTL());

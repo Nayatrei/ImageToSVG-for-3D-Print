@@ -80,6 +80,9 @@ print(json.dumps({
 test('Bambu project export includes native package metadata and preserves handedness', async ({ page }, testInfo) => {
     await page.goto('/converter.html');
 
+    await expect(page.locator('#svg-bambu-open-btn')).toBeDisabled();
+    await expect(page.locator('#svg-export-footer')).toContainText('Downloads the .3mf and attempts to launch Bambu Studio');
+
     await page.locator('#file-input').setInputFiles({
         name: 'asymmetric-bubble.svg',
         mimeType: 'image/svg+xml',
@@ -94,7 +97,7 @@ test('Bambu project export includes native package metadata and preserves handed
 
     const downloads = await collectDownloads(page, async () => {
         await page.locator('#export-3mf-btn').click();
-        await expect(page.locator('#status-text')).toContainText('Bambu Studio project', { timeout: 30_000 });
+        await expect(page.locator('#status-text')).toHaveText('Bambu Studio project downloaded. Open the .3mf in Bambu Studio.', { timeout: 30_000 });
     });
 
     const filePath = await saveDownload(downloads[0], testInfo);
@@ -137,13 +140,36 @@ test('Bambu project export includes native package metadata and preserves handed
     expect(project.detailCentroidX).toBeLessThan(128);
 });
 
-test('canOpenDownloadedFiles returns false in non-extension context', async ({ page }) => {
-    await page.goto('/converter.html');
-
-    const result = await page.evaluate(async () => {
-        const mod = await import('/modules/bambu-bridge.js');
-        return mod.canOpenDownloadedFiles();
+test('Bambu Studio button downloads the project and triggers the protocol hook', async ({ page }) => {
+    await page.addInitScript(() => {
+        window.__GENESIS_BAMBU_PROTOCOL_CALLS__ = [];
+        window.__GENESIS_BAMBU_PROTOCOL_HOOK__ = async (url) => {
+            window.__GENESIS_BAMBU_PROTOCOL_CALLS__.push(url);
+            return true;
+        };
     });
 
-    expect(result).toBe(false);
+    await page.goto('/converter.html');
+    await page.locator('#file-input').setInputFiles({
+        name: 'asymmetric-bubble.svg',
+        mimeType: 'image/svg+xml',
+        buffer: Buffer.from(buildAsymmetricBubbleSvg())
+    });
+
+    await expect(page.locator('#status-text')).toHaveText('Preview generated!', { timeout: 30_000 });
+    await expect(page.locator('#svg-bambu-open-btn')).toBeEnabled();
+
+    const downloads = await collectDownloads(page, async () => {
+        await page.locator('#svg-bambu-open-btn').click();
+        await expect(page.locator('#status-text')).toContainText('requested Bambu Studio to open', { timeout: 30_000 });
+    });
+
+    expect(downloads[0].suggestedFilename()).toMatch(/\.3mf$/i);
+    await expect.poll(
+        async () => page.evaluate(() => window.__GENESIS_BAMBU_PROTOCOL_CALLS__.length),
+        { timeout: 30_000 }
+    ).toBe(1);
+    const protocolCalls = await page.evaluate(() => window.__GENESIS_BAMBU_PROTOCOL_CALLS__);
+    expect(protocolCalls).toHaveLength(1);
+    expect(protocolCalls[0]).toMatch(/^bambustudio(?:open)?:\/\/open$/);
 });

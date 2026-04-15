@@ -55,8 +55,8 @@ async function renderPreset(page, presetName, expectedResolution) {
     await expectRenderedImage(page.locator('#logo-svg-preview'));
     await expect(page.locator('#logo-export-obj-btn')).toBeEnabled();
     await expect(page.locator('#logo-export-3mf-btn')).toBeEnabled();
+    await expect(page.locator('#logo-bambu-open-btn')).toBeEnabled();
     await expect(page.locator('#logo-export-stl-btn')).toBeEnabled();
-    await expect(page.locator('#logo-bambu-open-btn')).toBeDisabled();
     await expect(page.locator('#logo-obj-preview-placeholder')).toBeHidden({ timeout: 30_000 });
     await expect(page.locator('#tab-logo #logo-obj-scale')).toHaveCount(0);
     await expect(page.locator('#tab-logo #logo-obj-thickness')).toHaveCount(0);
@@ -66,6 +66,9 @@ async function renderPreset(page, presetName, expectedResolution) {
 
 test('logo sidebar controls stay isolated from SVG controls', async ({ page }) => {
     await openLogoTab(page);
+
+    await expect(page.locator('#logo-bambu-open-btn')).toBeDisabled();
+    await expect(page.locator('#logo-export-footer')).toContainText('Downloads the .3mf and attempts to launch Bambu Studio');
 
     await expect(page.locator('#sidebar-adjust-section #obj-scale')).toBeVisible();
     await expect(page.locator('#sidebar-adjust-section #obj-thickness')).toBeVisible();

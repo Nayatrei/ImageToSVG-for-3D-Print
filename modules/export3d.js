@@ -5,6 +5,7 @@ import { canvasToBlobAsync, dataUrlToBlob } from './raster-utils.js';
 import { layerHasPaths } from './shared/trace-utils.js';
 import { svgToPng } from './shared/svg-renderer.js';
 import { getCanonicalBedCenter } from './shared/canonical-3d.js';
+import { launchBambuStudio } from './bambu-bridge.js';
 
 const THREE_MF_BLOB_TYPE = 'model/3mf';
 
@@ -487,159 +488,6 @@ function getCRC32Table() {
     return crc32Table;
 }
 
-function getChromeDownloadsApi() {
-    if (typeof chrome === 'undefined' || !chrome.downloads?.download || !chrome.downloads?.search) {
-        return null;
-    }
-    return chrome.downloads;
-}
-
-function getDownloadInterruptionMessage(errorMessage, dangerState = '') {
-    const detail = [errorMessage, dangerState].filter(Boolean).join(' ').trim().toLowerCase();
-    if (detail.includes('danger') || detail.includes('blocked') || detail.includes('security') || detail.includes('uncommon')) {
-        return 'Chrome blocked the generated 3MF as unsafe. The file is a valid 3MF package, but uncommon downloads can still be flagged. Try the normal Export 3MF action, or open the saved file manually from Downloads.';
-    }
-    return errorMessage || 'Download interrupted.';
-}
-
-function waitForChromeDownload(downloadsApi, downloadId) {
-    return new Promise((resolve, reject) => {
-        const timeoutId = window.setTimeout(() => {
-            downloadsApi.onChanged.removeListener(handleChange);
-            reject(new Error('Timed out waiting for the downloaded 3MF file.'));
-        }, 30000);
-
-        function cleanup() {
-            window.clearTimeout(timeoutId);
-            downloadsApi.onChanged.removeListener(handleChange);
-        }
-
-        function handleChange(delta) {
-            if (delta.id !== downloadId) return;
-
-            // If Chrome flags the file as dangerous/uncommon, accept it to show the keep/discard prompt
-            if (delta.danger?.current && delta.danger.current !== 'safe' && delta.danger.current !== '' && downloadsApi.acceptDanger) {
-                downloadsApi.acceptDanger(downloadId, () => {});
-                return;
-            }
-
-            if (!delta.state?.current) return;
-
-            if (delta.state.current === 'complete') {
-                cleanup();
-                resolve();
-                return;
-            }
-
-            if (delta.state.current === 'interrupted') {
-                cleanup();
-                reject(new Error(getDownloadInterruptionMessage(delta.error?.current, delta.danger?.current)));
-            }
-        }
-
-        downloadsApi.onChanged.addListener(handleChange);
-    });
-}
-
-async function downloadBlobWithChrome(blob, filename) {
-    const downloadsApi = getChromeDownloadsApi();
-    if (!downloadsApi) return null;
-
-    const objectUrl = URL.createObjectURL(blob);
-    try {
-        const downloadId = await downloadsApi.download({
-            url: objectUrl,
-            filename,
-            conflictAction: 'uniquify',
-            saveAs: false
-        });
-
-        // Brief pause so Chrome can evaluate file safety before we check the state
-        await new Promise(r => window.setTimeout(r, 400));
-
-        let [downloadItem] = await downloadsApi.search({ id: downloadId });
-
-        // If Chrome has already flagged it as dangerous/uncommon, prompt acceptance now
-        if (downloadItem?.danger && downloadItem.danger !== 'safe' && downloadItem.danger !== '' && downloadsApi.acceptDanger) {
-            downloadsApi.acceptDanger(downloadId, () => {});
-        }
-
-        if (downloadItem?.state !== 'complete') {
-            await waitForChromeDownload(downloadsApi, downloadId);
-            [downloadItem] = await downloadsApi.search({ id: downloadId });
-        }
-
-        return {
-            downloadId,
-            filename: downloadItem?.filename || '',
-            danger: downloadItem?.danger || ''
-        };
-    } catch (error) {
-        console.warn('Chrome download handoff failed, falling back to a browser download:', error);
-        return null;
-    } finally {
-        window.setTimeout(() => URL.revokeObjectURL(objectUrl), 30000);
-    }
-}
-
-async function openChromeDownloadedFile(downloadId) {
-    const downloadsApi = getChromeDownloadsApi();
-    if (!downloadsApi?.open) return false;
-
-    try {
-        await downloadsApi.open(downloadId);
-        return true;
-    } catch (error) {
-        console.warn('Opening downloaded file via Chrome failed:', error);
-        return false;
-    }
-}
-
-function revealChromeDownloadedFile(downloadId) {
-    const downloadsApi = getChromeDownloadsApi();
-    if (!downloadsApi?.show) return;
-
-    try {
-        downloadsApi.show(downloadId);
-    } catch (error) {
-        console.warn('Revealing downloaded file via Chrome failed:', error);
-    }
-}
-
-async function download3MF({
-    blob,
-    filename,
-    statusText,
-    downloadBlob,
-    openAfterDownload = false
-}) {
-    const chromeDownload = await downloadBlobWithChrome(blob, filename);
-    if (!chromeDownload) {
-        downloadBlob(new Blob([blob], { type: THREE_MF_BLOB_TYPE }), filename);
-        return {
-            downloadedViaChrome: false,
-            openedViaChrome: false,
-            filename: '',
-            downloadId: null
-        };
-    }
-
-    let openedViaChrome = false;
-    if (openAfterDownload) {
-        openedViaChrome = await openChromeDownloadedFile(chromeDownload.downloadId);
-        if (!openedViaChrome) {
-            revealChromeDownloadedFile(chromeDownload.downloadId);
-        }
-    }
-
-    return {
-        downloadedViaChrome: true,
-        openedViaChrome,
-        filename: chromeDownload.filename || '',
-        downloadId: chromeDownload.downloadId || null
-    };
-}
-
 export function createObjExporter({
     state,
     modelControls,
@@ -806,18 +654,8 @@ export function createObjExporter({
                 throw new Error('Failed to assemble the Bambu Studio project.');
             }
             const filename = `${baseName}.3mf`;
-            const downloadResult = await download3MF({
-                blob: exportResult.blob,
-                filename,
-                statusText,
-                downloadBlob,
-                openAfterDownload: false
-            });
-            if (statusText) {
-                statusText.textContent = downloadResult.downloadedViaChrome
-                    ? 'Bambu Studio project export complete.'
-                    : 'Bambu Studio project downloaded. If Chrome warns about the file, keep it and open it manually from Downloads.';
-            }
+            downloadBlob(new Blob([exportResult.blob], { type: THREE_MF_BLOB_TYPE }), filename);
+            if (statusText) statusText.textContent = 'Bambu Studio project downloaded. Open the .3mf in Bambu Studio.';
 
             // Cleanup
             result.layers.forEach((layerData) => layerData.geometry.dispose());
@@ -831,13 +669,13 @@ export function createObjExporter({
 
     async function exportAndOpenInBambu() {
         if (!state.tracedata) {
-            if (statusText) statusText.textContent = 'Generate preview before opening in Bambu Studio.';
+            if (statusText) statusText.textContent = 'Generate preview before exporting to Bambu Studio.';
             return;
         }
 
         const THREERef = window.THREE;
         if (!THREERef || !window.SVGLoader || !window.BufferGeometryUtils) {
-            if (statusText) statusText.textContent = '3MF export libraries are still loading.';
+            if (statusText) statusText.textContent = 'Bambu export libraries are still loading.';
             return;
         }
 
@@ -846,7 +684,7 @@ export function createObjExporter({
 
         try {
             showLoader(true);
-            if (statusText) statusText.textContent = 'Preparing Bambu Studio project…';
+            if (statusText) statusText.textContent = 'Preparing Bambu Studio project...';
 
             const result = buildExportGeometry(defaultThickness);
             if (!result || result.layers.size === 0) {
@@ -854,7 +692,6 @@ export function createObjExporter({
             }
 
             const baseName = `${getImageBaseName()}_${Math.round(result.plan.maxHeight || defaultThickness)}mm`;
-            const filename = `${baseName}.3mf`;
             const exportResult = await generateBambuProject3MF({
                 geometryBundle: result,
                 baseName,
@@ -867,26 +704,20 @@ export function createObjExporter({
                 throw new Error('Failed to assemble the Bambu Studio project.');
             }
 
-            const downloadResult = await download3MF({
-                blob: exportResult.blob,
-                filename,
-                statusText,
-                downloadBlob,
-                openAfterDownload: true
-            });
+            const filename = `${baseName}.3mf`;
+            downloadBlob(new Blob([exportResult.blob], { type: THREE_MF_BLOB_TYPE }), filename);
 
+            const launchResult = await launchBambuStudio();
             if (statusText) {
-                statusText.textContent = downloadResult.openedViaChrome
-                    ? 'Bambu Studio project exported and opened via OS file association.'
-                    : downloadResult.downloadedViaChrome
-                        ? 'Bambu Studio project exported. Open the file from Downloads to launch Bambu Studio.'
-                        : 'Bambu Studio project downloaded. Open the .3mf file to launch Bambu Studio.';
+                statusText.textContent = launchResult.opened
+                    ? 'Downloaded the .3mf and requested Bambu Studio to open. If the project does not appear automatically, import the downloaded file manually.'
+                    : 'Downloaded the .3mf and attempted to launch Bambu Studio. If the app did not open, import the downloaded file manually.';
             }
 
             result.layers.forEach((layerData) => layerData.geometry.dispose());
         } catch (error) {
-            console.error('Bambu Studio export failed:', error);
-            if (statusText) statusText.textContent = error.message || 'Failed to prepare for Bambu Studio.';
+            console.error('Bambu Studio launch export failed:', error);
+            if (statusText) statusText.textContent = error.message || 'Failed to prepare the Bambu Studio project.';
         } finally {
             showLoader(false);
         }
