@@ -4,7 +4,7 @@
   "version": "3.1.1",
   "description": "Convert images to SVG with 3D printing optimization. Perfect for Tinkercad and multi-color FDM printing.",
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEApTbThw+0e1LvAgoHR926ABhrMybK8udgFGmludGg5J5U+aLZjigKBIPQBDxRKJWL9gHsDks/ogIawHuT+PnF6iSSMRPVlD9r1kfDsWXV8XyrQKzX+f8uhwDp2+OYYprrY+tmxT85uZcWnPkFLcN5jU2HuMipOKGCQ+pjo7a3poBsVVHXuOriQ1Jy1X+AQI35rOJzeTiiU2xxziclSVYrJIQg8HR3zJ43CLB+eoGXx87RgBy3nqYLb7kJqxjyunUL2RDPGPrjS6aUbrgDhHCnG4bsiIYFTZKYhRPLIcVstf8P/wonZYycTRUebP6PINTwVe5ptyWBPhOeMnqyw/HPVQIDAQAB",
-  "permissions": ["contextMenus", "storage", "downloads", "downloads.open"],
+  "permissions": ["contextMenus", "storage", "downloads"],
   "host_permissions": ["<all_urls>"],
   "background": { "service_worker": "background.js" },
   "action": {

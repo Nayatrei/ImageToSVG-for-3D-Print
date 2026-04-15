@@ -5,7 +5,7 @@ import { canvasToBlobAsync, dataUrlToBlob } from './raster-utils.js';
 import { layerHasPaths } from './shared/trace-utils.js';
 import { svgToPng } from './shared/svg-renderer.js';
 import { getCanonicalBedCenter } from './shared/canonical-3d.js';
-import { launchBambuStudio } from './bambu-bridge.js';
+import { launchBambuStudio, downloadAndOpenInBambu } from './bambu-bridge.js';
 
 const THREE_MF_BLOB_TYPE = 'model/3mf';
 
@@ -185,21 +185,14 @@ async function buildBambuPreviewAssets({ tracer, state, getDataToExport, bedKey,
     const previewImage = await loadImageFromDataUrl(previewDataUrl);
     const { bed } = getCanonicalBedCenter(bedKey);
 
-    const thumbnailLarge = await renderCanvasToPngBytes(512, 512, (ctx, canvas) => {
+    const renderThumbnail = (size, padding) => renderCanvasToPngBytes(size, size, (ctx, canvas) => {
         drawContainedImage(ctx, previewImage, canvas.width, canvas.height, {
-            padding: 24,
+            padding,
             background: '#ffffff'
         });
     });
 
-    const thumbnailSmall = await renderCanvasToPngBytes(256, 256, (ctx, canvas) => {
-        drawContainedImage(ctx, previewImage, canvas.width, canvas.height, {
-            padding: 18,
-            background: '#ffffff'
-        });
-    });
-
-    const renderPlate = async (size) => renderCanvasToPngBytes(size, size, (ctx, canvas) => {
+    const renderPlate = (size) => renderCanvasToPngBytes(size, size, (ctx, canvas) => {
         const plateInset = Math.round(size * 0.08);
         const plateX = plateInset;
         const plateY = plateInset;
@@ -236,12 +229,14 @@ async function buildBambuPreviewAssets({ tracer, state, getDataToExport, bedKey,
         ctx.drawImage(previewImage, drawX, drawY, drawWidth, drawHeight);
     });
 
-    return {
-        thumbnailLarge,
-        thumbnailSmall,
-        plateLarge: await renderPlate(1024),
-        plateSmall: await renderPlate(512)
-    };
+    const [thumbnailLarge, thumbnailSmall, plateLarge, plateSmall] = await Promise.all([
+        renderThumbnail(512, 24),
+        renderThumbnail(256, 18),
+        renderPlate(1024),
+        renderPlate(512)
+    ]);
+
+    return { thumbnailLarge, thumbnailSmall, plateLarge, plateSmall };
 }
 
 function buildBambuProjectGeometryLayers(geometryBundle, bedKey = 'x1') {
@@ -501,6 +496,23 @@ export function createObjExporter({
     const tracer = ImageTracer || window.ImageTracer;
     const model = modelControls || {};
 
+    // ── Geometry cache ────────────────────────────────────────────────────────
+    let cachedGeometry = null;
+    let cachedGeometryKey = '';
+
+    function getGeometryCacheKey(defaultThickness) {
+        return [
+            defaultThickness,
+            model.objDecimateSlider?.value ?? 0,
+            model.objBedSelect?.value ?? 'x1',
+            model.objMarginInput?.value ?? 5,
+            model.objScaleSlider?.value ?? 100,
+            model.objBezelSelect?.value ?? state.objParams?.bezelPreset ?? 'off',
+            state.tracedata?.layers?.length ?? 0,
+            state.tracedata?.palette?.map(c => `${c.r},${c.g},${c.b}`).join(';') ?? ''
+        ].join('|');
+    }
+
     function getVisibleLayerIndices() {
         if (!state.tracedata) return [];
         const indices = [];
@@ -511,6 +523,22 @@ export function createObjExporter({
     }
 
     function buildExportGeometry(defaultThickness) {
+        const key = getGeometryCacheKey(defaultThickness);
+        if (cachedGeometry && cachedGeometryKey === key) {
+            // Clone cached geometries so callers can dispose without breaking the cache
+            const cloned = {
+                ...cachedGeometry,
+                layers: new Map()
+            };
+            cachedGeometry.layers.forEach((layerData, layerKey) => {
+                cloned.layers.set(layerKey, {
+                    ...layerData,
+                    geometry: layerData.geometry.clone()
+                });
+            });
+            return cloned;
+        }
+
         const SVGLoader = window.SVGLoader || window.THREE?.SVGLoader;
         const THREERef = window.THREE;
         const bufferUtils = window.BufferGeometryUtils || THREERef?.BufferGeometryUtils;
@@ -545,7 +573,22 @@ export function createObjExporter({
             layerData.geometry.computeVertexNormals();
         });
 
-        return geometryBundle;
+        // Dispose previous cache
+        if (cachedGeometry) {
+            cachedGeometry.layers.forEach((ld) => ld.geometry?.dispose?.());
+        }
+        cachedGeometry = geometryBundle;
+        cachedGeometryKey = key;
+
+        // Return cloned geometries so callers can dispose freely
+        const result = { ...geometryBundle, layers: new Map() };
+        geometryBundle.layers.forEach((layerData, layerKey) => {
+            result.layers.set(layerKey, {
+                ...layerData,
+                geometry: layerData.geometry.clone()
+            });
+        });
+        return result;
     }
 
     async function exportAsOBJ() {
@@ -705,13 +748,22 @@ export function createObjExporter({
             }
 
             const filename = `${baseName}.3mf`;
-            downloadBlob(new Blob([exportResult.blob], { type: THREE_MF_BLOB_TYPE }), filename);
+            const blob = new Blob([exportResult.blob], { type: THREE_MF_BLOB_TYPE });
 
-            const launchResult = await launchBambuStudio();
-            if (statusText) {
-                statusText.textContent = launchResult.opened
-                    ? 'Downloaded the .3mf and requested Bambu Studio to open. If the project does not appear automatically, import the downloaded file manually.'
-                    : 'Downloaded the .3mf and attempted to launch Bambu Studio. If the app did not open, import the downloaded file manually.';
+            // Try Chrome downloads API to download and auto-open in Bambu Studio
+            const openResult = await downloadAndOpenInBambu(blob, filename);
+
+            if (openResult.opened) {
+                if (statusText) statusText.textContent = 'Project exported and opening in Bambu Studio.';
+            } else {
+                // Fallback: regular download + protocol launch
+                downloadBlob(blob, filename);
+                const launchResult = await launchBambuStudio();
+                if (statusText) {
+                    statusText.textContent = launchResult.opened
+                        ? 'Downloaded .3mf and opened Bambu Studio. Import the downloaded file via File > Import.'
+                        : 'Downloaded .3mf. Open the file in Bambu Studio to import your project.';
+                }
             }
 
             result.layers.forEach((layerData) => layerData.geometry.dispose());

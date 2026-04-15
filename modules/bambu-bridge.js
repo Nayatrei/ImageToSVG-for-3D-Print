@@ -16,11 +16,65 @@ function getPreferredProtocolUrl() {
         : BAMBU_STUDIO_PROTOCOL_URL;
 }
 
+function hasChromeDownloadsApi() {
+    return typeof chrome !== 'undefined' && !!chrome.downloads?.download;
+}
+
 export function canAttemptBambuLaunch() {
     if (typeof window === 'undefined' || typeof navigator === 'undefined') return false;
 
     const userAgent = navigator.userAgent || '';
     return !/Android|iPhone|iPad|iPod/i.test(userAgent);
+}
+
+/**
+ * Downloads the blob via Chrome downloads API, resolves the saved file path,
+ * then opens it directly in Bambu Studio using the protocol handler with
+ * the file= parameter (same mechanism MakerWorld uses).
+ */
+export async function downloadAndOpenInBambu(blob, filename) {
+    if (!hasChromeDownloadsApi()) {
+        return { opened: false, downloaded: false };
+    }
+
+    const url = URL.createObjectURL(blob);
+    try {
+        return await new Promise((resolve) => {
+            chrome.downloads.download({ url, filename, saveAs: false }, (downloadId) => {
+                if (chrome.runtime.lastError || !downloadId) {
+                    resolve({ opened: false, downloaded: false });
+                    return;
+                }
+
+                function onChanged(delta) {
+                    if (delta.id !== downloadId) return;
+                    if (delta.state?.current === 'complete') {
+                        chrome.downloads.onChanged.removeListener(onChanged);
+
+                        // Get the full file path and pass it to Bambu Studio's protocol handler
+                        chrome.downloads.search({ id: downloadId }, (results) => {
+                            const filePath = results?.[0]?.filename;
+                            if (filePath) {
+                                const protocolBase = getPreferredProtocolUrl();
+                                const protocolUrl = `${protocolBase}?file=${encodeURIComponent(filePath)}`;
+                                try { window.location.href = protocolUrl; } catch (_) { /* best-effort */ }
+                                resolve({ opened: true, downloaded: true });
+                            } else {
+                                resolve({ opened: false, downloaded: true });
+                            }
+                        });
+                    } else if (delta.state?.current === 'interrupted') {
+                        chrome.downloads.onChanged.removeListener(onChanged);
+                        resolve({ opened: false, downloaded: false });
+                    }
+                }
+
+                chrome.downloads.onChanged.addListener(onChanged);
+            });
+        });
+    } finally {
+        URL.revokeObjectURL(url);
+    }
 }
 
 export async function launchBambuStudio() {

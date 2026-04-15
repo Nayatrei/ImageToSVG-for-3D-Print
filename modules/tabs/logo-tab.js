@@ -280,7 +280,7 @@ export function createLogoTabController({
         le.colorCountNotice.classList.toggle('hidden', !notice);
     }
 
-    async function quantizeColors() {
+    async function quantizeColors(options) {
         showLoader(true);
         le.statusText.textContent = 'Analyzing colors...';
         disableDownloadButtons();
@@ -306,7 +306,6 @@ export function createLogoTabController({
                     if (!imageData) throw new Error('Invalid image dimensions');
 
                     const declaredHtmlColors = ls.htmlModeActive ? getDeclaredHtmlColors() : [];
-                    const options = buildOptimizedOptions({ htmlDeclaredColors: declaredHtmlColors });
                     ls.lastOptions = options;
 
                     if (ls.htmlModeActive && declaredHtmlColors.length > 0) {
@@ -340,13 +339,26 @@ export function createLogoTabController({
         });
     }
 
+    function needsRequantization(newOptions) {
+        if (!ls.quantizedData || !ls.lastOptions) return true;
+        if (ls.htmlModeActive) return true;
+        return newOptions.numberofcolors !== ls.lastOptions.numberofcolors
+            || newOptions.mincolorratio !== ls.lastOptions.mincolorratio;
+    }
+
     async function generatePreviewClick() {
         if (!hasLogoSourceLoaded()) return;
         ls.layerThicknessById = {};
         queueAutoBaseSelection();
 
         try {
-            await quantizeColors();
+            const declaredHtmlColors = ls.htmlModeActive ? getDeclaredHtmlColors() : [];
+            const options = buildOptimizedOptions({ htmlDeclaredColors: declaredHtmlColors });
+            if (needsRequantization(options)) {
+                await quantizeColors(options);
+            } else {
+                ls.lastOptions = options;
+            }
             ls.colorsAnalyzed = true;
             await traceVectorPaths();
         } catch (error) {

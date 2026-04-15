@@ -157,7 +157,7 @@ export function createSvgTabController({
         elements.colorCountNotice.classList.toggle('hidden', !notice);
     }
 
-    async function quantizeColors() {
+    async function quantizeColors(options) {
         showLoader(true);
         elements.statusText.textContent = 'Analyzing colors...';
         disableDownloadButtons();
@@ -168,7 +168,6 @@ export function createSvgTabController({
                     const imageData = getWorkingImageData();
                     if (!imageData) throw new Error('Invalid image dimensions');
 
-                    const options = buildOptimizedOptions();
                     state.lastOptions = options;
 
                     state.quantizedData = tracer.colorquantization(imageData, options);
@@ -194,13 +193,24 @@ export function createSvgTabController({
         });
     }
 
+    function needsRequantization(newOptions) {
+        if (!state.quantizedData || !state.lastOptions) return true;
+        return newOptions.numberofcolors !== state.lastOptions.numberofcolors
+            || newOptions.mincolorratio !== state.lastOptions.mincolorratio;
+    }
+
     async function generatePreviewClick() {
         if (!elements.sourceImage.src) return;
         state.layerThicknessById = {};
         queueAutoBaseSelection();
 
         try {
-            await quantizeColors();
+            const options = buildOptimizedOptions();
+            if (needsRequantization(options)) {
+                await quantizeColors(options);
+            } else {
+                state.lastOptions = options;
+            }
             state.colorsAnalyzed = true;
             await traceVectorPaths();
         } catch (error) {
