@@ -545,7 +545,7 @@ export function createLogoTabController({
         const canLaunch = canAttemptBambuLaunch();
         le.bambuOpenBtn.disabled = !ls.tracedata || !canLaunch;
         le.bambuOpenBtn.title = canLaunch
-            ? 'Download the Bambu project and attempt to launch Bambu Studio.'
+            ? 'Downloads 3MF and launches Bambu Studio.'
             : 'Bambu Studio launch is only available on desktop browsers.';
     }
 

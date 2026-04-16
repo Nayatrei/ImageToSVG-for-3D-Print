@@ -433,7 +433,7 @@ export function createSvgTabController({
         const canLaunch = canAttemptBambuLaunch();
         elements.bambuOpenBtn.disabled = !state.tracedata || !canLaunch;
         elements.bambuOpenBtn.title = canLaunch
-            ? 'Download the Bambu project and attempt to launch Bambu Studio.'
+            ? 'Downloads 3MF and launches Bambu Studio.'
             : 'Bambu Studio launch is only available on desktop browsers.';
     }
 

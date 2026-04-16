@@ -5,7 +5,7 @@ import { canvasToBlobAsync, dataUrlToBlob } from './raster-utils.js';
 import { layerHasPaths } from './shared/trace-utils.js';
 import { svgToPng } from './shared/svg-renderer.js';
 import { getCanonicalBedCenter } from './shared/canonical-3d.js';
-import { launchBambuStudio, downloadAndOpenInBambu } from './bambu-bridge.js';
+import { launchBambuStudio } from './bambu-bridge.js';
 
 const THREE_MF_BLOB_TYPE = 'model/3mf';
 
@@ -710,71 +710,6 @@ export function createObjExporter({
         }
     }
 
-    async function exportAndOpenInBambu() {
-        if (!state.tracedata) {
-            if (statusText) statusText.textContent = 'Generate preview before exporting to Bambu Studio.';
-            return;
-        }
-
-        const THREERef = window.THREE;
-        if (!THREERef || !window.SVGLoader || !window.BufferGeometryUtils) {
-            if (statusText) statusText.textContent = 'Bambu export libraries are still loading.';
-            return;
-        }
-
-        const thicknessValue = model.objThicknessSlider ? parseFloat(model.objThicknessSlider.value) : 4;
-        const defaultThickness = Number.isFinite(thicknessValue) ? thicknessValue : 4;
-
-        try {
-            showLoader(true);
-            if (statusText) statusText.textContent = 'Preparing Bambu Studio project...';
-
-            const result = buildExportGeometry(defaultThickness);
-            if (!result || result.layers.size === 0) {
-                throw new Error('No geometry generated');
-            }
-
-            const baseName = `${getImageBaseName()}_${Math.round(result.plan.maxHeight || defaultThickness)}mm`;
-            const exportResult = await generateBambuProject3MF({
-                geometryBundle: result,
-                baseName,
-                bedKey: model.objBedSelect?.value || 'x1',
-                tracer,
-                state,
-                getDataToExport
-            });
-            if (!exportResult?.blob) {
-                throw new Error('Failed to assemble the Bambu Studio project.');
-            }
-
-            const filename = `${baseName}.3mf`;
-            const blob = new Blob([exportResult.blob], { type: THREE_MF_BLOB_TYPE });
-
-            // Try Chrome downloads API to download and auto-open in Bambu Studio
-            const openResult = await downloadAndOpenInBambu(blob, filename);
-
-            if (openResult.opened) {
-                if (statusText) statusText.textContent = 'Project exported and opening in Bambu Studio.';
-            } else {
-                // Fallback: regular download + protocol launch
-                downloadBlob(blob, filename);
-                const launchResult = await launchBambuStudio();
-                if (statusText) {
-                    statusText.textContent = launchResult.opened
-                        ? 'Downloaded .3mf and opened Bambu Studio. Import the downloaded file via File > Import.'
-                        : 'Downloaded .3mf. Open the file in Bambu Studio to import your project.';
-                }
-            }
-
-            result.layers.forEach((layerData) => layerData.geometry.dispose());
-        } catch (error) {
-            console.error('Bambu Studio launch export failed:', error);
-            if (statusText) statusText.textContent = error.message || 'Failed to prepare the Bambu Studio project.';
-        } finally {
-            showLoader(false);
-        }
-    }
-
     async function exportAsSTL() {
         if (!state.tracedata) {
             if (statusText) statusText.textContent = 'Generate preview before exporting STL.';
@@ -820,6 +755,67 @@ export function createObjExporter({
         } catch (error) {
             console.error('STL export failed:', error);
             if (statusText) statusText.textContent = 'Failed to export STL.';
+        } finally {
+            showLoader(false);
+        }
+    }
+
+    async function exportAndOpenInBambu() {
+        if (!state.tracedata) {
+            if (statusText) statusText.textContent = 'Generate preview before exporting.';
+            return;
+        }
+
+        const THREERef = window.THREE;
+        if (!THREERef || !window.SVGLoader || !window.BufferGeometryUtils) {
+            if (statusText) statusText.textContent = '3MF export libraries are still loading.';
+            return;
+        }
+
+        const thicknessValue = model.objThicknessSlider ? parseFloat(model.objThicknessSlider.value) : 4;
+        const defaultThickness = Number.isFinite(thicknessValue) ? thicknessValue : 4;
+
+        try {
+            showLoader(true);
+            if (statusText) statusText.textContent = 'Generating 3MF…';
+
+            const result = buildExportGeometry(defaultThickness);
+            if (!result || result.layers.size === 0) {
+                throw new Error('No geometry generated');
+            }
+
+            const baseName = `${getImageBaseName()}_${Math.round(result.plan.maxHeight || defaultThickness)}mm`;
+            const exportResult = await generateBambuProject3MF({
+                geometryBundle: result,
+                baseName,
+                bedKey: model.objBedSelect?.value || 'x1',
+                tracer,
+                state,
+                getDataToExport
+            });
+            if (!exportResult?.blob) {
+                throw new Error('Failed to assemble the Bambu Studio project.');
+            }
+
+            const filename = `${baseName}.3mf`;
+            downloadBlob(new Blob([exportResult.blob], { type: THREE_MF_BLOB_TYPE }), filename);
+
+            if (statusText) statusText.textContent = 'Downloaded 3MF. Launching Bambu Studio…';
+
+            const launchResult = await launchBambuStudio();
+            if (launchResult.opened) {
+                if (statusText) statusText.textContent = 'Bambu Studio opened. Import the downloaded 3MF file.';
+            } else if (launchResult.attempted) {
+                if (statusText) statusText.textContent = 'Downloaded 3MF. Open the file in Bambu Studio to import.';
+            } else {
+                if (statusText) statusText.textContent = 'Downloaded 3MF. Bambu Studio not available on this platform.';
+            }
+
+            // Cleanup
+            result.layers.forEach((layerData) => layerData.geometry.dispose());
+        } catch (error) {
+            console.error('Export & open in Bambu failed:', error);
+            if (statusText) statusText.textContent = error.message || 'Failed to export 3MF.';
         } finally {
             showLoader(false);
         }

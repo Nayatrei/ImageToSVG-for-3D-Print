@@ -183,8 +183,8 @@ export function createElements() {
             export: {
                 exportObjBtn: document.getElementById('export-obj-btn'),
                 export3mfBtn: document.getElementById('export-3mf-btn'),
-                bambuOpenBtn: document.getElementById('svg-bambu-open-btn'),
                 exportStlBtn: document.getElementById('export-stl-btn'),
+                bambuOpenBtn: document.getElementById('svg-bambu-open-btn'),
                 exportFooter: document.getElementById('svg-export-footer')
             }
         },
@@ -258,8 +258,8 @@ export function createElements() {
             export: {
                 exportObjBtn: document.getElementById('logo-export-obj-btn'),
                 export3mfBtn: document.getElementById('logo-export-3mf-btn'),
-                bambuOpenBtn: document.getElementById('logo-bambu-open-btn'),
                 exportStlBtn: document.getElementById('logo-export-stl-btn'),
+                bambuOpenBtn: document.getElementById('logo-bambu-open-btn'),
                 exportFooter: document.getElementById('logo-export-footer')
             },
             html: {

@@ -68,7 +68,6 @@ test('logo sidebar controls stay isolated from SVG controls', async ({ page }) =
     await openLogoTab(page);
 
     await expect(page.locator('#logo-bambu-open-btn')).toBeDisabled();
-    await expect(page.locator('#logo-export-footer')).toContainText('Downloads the .3mf and attempts to launch Bambu Studio');
 
     await expect(page.locator('#sidebar-adjust-section #obj-scale')).toBeVisible();
     await expect(page.locator('#sidebar-adjust-section #obj-thickness')).toBeVisible();

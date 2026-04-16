@@ -472,17 +472,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             if (url.startsWith('data:')) {
                 dataUrl = url;
                 updateImportProgress(0.75, 'Reading pasted image');
-            } else if (typeof chrome !== 'undefined' && chrome.runtime?.connect) {
-                updateImportProgress(0.2, `Fetching ${displayName}`);
-                dataUrl = await new Promise((resolve, reject) => {
-                    const port = chrome.runtime.connect({ name: 'fetchImagePort' });
-                    port.postMessage({ type: 'fetchImage', url });
-                    port.onMessage.addListener((response) => {
-                        if (response.dataUrl) resolve(response.dataUrl);
-                        else reject(new Error(response.error || 'Failed to fetch'));
-                    });
-                });
-                updateImportProgress(0.82, `Downloaded ${displayName}`);
             } else {
                 const blob = normalizeImageBlob(
                     await fetchImageBlobWithProgress(url, (progress) => {
@@ -621,16 +610,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         rasterTab.updateExportScaleDisplay();
         syncImportPanel();
         syncWorkspaceView();
-
-        if (typeof chrome !== 'undefined' && chrome.storage) {
-            chrome.storage.local.get(['imageUrlToConvert'], (result) => {
-                if (result.imageUrlToConvert) {
-                    elements.urlInput.value = result.imageUrlToConvert;
-                    loadImageFromUrl(result.imageUrlToConvert);
-                    chrome.storage.local.remove('imageUrlToConvert');
-                }
-            });
-        }
     }
 
     initialize();
