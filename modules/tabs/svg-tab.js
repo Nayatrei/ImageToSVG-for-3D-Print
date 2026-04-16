@@ -435,6 +435,12 @@ export function createSvgTabController({
         elements.bambuOpenBtn.title = canLaunch
             ? 'Downloads 3MF and launches Bambu Studio.'
             : 'Bambu Studio launch is only available on desktop browsers.';
+        const meta = document.getElementById('svg-bambu-open-meta');
+        if (meta) {
+            meta.textContent = canLaunch
+                ? 'Download 3MF & launch Bambu Studio'
+                : 'Desktop browsers only';
+        }
     }
 
     function enableDownloadButtons() {

@@ -800,15 +800,15 @@ export function createObjExporter({
             const filename = `${baseName}.3mf`;
             downloadBlob(new Blob([exportResult.blob], { type: THREE_MF_BLOB_TYPE }), filename);
 
-            if (statusText) statusText.textContent = 'Downloaded 3MF. Launching Bambu Studio…';
+            if (statusText) statusText.textContent = `\u2713 Downloaded ${filename} \u2192 Launching Bambu Studio\u2026`;
 
             const launchResult = await launchBambuStudio();
             if (launchResult.opened) {
-                if (statusText) statusText.textContent = 'Bambu Studio opened. Import the downloaded 3MF file.';
+                if (statusText) statusText.textContent = `\u2713 ${filename} \u2192 \u2713 Bambu Studio opened. Drag the file in to import.`;
             } else if (launchResult.attempted) {
-                if (statusText) statusText.textContent = 'Downloaded 3MF. Open the file in Bambu Studio to import.';
+                if (statusText) statusText.textContent = `\u2713 ${filename} saved to Downloads. Open it in Bambu Studio.`;
             } else {
-                if (statusText) statusText.textContent = 'Downloaded 3MF. Bambu Studio not available on this platform.';
+                if (statusText) statusText.textContent = `\u2713 ${filename} saved to Downloads. Bambu Studio not available on this platform.`;
             }
 
             // Cleanup
