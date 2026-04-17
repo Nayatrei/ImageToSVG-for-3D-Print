@@ -295,6 +295,23 @@ export function createRasterCanvasFromSource(source, target, preserveAlpha) {
         ctx.clearRect(0, 0, target.width, target.height);
     }
 
+    const fitMode = target.fitMode;
+    if (fitMode === 'contain' || fitMode === 'cover') {
+        const sourceW = source.naturalWidth || source.width;
+        const sourceH = source.naturalHeight || source.height;
+        if (sourceW > 0 && sourceH > 0) {
+            const scale = fitMode === 'contain'
+                ? Math.min(target.width / sourceW, target.height / sourceH)
+                : Math.max(target.width / sourceW, target.height / sourceH);
+            const dw = sourceW * scale;
+            const dh = sourceH * scale;
+            const dx = (target.width - dw) / 2;
+            const dy = (target.height - dh) / 2;
+            ctx.drawImage(source, dx, dy, dw, dh);
+            return canvas;
+        }
+    }
+
     ctx.drawImage(source, 0, 0, target.width, target.height);
     return canvas;
 }

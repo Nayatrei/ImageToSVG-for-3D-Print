@@ -50,9 +50,29 @@ export function createBulkTabController({
     }
 
     function buildBulkExportFileName(entry, index) {
+        const ext = getRasterExtension(state.bulk.exportFormat);
+        if (state.bulk.keepOriginalNames) {
+            const originalBase = entry.name.replace(/\.[^.]+$/, '');
+            const baseName = sanitizeFileComponent(originalBase, 'image');
+            return `${baseName}.${ext}`;
+        }
         const rawName = state.bulk.outputName.trim() || state.bulk.folderName || entry.name;
         const baseName = sanitizeFileComponent(rawName, 'image');
-        return `${baseName}_${index}.${getRasterExtension(state.bulk.exportFormat)}`;
+        return `${baseName}_${index}.${ext}`;
+    }
+
+    function computeBulkTarget(entry) {
+        if (state.bulk.resizeMode === 'fixed') {
+            return {
+                width: Math.max(1, Math.round(state.bulk.targetWidth)),
+                height: Math.max(1, Math.round(state.bulk.targetHeight)),
+                fitMode: state.bulk.fitMode
+            };
+        }
+        return getScaledDimensions(
+            { width: entry.width, height: entry.height },
+            state.bulk.exportScale
+        );
     }
 
     function getBulkEstimateCacheKey(entry, target, format, preserveAlpha) {
@@ -64,6 +84,7 @@ export function createBulkTabController({
             entry.file?.lastModified || 0,
             target.width,
             target.height,
+            target.fitMode || '',
             format,
             preserveAlpha ? 1 : 0
         ].join('|');
@@ -324,16 +345,44 @@ export function createBulkTabController({
 
     function setExportScale(scale) {
         state.bulk.exportScale = Math.min(500, Math.max(1, Math.round(scale)));
+        state.bulk.resizeMode = 'scale';
         elements.bulkResizeChips.forEach((chip) => {
             chip.classList.toggle('active', parseInt(chip.dataset.scale, 10) === state.bulk.exportScale);
         });
         updatePreview();
     }
 
+    function setResizeMode(mode) {
+        state.bulk.resizeMode = mode === 'fixed' ? 'fixed' : 'scale';
+        updatePreview();
+    }
+
+    function syncResizeModeUI() {
+        if (elements.bulkResizeModeTabs) {
+            elements.bulkResizeModeTabs.forEach((tab) => {
+                tab.classList.toggle('active', tab.dataset.mode === state.bulk.resizeMode);
+            });
+        }
+        if (elements.bulkResizePanels) {
+            elements.bulkResizePanels.forEach((panel) => {
+                panel.classList.toggle('hidden', panel.dataset.modePanel !== state.bulk.resizeMode);
+            });
+        }
+        if (elements.bulkTargetWidthInput && document.activeElement !== elements.bulkTargetWidthInput) {
+            elements.bulkTargetWidthInput.value = state.bulk.targetWidth;
+        }
+        if (elements.bulkTargetHeightInput && document.activeElement !== elements.bulkTargetHeightInput) {
+            elements.bulkTargetHeightInput.value = state.bulk.targetHeight;
+        }
+        if (elements.bulkFitModeSelect) {
+            elements.bulkFitModeSelect.value = state.bulk.fitMode;
+        }
+    }
+
     function updatePreview() {
         const preserveAlpha = getPreserveAlphaForFormat(state.bulk.exportFormat, state.bulk.preserveAlpha);
         const previewItems = state.bulk.files.map((entry, index) => {
-            const target = getScaledDimensions({ width: entry.width, height: entry.height }, state.bulk.exportScale);
+            const target = computeBulkTarget(entry);
             const estimateCacheKey = getBulkEstimateCacheKey(entry, target, state.bulk.exportFormat, preserveAlpha);
             const estimatedBytes = bulkEstimateCache.has(estimateCacheKey)
                 ? bulkEstimateCache.get(estimateCacheKey)
@@ -355,7 +404,11 @@ export function createBulkTabController({
 
         if (elements.bulkPreviewCount) elements.bulkPreviewCount.textContent = String(state.bulk.files.length);
         if (elements.bulkPreviewFormat) elements.bulkPreviewFormat.textContent = getFormatLabel(state.bulk.exportFormat);
-        if (elements.bulkPreviewScale) elements.bulkPreviewScale.textContent = `${state.bulk.exportScale}%`;
+        if (elements.bulkPreviewScale) {
+            elements.bulkPreviewScale.textContent = state.bulk.resizeMode === 'fixed'
+                ? `${Math.max(1, Math.round(state.bulk.targetWidth))}×${Math.max(1, Math.round(state.bulk.targetHeight))}`
+                : `${state.bulk.exportScale}%`;
+        }
         elements.bulkFormatTabs.forEach((tab) => {
             tab.classList.toggle('active', tab.dataset.format === state.bulk.exportFormat);
         });
@@ -380,6 +433,7 @@ export function createBulkTabController({
         }
 
         updateBulkAlphaVisibility();
+        syncResizeModeUI();
         renderBulkSourceList();
         renderBulkPreviewList();
         renderSelectedPreviewDetails();
@@ -502,7 +556,7 @@ export function createBulkTabController({
                 try {
                     const { img, cleanup } = await loadImageElementFromFile(entry.file);
                     try {
-                        const target = getScaledDimensions({ width: entry.width, height: entry.height }, state.bulk.exportScale);
+                        const target = computeBulkTarget(entry);
                         const blob = await renderRasterBlobFromSource(img, target, state.bulk.exportFormat, preserveAlpha);
                         zipEntries[buildBulkExportFileName(entry, index + 1)] = blob;
                         processedCount++;
@@ -569,6 +623,39 @@ export function createBulkTabController({
             elements.applyBulkCustomResizeBtn.addEventListener('click', () => {
                 const val = parseInt(elements.bulkResizeCustomInput.value, 10);
                 if (!isNaN(val)) setExportScale(val);
+            });
+        }
+
+        if (elements.bulkResizeModeTabs) {
+            elements.bulkResizeModeTabs.forEach((tab) => {
+                tab.addEventListener('click', () => {
+                    setResizeMode(tab.dataset.mode);
+                });
+            });
+        }
+
+        if (elements.applyBulkFixedSizeBtn) {
+            elements.applyBulkFixedSizeBtn.addEventListener('click', () => {
+                const w = parseInt(elements.bulkTargetWidthInput?.value, 10);
+                const h = parseInt(elements.bulkTargetHeightInput?.value, 10);
+                if (!isNaN(w) && w > 0) state.bulk.targetWidth = Math.min(16384, w);
+                if (!isNaN(h) && h > 0) state.bulk.targetHeight = Math.min(16384, h);
+                updatePreview();
+            });
+        }
+
+        if (elements.bulkFitModeSelect) {
+            elements.bulkFitModeSelect.addEventListener('change', () => {
+                state.bulk.fitMode = elements.bulkFitModeSelect.value;
+                updatePreview();
+            });
+        }
+
+        if (elements.bulkKeepNamesCheckbox) {
+            elements.bulkKeepNamesCheckbox.checked = state.bulk.keepOriginalNames;
+            elements.bulkKeepNamesCheckbox.addEventListener('change', () => {
+                state.bulk.keepOriginalNames = elements.bulkKeepNamesCheckbox.checked;
+                updatePreview();
             });
         }
 

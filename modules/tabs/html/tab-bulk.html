@@ -14,19 +14,43 @@
                                     <div class="bulk-controls-card bulk-controls-card-inline">
                                         <div class="text-xs font-semibold text-gray-400 mb-2">Export Controls</div>
                                         <div class="mb-3">
-                                            <div class="text-xs font-semibold text-gray-400 mb-2">Resize</div>
-                                            <div class="flex flex-wrap gap-2 justify-center mb-3">
-                                                <button class="resize-chip bulk-resize-chip" data-scale="25">25%</button>
-                                                <button class="resize-chip bulk-resize-chip" data-scale="50">50%</button>
-                                                <button class="resize-chip bulk-resize-chip active" data-scale="100">100%</button>
-                                                <button class="resize-chip bulk-resize-chip" data-scale="200">200%</button>
-                                                <button class="resize-chip bulk-resize-chip" data-scale="300">300%</button>
+                                            <div class="bulk-resize-mode-tabs" role="tablist" aria-label="Bulk Resize Mode">
+                                                <button type="button" class="bulk-resize-mode-tab active" data-mode="scale">Scale %</button>
+                                                <button type="button" class="bulk-resize-mode-tab" data-mode="fixed">Fixed Size</button>
                                             </div>
-                                            <div class="flex items-center justify-center gap-2">
-                                                <span class="text-xs text-gray-400">Custom:</span>
-                                                <input id="bulk-resize-custom" type="number" min="1" max="500" class="w-20 text-sm p-2 rounded border border-gray-600 bg-gray-900 text-white" placeholder="100">
-                                                <span class="text-xs text-gray-400">%</span>
-                                                <button id="apply-bulk-custom-resize" class="btn-secondary text-xs font-semibold py-1 px-3 rounded-md">Apply</button>
+
+                                            <div class="bulk-resize-panel" data-mode-panel="scale">
+                                                <div class="flex flex-wrap gap-2 justify-center mb-3">
+                                                    <button class="resize-chip bulk-resize-chip" data-scale="25">25%</button>
+                                                    <button class="resize-chip bulk-resize-chip" data-scale="50">50%</button>
+                                                    <button class="resize-chip bulk-resize-chip active" data-scale="100">100%</button>
+                                                    <button class="resize-chip bulk-resize-chip" data-scale="200">200%</button>
+                                                    <button class="resize-chip bulk-resize-chip" data-scale="300">300%</button>
+                                                </div>
+                                                <div class="flex items-center justify-center gap-2">
+                                                    <span class="text-xs text-gray-400">Custom:</span>
+                                                    <input id="bulk-resize-custom" type="number" min="1" max="500" class="w-20 text-sm p-2 rounded border border-gray-600 bg-gray-900 text-white" placeholder="100">
+                                                    <span class="text-xs text-gray-400">%</span>
+                                                    <button id="apply-bulk-custom-resize" class="btn-secondary text-xs font-semibold py-1 px-3 rounded-md">Apply</button>
+                                                </div>
+                                            </div>
+
+                                            <div class="bulk-resize-panel hidden" data-mode-panel="fixed">
+                                                <div class="flex items-center justify-center gap-2 mb-2 flex-wrap">
+                                                    <input id="bulk-target-width" type="number" min="1" max="16384" class="w-24 text-sm p-2 rounded border border-gray-600 bg-gray-900 text-white" placeholder="Width">
+                                                    <span class="text-xs text-gray-400">×</span>
+                                                    <input id="bulk-target-height" type="number" min="1" max="16384" class="w-24 text-sm p-2 rounded border border-gray-600 bg-gray-900 text-white" placeholder="Height">
+                                                    <span class="text-xs text-gray-400">px</span>
+                                                    <button id="apply-bulk-fixed-size" class="btn-secondary text-xs font-semibold py-1 px-3 rounded-md">Apply</button>
+                                                </div>
+                                                <div class="flex items-center justify-center gap-2">
+                                                    <span class="text-xs text-gray-400">Fit:</span>
+                                                    <select id="bulk-fit-mode" class="text-sm p-2 rounded border border-gray-600 bg-gray-900 text-white">
+                                                        <option value="contain">Contain (letterbox)</option>
+                                                        <option value="cover">Cover (crop)</option>
+                                                        <option value="stretch">Stretch</option>
+                                                    </select>
+                                                </div>
                                             </div>
                                         </div>
 
@@ -34,6 +58,11 @@
                                             <label id="bulk-alpha-toggle" class="footer-toggle text-gray-300 cursor-pointer justify-start">
                                                 <input id="bulk-preserve-alpha" type="checkbox" class="accent-blue-500 cursor-pointer" checked>
                                                 <span>Preserve Alpha</span>
+                                            </label>
+
+                                            <label id="bulk-keep-names-toggle" class="footer-toggle text-gray-300 cursor-pointer justify-start">
+                                                <input id="bulk-keep-names" type="checkbox" class="accent-blue-500 cursor-pointer">
+                                                <span>Preserve Name</span>
                                             </label>
 
                                             <button id="bulk-download-btn" class="btn-primary font-semibold py-3 px-4 rounded-md text-sm disabled:bg-gray-600 disabled:cursor-not-allowed" disabled>
