@@ -578,7 +578,7 @@ export function createLogoTabController({
     // ── Lifecycle ──────────────────────────────────────────────────────────────
 
     function onSourceImageLoaded() {
-        // Importing an image auto-switches to image mode so the pipeline traces it
+        // A new image always drops HTML mode so the pipeline traces the bitmap next time Logo opens.
         if (ls.htmlModeActive) {
             htmlEditor.setHtmlMode(false);
         }
@@ -588,28 +588,25 @@ export function createLogoTabController({
             le.svgSourceMirror.src = le.sourceImage.src;
         }
 
-        syncWorkspaceView();
-        if (le.generatePreviewBtn) le.generatePreviewBtn.disabled = false;
-
         const w = le.sourceImage.naturalWidth;
         const h = le.sourceImage.naturalHeight;
-        le.originalResolution.textContent = `${w}×${h} px`;
-        buildWorkingImageCache();
-
-        onRasterImageLoaded();
+        if (le.originalResolution) le.originalResolution.textContent = `${w}×${h} px`;
         updateResolutionNotice(w, h);
-
+        onRasterImageLoaded();
         ls.colorsAnalyzed = false;
+
+        if (state.activeTab !== 'logo') {
+            showLoader(false);
+            return;
+        }
+
+        syncWorkspaceView();
+        if (le.generatePreviewBtn) le.generatePreviewBtn.disabled = false;
+        buildWorkingImageCache();
         saveInitialSliderValues(ls, le);
         syncTraceControlMode();
         void generatePreviewClick().catch(() => {});
-
-        if (state.activeTab === 'logo') {
-            onTabActivated();
-        } else {
-            ls.colorsAnalyzed = false;
-        }
-
+        onTabActivated();
         showLoader(false);
     }
 
@@ -625,6 +622,10 @@ export function createLogoTabController({
 
         if (!hasSingleImageLoaded()) return;
         if (!ls.colorsAnalyzed) {
+            if (le.generatePreviewBtn) le.generatePreviewBtn.disabled = false;
+            buildWorkingImageCache();
+            saveInitialSliderValues(ls, le);
+            syncTraceControlMode();
             void generatePreviewClick().catch(() => {});
         } else {
             objPreview.render();

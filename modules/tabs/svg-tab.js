@@ -469,31 +469,38 @@ export function createSvgTabController({
     // ── Lifecycle ──────────────────────────────────────────────────────────────
 
     function onSourceImageLoaded() {
-        syncWorkspaceView();
-        if (elements.generatePreviewBtn) elements.generatePreviewBtn.disabled = false;
-
         const w = elements.sourceImage.naturalWidth;
         const h = elements.sourceImage.naturalHeight;
-        elements.originalResolution.textContent = `${w}×${h} px`;
-        buildWorkingImageCache();
-
-        onRasterImageLoaded();
+        if (elements.originalResolution) elements.originalResolution.textContent = `${w}×${h} px`;
         updateResolutionNotice(w, h);
-
+        onRasterImageLoaded();
         state.colorsAnalyzed = false;
+
+        if (state.activeTab !== 'svg') {
+            showLoader(false);
+            return;
+        }
+
+        syncWorkspaceView();
+        if (elements.generatePreviewBtn) elements.generatePreviewBtn.disabled = false;
+        buildWorkingImageCache();
         saveInitialSliderValues(state, elements);
         syncTraceControlUi();
         void generatePreviewClick().catch(() => {});
-
-        if (state.activeTab === 'svg') {
-            onTabActivated();
-        }
-
+        onTabActivated();
         showLoader(false);
     }
 
     function onTabActivated() {
         if (!hasSingleImageLoaded()) return;
+        if (!state.colorsAnalyzed) {
+            if (elements.generatePreviewBtn) elements.generatePreviewBtn.disabled = false;
+            buildWorkingImageCache();
+            saveInitialSliderValues(state, elements);
+            syncTraceControlUi();
+            void generatePreviewClick().catch(() => {});
+            return;
+        }
         objPreview.render();
     }
 
