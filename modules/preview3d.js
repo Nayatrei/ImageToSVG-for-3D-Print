@@ -58,17 +58,29 @@ export function createObjPreview({
 
     function ensureObjPreview() {
         if (state.objPreview.renderer) return true;
+        if (state.objPreview.webglUnavailable) return false;
         if (!view.objPreviewCanvas) return false;
 
         const THREERef = window.THREE;
         const SVGLoader = window.SVGLoader;
         if (!THREERef || !SVGLoader) return false;
 
-        const renderer = new THREERef.WebGLRenderer({
-            canvas: view.objPreviewCanvas,
-            antialias: true,
-            alpha: true
-        });
+        let renderer;
+        try {
+            renderer = new THREERef.WebGLRenderer({
+                canvas: view.objPreviewCanvas,
+                antialias: true,
+                alpha: true
+            });
+        } catch (err) {
+            // WebGL context creation can fail on old hardware, privacy-hardened
+            // browsers, or headless environments. Degrade gracefully: skip 3D
+            // preview but keep 2D analysis and export paths working.
+            state.objPreview.webglUnavailable = true;
+            console.warn('3D preview unavailable: WebGL context could not be created.', err?.message || err);
+            setPlaceholder('3D preview unavailable — WebGL is required. 2D export still works.', true);
+            return false;
+        }
         renderer.setPixelRatio(window.devicePixelRatio || 1);
 
         const scene = new THREERef.Scene();
