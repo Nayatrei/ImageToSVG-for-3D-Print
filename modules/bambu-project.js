@@ -346,7 +346,11 @@ export function buildBambuProjectFiles({
     const parts = [];
     layers.forEach((layerData, index) => {
         const meshData = getGeometryMeshData(layerData.geometry);
-        if (!meshData) return;
+        if (!meshData) {
+            const posAttr = layerData.geometry?.getAttribute?.('position');
+            console.warn(`[GenesisDebug] 3MF assembly: layer ${index} "${layerData.displayLabel || ''}" SKIPPED by getGeometryMeshData (geometry: ${!!layerData.geometry}, positionAttr: ${!!posAttr}, vertexCount: ${posAttr?.count || 0}, isBase: ${layerData.isBase})`);
+            return;
+        }
 
         parts.push({
             index,

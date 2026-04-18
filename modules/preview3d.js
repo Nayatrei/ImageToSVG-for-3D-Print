@@ -660,9 +660,14 @@ export function createObjPreview({
                 return;
             }
 
+            console.log(`[GenesisDebug] Preview: plan has ${plan.outputLayers.length} output layers, bundle has ${geometryBundle.layers.size} layers`);
+
             plan.outputLayers.forEach((layer, outputIndex) => {
                 const layerData = geometryBundle.layers.get(layer.outputLayerId);
-                if (!layerData) return;
+                if (!layerData) {
+                    console.warn(`[GenesisDebug] Preview: layer ${layer.outputLayerId} "${layer.displayLabel || ''}" in plan but NOT in geometry bundle (isBase: ${layer.isBase})`);
+                    return;
+                }
 
                 const isSelected = !hasSelection || selectionSet.has(outputIndex);
                 const material = new THREERef.MeshStandardMaterial({
