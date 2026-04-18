@@ -525,7 +525,6 @@ export function createObjExporter({
     function buildExportGeometry(defaultThickness) {
         const key = getGeometryCacheKey(defaultThickness);
         if (cachedGeometry && cachedGeometryKey === key) {
-            console.log(`[GenesisDebug] Export: using cached geometry (key match). Cached layers: ${cachedGeometry.layers.size}`);
             // Clone cached geometries so callers can dispose without breaking the cache
             const cloned = {
                 ...cachedGeometry,
@@ -539,7 +538,6 @@ export function createObjExporter({
             });
             return cloned;
         }
-        console.log(`[GenesisDebug] Export: rebuilding geometry (cache miss). Key: ${key}, Previous key: ${cachedGeometryKey || 'none'}`);
 
         const SVGLoader = window.SVGLoader || window.THREE?.SVGLoader;
         const THREERef = window.THREE;

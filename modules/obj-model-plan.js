@@ -1078,7 +1078,6 @@ export function buildObjModelPlan({
             manifestEntry.dropoutPoint = 'rasterize-to-mask-empty';
             manifestEntry.maskPixelCount = 0;
             layerManifest.push(manifestEntry);
-            console.warn(`[GenesisDebug] Layer ${layer.outputLayerId} "${manifestEntry.displayLabel}" DROPPED: rasterize produced zero mask pixels (${manifestEntry.shapeCount} input shapes)`);
             return;
         }
 
@@ -1124,7 +1123,6 @@ export function buildObjModelPlan({
             manifestEntry.componentStats = layer.componentStats;
             manifestEntry.repairActions = (layer.repairActions || []).map(a => a.type);
             layerManifest.push(manifestEntry);
-            console.warn(`[GenesisDebug] Layer ${layer.outputLayerId} "${manifestEntry.displayLabel}" DROPPED: all ${split.components.length} components below printability threshold (printable: ${printableCount}, absorbed: ${absorbedCount})`);
             return;
         }
 
@@ -1153,7 +1151,6 @@ export function buildObjModelPlan({
             manifestEntry.dropoutPoint = 'mask-retrace-empty';
             manifestEntry.repairActions = (layer.repairActions || []).map(a => a.type);
             layerManifest.push(manifestEntry);
-            console.warn(`[GenesisDebug] Layer ${layer.outputLayerId} "${manifestEntry.displayLabel}" DROPPED: mask retrace produced zero shapes`);
             return;
         }
 
@@ -1578,7 +1575,6 @@ export function buildObjGeometryBundle(plan, { THREERef, bufferUtils }) {
     orderedOutputLayers.forEach((layer) => {
         const geometries = createLayerGeometry({ layer, plan, THREERef });
         if (!geometries.length) {
-            console.warn(`[GenesisDebug] Layer ${layer.outputLayerId} "${layer.displayLabel || ''}" DROPPED in geometry bundle: createLayerGeometry returned 0 geometries (isBase: ${layer.isBase}, segments: ${layer.geometrySegments?.length || 0})`);
             return;
         }
         const hasMultipleSegments = Array.isArray(layer.geometrySegments) && layer.geometrySegments.length > 1;
@@ -1598,7 +1594,6 @@ export function buildObjGeometryBundle(plan, { THREERef, bufferUtils }) {
             mergeVerticesEnabled: true
         });
         if (!sanitizedGeometry) {
-            console.warn(`[GenesisDebug] Layer ${layer.outputLayerId} "${layer.displayLabel || ''}" DROPPED in geometry bundle: sanitizeGeometry returned null (pre-sanitize vertices: ${preSanitizeVertexCount}, isBase: ${layer.isBase})`);
             geometry.dispose();
             return;
         }
@@ -1627,18 +1622,6 @@ export function buildObjGeometryBundle(plan, { THREERef, bufferUtils }) {
             componentStats: { ...(layer.componentStats || {}) }
         });
     });
-
-    const manifestSummary = (plan.layerManifest || []).map(m => ({
-        id: m.outputLayerId,
-        label: m.displayLabel,
-        isBase: m.isBase,
-        survivedPlan: m.survivedPlan,
-        inBundle: layers.has(m.outputLayerId),
-        dropoutPoint: m.dropoutPoint,
-        meshVertexCount: layers.get(m.outputLayerId)?.geometry?.getAttribute?.('position')?.count || 0
-    }));
-    console.log('[GenesisDebug] Layer manifest:', JSON.stringify(manifestSummary, null, 2));
-    console.log(`[GenesisDebug] Plan output layers: ${plan.outputLayers.length}, Bundle layers: ${layers.size}, Manifest entries: ${manifestSummary.length}`);
 
     return {
         layers,
