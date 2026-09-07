@@ -309,7 +309,11 @@
         const detail = document.createElement('span');
         detail.textContent = `${tierLabel(account)} · ${creditLabel(account.credits)}`;
         const note = document.createElement('small');
-        note.textContent = '무료 변환 도구는 로그인 없이도 계속 사용할 수 있습니다.';
+        const editorIncluded = account?.access?.status === 'active'
+            && ['plus', 'pro'].includes(account?.access?.tier);
+        note.textContent = editorIncluded
+            ? 'Plus / Pro 혜택 · Editor 포함. 추가 이용료나 Sparks 차감 없이 사용할 수 있습니다.'
+            : '기존 무료 변환 도구는 로그인 없이도 계속 사용할 수 있습니다. Plus / Pro에도 Editor가 추가 비용 없이 포함됩니다.';
         const actions = document.createElement('div');
         actions.className = 'genesis-id-actions';
         const portal = document.createElement('a');

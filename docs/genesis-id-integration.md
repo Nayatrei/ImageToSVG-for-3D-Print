@@ -5,6 +5,12 @@ usable without an account. Genesis ID is an optional connection that exposes a
 user's current tier and whole-Spark balance and records this app in the central
 connected-app list.
 
+Plus and Pro benefits include Editor with no additional fee and no Spark
+deduction. The account card reads the active tier from canonical account access
+and labels this inclusion. Existing public local converters remain free; this
+benefit does not introduce an anonymous/Free paywall. A future paid-only feature
+requires a separately approved access policy, not a browser-only tier check.
+
 ## Fixed client contract
 
 - App ID: `genesis-editor`
