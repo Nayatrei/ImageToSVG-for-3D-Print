@@ -57,6 +57,20 @@ The widget accepts only the canonical `microcredit` projection and converts
 Raw microcredit units are never displayed; whole or fractional Spark values may
 appear as appropriate, or `Unlimited Sparks` for the dedicated Agent account.
 
+The card rechecks canonical account access and balance whenever it opens and
+when the tab regains focus or becomes visible. Concurrent refresh triggers share
+one request sequence. Visible connected tabs also recheck at most 60 seconds
+after the previous successful load, or sooner at the token refresh boundary;
+hidden tabs defer network refresh until they resume. `access.recomputeAt` is a
+past projection recomputation timestamp, not a future grant expiry deadline.
+While rechecking, the card shows a neutral loading message instead of a stale
+paid benefit or balance. Failed, suspended, mismatched-UID, and unauthorized
+responses remove the local connection; public conversion remains available.
+Session-generation and exact stored-session checks prevent late account or
+token-refresh responses from resurrecting a disconnected or different account.
+Keyboard focus stays on the corresponding refreshed account control, but is
+never pulled back if the user has moved to a converter control.
+
 ## Passwordless Agent testing
 
 The central Agent credential exchange must allow app ID `genesis-editor`.

@@ -5,7 +5,7 @@ import {
     PDF_IMAGE_EXPORT_MAX_TOTAL_BYTES,
     sanitizePdfFilename,
     validatePdfImageExportPlan
-} from './pdf-utils.js?v=r-0482439758aef41c';
+} from './pdf-utils.js?v=r-78ade4c03db6e3a2';
 import {
     canvasToBlobAsync,
     estimateSizeBytes,
@@ -13,10 +13,10 @@ import {
     formatBytes,
     getRasterExtension,
     sanitizeFileComponent
-} from '../raster-utils.js?v=r-0482439758aef41c';
-import { createZipFile } from '../export3d.js?v=r-0482439758aef41c';
-import { createImageToPdfController } from './pdf-image-to-pdf.js?v=r-0482439758aef41c';
-import { createPdfOcrController } from './pdf-ocr.js?v=r-0482439758aef41c';
+} from '../raster-utils.js?v=r-78ade4c03db6e3a2';
+import { createZipFile } from '../export3d.js?v=r-78ade4c03db6e3a2';
+import { createImageToPdfController } from './pdf-image-to-pdf.js?v=r-78ade4c03db6e3a2';
+import { createPdfOcrController } from './pdf-ocr.js?v=r-78ade4c03db6e3a2';
 
 let pdfLibPromise = null;
 let pdfJsPromise = null;
@@ -59,16 +59,16 @@ async function exportCanvasToImageBlob(canvas, format) {
 
 async function getPdfLib() {
     if (!pdfLibPromise) {
-        pdfLibPromise = import('../../vendor/pdf-lib/pdf-lib.esm.min.js?v=r-0482439758aef41c');
+        pdfLibPromise = import('../../vendor/pdf-lib/pdf-lib.esm.min.js?v=r-78ade4c03db6e3a2');
     }
     return pdfLibPromise;
 }
 
 async function getPdfJs() {
     if (!pdfJsPromise) {
-        pdfJsPromise = import('../../vendor/pdfjs/pdf.min.mjs?v=r-0482439758aef41c').then((pdfjs) => {
+        pdfJsPromise = import('../../vendor/pdfjs/pdf.min.mjs?v=r-78ade4c03db6e3a2').then((pdfjs) => {
             pdfjs.GlobalWorkerOptions.workerSrc =
-                new URL('../../vendor/pdfjs/pdf.worker.min.mjs?v=r-0482439758aef41c', import.meta.url).href;
+                new URL('../../vendor/pdfjs/pdf.worker.min.mjs?v=r-78ade4c03db6e3a2', import.meta.url).href;
             return pdfjs;
         });
     }

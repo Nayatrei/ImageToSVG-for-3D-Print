@@ -1,4 +1,4 @@
-import { serializeMagnetPocketConfig } from './magnet-pockets.js?v=r-0482439758aef41c';
+import { serializeMagnetPocketConfig } from './magnet-pockets.js?v=r-78ade4c03db6e3a2';
 
 function readControlValue(control, fallback) {
     return control?.value ?? fallback;

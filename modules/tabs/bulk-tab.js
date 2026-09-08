@@ -1,4 +1,4 @@
-import { createZipFile } from '../export3d.js?v=r-0482439758aef41c';
+import { createZipFile } from '../export3d.js?v=r-78ade4c03db6e3a2';
 import {
     canvasToBlobAsync,
     estimateSizeBytes,
@@ -16,7 +16,7 @@ import {
     loadImageElementFromFile,
     sanitizeFileComponent,
     supportsAlphaForFormat
-} from '../raster-utils.js?v=r-0482439758aef41c';
+} from '../raster-utils.js?v=r-78ade4c03db6e3a2';
 import {
     ADJUSTMENT_KEYS,
     ADJUSTMENT_RANGES,
@@ -28,7 +28,7 @@ import {
     isNeutralAdjustments,
     matchFilterPreset,
     normalizeAdjustments
-} from '../shared/image-adjust.js?v=r-0482439758aef41c';
+} from '../shared/image-adjust.js?v=r-78ade4c03db6e3a2';
 
 // ── Export formats ─────────────────────────────────────────────────────────
 // WEBP is wrapped locally rather than pushed into raster-utils.js, matching the
@@ -127,7 +127,7 @@ let heicModulePromise = null;
 function loadHeicModule() {
     if (!heicModulePromise) {
         // A failed load clears the cache so a later batch can retry.
-        heicModulePromise = import('../shared/heic.js?v=r-0482439758aef41c')
+        heicModulePromise = import('../shared/heic.js?v=r-78ade4c03db6e3a2')
             .catch((error) => {
                 heicModulePromise = null;
                 throw error;
