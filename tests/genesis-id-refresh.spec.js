@@ -17,6 +17,13 @@ function account(uid = 'local-editor-a', tier = 'plus', available = 0) {
     };
 }
 
+async function pauseClock(page) {
+    // install() alone still advances with wall time between browser commands.
+    // Freeze before creating any account timers so loaded CI cannot cross a deadline early.
+    await page.clock.install({ time: new Date('2030-01-01T00:00:00.000Z') });
+    await page.clock.pauseAt(new Date('2030-01-01T01:00:00.000Z'));
+}
+
 async function installSession(page, uid = 'local-editor-a', options = {}) {
     await page.evaluate(({ key, uid, token, options }) => {
         sessionStorage.setItem(key, JSON.stringify({
@@ -85,7 +92,7 @@ test('focus and visibility resume coalesce into one request and update the balan
 
 test('bounded visible polling updates an expired tier without treating past recomputeAt as a deadline', async ({ page }) => {
     const state = await stubAccount(page);
-    await page.clock.install();
+    await pauseClock(page);
     await installSession(page);
     state.response = account('local-editor-a', 'free');
     await page.clock.runFor(59_000);
@@ -195,7 +202,7 @@ test('official token refresh remains single flight and cannot persist after sign
 
 test('hidden tabs defer polling I/O until visibility resume', async ({ page }) => {
     const state = await stubAccount(page);
-    await page.clock.install();
+    await pauseClock(page);
     await installSession(page);
     await page.evaluate(() => Object.defineProperty(document, 'hidden', { configurable: true, value: true }));
     state.response = account('local-editor-a', 'free');
@@ -213,7 +220,7 @@ test('hidden tabs defer polling I/O until visibility resume', async ({ page }) =
 
 test('hiding during the resume debounce cancels or refuses the delayed refresh', async ({ page }) => {
     const state = await stubAccount(page);
-    await page.clock.install();
+    await pauseClock(page);
     await installSession(page);
     for (const emitVisibility of [true, false]) {
         await page.evaluate(() => {
@@ -240,7 +247,7 @@ test('hiding during the resume debounce cancels or refuses the delayed refresh',
 
 test('fresh DOM preserves keyboard focus on trigger, portal and disconnect during refresh', async ({ page }) => {
     const state = await stubAccount(page);
-    await page.clock.install();
+    await pauseClock(page);
     await installSession(page);
     const trigger = page.locator('[data-genesis-id-trigger]');
     await trigger.focus();
