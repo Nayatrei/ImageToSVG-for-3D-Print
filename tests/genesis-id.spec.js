@@ -23,6 +23,7 @@ function managedToken() {
 async function mockAccount(page, {
     unlimited = false,
     available = 1_234_000_000,
+    tier = 'pro',
     creditsInAccount = true,
     uid = 'agent-editor'
 } = {}) {
@@ -40,7 +41,7 @@ async function mockAccount(page, {
             profile: { uid, displayName: '' },
             access: {
                 status: 'active',
-                tier: 'pro',
+                tier,
                 entitlements: unlimited ? ['testing.unlimited_sparks'] : []
             },
             ...(creditsInAccount ? { credits: projection } : {})
@@ -63,6 +64,17 @@ test('free converters remain usable without Genesis ID', async ({ page }) => {
     await expect(page.locator('#import-btn')).toBeEnabled();
     await expect(page.locator('body')).not.toContainText(/microcredits?/i);
 });
+
+for (const tier of ['plus', 'pro']) {
+    test(`${tier} includes Editor without additional fees or Spark charges`, async ({ page }) => {
+        await mockAccount(page, { tier, available: 0 });
+        await page.goto('/3d-obj');
+        await page.evaluate(async (token) => window.GenesisId.useManagedIdToken(token), managedToken());
+        await page.getByRole('button', { name: /Genesis ID.*Sparks/ }).click();
+        await expect(page.getByText('Plus / Pro 혜택 · Editor 포함. 추가 이용료나 Sparks 차감 없이 사용할 수 있습니다.')).toBeVisible();
+        await expect(page.locator('#import-btn')).toBeEnabled();
+    });
+}
 
 test('connection request binds app, exact callback, state, and S256 PKCE', async ({ page }) => {
     await page.route(`${identityOrigin}/**`, (route) => route.fulfill({

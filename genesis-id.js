@@ -5,9 +5,15 @@
     const PENDING_KEY = 'genesis:id:pending:v1';
     const PENDING_TTL_MS = 10 * 60 * 1000;
     const TOKEN_REFRESH_SKEW_MS = 60 * 1000;
+    const ACCOUNT_REFRESH_MS = 60 * 1000;
+    const REQUEST_TIMEOUT_MS = 15 * 1000;
     const MICROCREDITS_PER_SPARK = 1_000_000;
     const sparkNumberFormat = new Intl.NumberFormat('en-US', { maximumFractionDigits: 6 });
     const slots = new Set();
+    let sessionGeneration = 0;
+    let accountFlight = null;
+    let accountTimer = null;
+    let resumeTimer = null;
 
     function readMeta(name, fallback = '') {
         return document.querySelector(`meta[name="${name}"]`)?.content?.trim() || fallback;
@@ -75,10 +81,44 @@
     }
 
     function clearSession() {
+        sessionGeneration += 1;
+        clearTimeout(accountTimer);
+        clearTimeout(resumeTimer);
+        accountFlight = null;
         try {
             global.sessionStorage.removeItem(SESSION_KEY);
         } catch {
             // The converter remains available when browser storage is blocked.
+        }
+    }
+
+    function sessionSnapshot() {
+        let stored = null;
+        try { stored = global.sessionStorage.getItem(SESSION_KEY); } catch { /* Optional connection. */ }
+        return { generation: sessionGeneration, stored };
+    }
+
+    function isCurrentSession(snapshot) {
+        const current = sessionSnapshot();
+        return snapshot.generation === current.generation && snapshot.stored === current.stored;
+    }
+
+    function storeCurrentSession(snapshot, session) {
+        if (!isCurrentSession(snapshot)) throw new Error('Genesis ID session changed.');
+        writeJsonStorage(SESSION_KEY, session);
+        snapshot.stored = global.sessionStorage.getItem(SESSION_KEY);
+    }
+
+    async function fetchWithTimeout(url, options) {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+        try {
+            const response = await fetch(url, { ...options, signal: controller.signal });
+            // Consume within the timeout too; a stalled response body is not fresh account data.
+            const body = await response.json().catch(() => null);
+            return { ok: response.ok, json: async () => body };
+        } finally {
+            clearTimeout(timer);
         }
     }
 
@@ -90,7 +130,7 @@
 
     async function fetchPublicConfig() {
         const { identityOrigin } = getConfig();
-        const response = await fetch(`${identityOrigin}/api/v1/account/config`, {
+        const response = await fetchWithTimeout(`${identityOrigin}/api/v1/account/config`, {
             cache: 'no-store',
             credentials: 'omit',
             headers: { Accept: 'application/json' }
@@ -151,10 +191,11 @@
         };
     }
 
-    async function refreshSession(session) {
+    async function refreshSession(session, snapshot) {
         if (!session?.refreshToken) throw new Error('Genesis ID session expired.');
         const publicConfig = await fetchPublicConfig();
-        const response = await fetch(
+        if (!isCurrentSession(snapshot)) throw new Error('Genesis ID session changed.');
+        const response = await fetchWithTimeout(
             `https://securetoken.googleapis.com/v1/token?key=${encodeURIComponent(publicConfig.firebase.apiKey)}`,
             {
                 method: 'POST',
@@ -168,7 +209,11 @@
             }
         );
         const token = await readResponseJson(response, 'Genesis ID session refresh failed.');
-        if (!token?.id_token || !token?.user_id) throw new Error('Genesis ID returned an incomplete session.');
+        if (
+            !token?.id_token || token.user_id !== session.uid
+            || tokenClaims(token.id_token)?.sub !== session.uid
+            || (tokenClaims(token.id_token)?.user_id !== undefined && tokenClaims(token.id_token).user_id !== session.uid)
+        ) throw new Error('Genesis ID returned an incomplete session.');
         const nextSession = {
             schemaVersion: 1,
             uid: token.user_id,
@@ -176,30 +221,26 @@
             refreshToken: token.refresh_token || session.refreshToken,
             expiresAt: Date.now() + Math.max(60, Number(token.expires_in) || 3600) * 1000
         };
-        writeJsonStorage(SESSION_KEY, nextSession);
+        storeCurrentSession(snapshot, nextSession);
         return nextSession;
     }
 
-    async function currentSession() {
+    async function currentSession(snapshot) {
         const session = readJsonStorage(SESSION_KEY);
         if (
             !session
             || session.schemaVersion !== 1
             || typeof session.idToken !== 'string'
-            || typeof session.expiresAt !== 'number'
+            || typeof session.uid !== 'string' || !session.uid
+            || !Number.isFinite(session.expiresAt)
         ) return null;
         if (session.expiresAt > Date.now() + TOKEN_REFRESH_SKEW_MS) return session;
-        try {
-            return await refreshSession(session);
-        } catch {
-            clearSession();
-            return null;
-        }
+        return refreshSession(session, snapshot);
     }
 
     async function accountRequest(path, idToken) {
         const { identityOrigin } = getConfig();
-        const response = await fetch(`${identityOrigin}${path}`, {
+        const response = await fetchWithTimeout(`${identityOrigin}${path}`, {
             cache: 'no-store',
             credentials: 'omit',
             headers: {
@@ -210,8 +251,14 @@
         return readResponseJson(response, 'Genesis ID account could not be loaded.');
     }
 
-    async function loadAccount(idToken) {
+    async function loadAccount(idToken, uid) {
         const account = await accountRequest('/api/v1/account/me', idToken);
+        if (
+            account?.profile?.uid !== uid
+            || (account?.access?.uid !== undefined && account.access.uid !== uid)
+            || account?.access?.status !== 'active'
+            || !['free', 'plus', 'pro'].includes(account?.access?.tier)
+        ) throw new Error('Genesis ID returned an unavailable account.');
         let credits = account?.credits;
         if (credits === undefined) {
             const creditResponse = await accountRequest('/api/v1/account/credits', idToken);
@@ -285,6 +332,9 @@
     }
 
     function renderConnected(slot, account) {
+        const wasOpen = slot.querySelector('[data-genesis-id-trigger]')?.getAttribute('aria-expanded') === 'true';
+        const focusSelector = ['[data-genesis-id-trigger]', '[data-genesis-id-portal]', '[data-genesis-id-disconnect]']
+            .find((selector) => slot.querySelector(selector) === document.activeElement);
         slot.replaceChildren();
         const shell = document.createElement('div');
         shell.className = 'genesis-id-widget is-connected';
@@ -292,37 +342,46 @@
         trigger.type = 'button';
         trigger.className = 'genesis-id-account';
         trigger.dataset.genesisIdTrigger = '';
-        trigger.setAttribute('aria-expanded', 'false');
+        trigger.setAttribute('aria-expanded', String(wasOpen));
         trigger.innerHTML = '<span class="genesis-id-dot" aria-hidden="true"></span><span>Genesis ID</span>';
         const summary = document.createElement('small');
+        summary.dataset.genesisIdSummary = '';
         summary.textContent = `${tierLabel(account)} · ${creditLabel(account.credits)}`;
         trigger.append(summary);
 
         const menu = document.createElement('div');
         menu.className = 'genesis-id-menu';
         menu.dataset.genesisIdMenu = '';
-        menu.hidden = true;
+        menu.hidden = !wasOpen;
         menu.setAttribute('role', 'dialog');
         menu.setAttribute('aria-label', 'Genesis ID account');
         const heading = document.createElement('strong');
         heading.textContent = account?.profile?.displayName || 'Genesis ID connected';
         const detail = document.createElement('span');
+        detail.dataset.genesisIdDetail = '';
         detail.textContent = `${tierLabel(account)} · ${creditLabel(account.credits)}`;
         const note = document.createElement('small');
-        note.textContent = '무료 변환 도구는 로그인 없이도 계속 사용할 수 있습니다.';
+        note.dataset.genesisIdNote = '';
+        const editorIncluded = account?.access?.status === 'active'
+            && ['plus', 'pro'].includes(account?.access?.tier);
+        note.textContent = editorIncluded
+            ? 'Plus / Pro 혜택 · Editor 포함. 추가 이용료나 Sparks 차감 없이 사용할 수 있습니다.'
+            : '기존 무료 변환 도구는 로그인 없이도 계속 사용할 수 있습니다. Plus / Pro에도 Editor가 추가 비용 없이 포함됩니다.';
         const actions = document.createElement('div');
         actions.className = 'genesis-id-actions';
         const portal = document.createElement('a');
+        portal.dataset.genesisIdPortal = '';
         portal.href = getConfig().identityOrigin;
         portal.target = '_blank';
         portal.rel = 'noopener noreferrer';
         portal.textContent = '계정 보기';
         const disconnect = document.createElement('button');
+        disconnect.dataset.genesisIdDisconnect = '';
         disconnect.type = 'button';
         disconnect.textContent = '이 기기 연결 해제';
         disconnect.addEventListener('click', () => {
             clearSession();
-            renderDisconnected(slot);
+            slots.forEach((current) => renderDisconnected(current));
         });
         actions.append(portal, disconnect);
         menu.append(heading, detail, note, actions);
@@ -331,29 +390,73 @@
             closeMenus(opening ? slot : null);
             menu.hidden = !opening;
             trigger.setAttribute('aria-expanded', String(opening));
+            if (opening) void refreshAccount();
         });
         shell.append(trigger, menu);
         slot.append(shell);
+        // Decide at commit time, not request start: never steal focus back from another tool.
+        if (focusSelector) slot.querySelector(focusSelector)?.focus({ preventScroll: true });
     }
 
-    async function updateSlot(slot) {
-        slots.add(slot);
-        const session = await currentSession();
-        if (!session) {
-            renderDisconnected(slot);
-            return;
-        }
-        try {
-            renderConnected(slot, await loadAccount(session.idToken));
-        } catch {
-            clearSession();
-            renderDisconnected(slot, '계정 연결이 만료되었습니다. 다시 연결해 주세요.');
-        }
+    function renderRefreshing() {
+        slots.forEach((slot) => {
+            for (const selector of ['[data-genesis-id-summary]', '[data-genesis-id-detail]', '[data-genesis-id-note]']) {
+                const element = slot.querySelector(selector);
+                if (element) element.textContent = '계정 정보를 확인하고 있습니다…';
+            }
+        });
+    }
+
+    function scheduleAccountRefresh(session) {
+        clearTimeout(accountTimer);
+        // Access.recomputeAt describes the last recomputation, not a future grant expiry.
+        // Revalidate boundedly instead of guessing an expiry from that timestamp.
+        const delay = Math.max(1000, Math.min(ACCOUNT_REFRESH_MS, session.expiresAt - Date.now() - TOKEN_REFRESH_SKEW_MS));
+        accountTimer = setTimeout(() => {
+            renderRefreshing();
+            if (!document.hidden) void refreshAccount();
+        }, delay);
+    }
+
+    function refreshAccount() {
+        clearTimeout(resumeTimer);
+        const snapshot = sessionSnapshot();
+        if (accountFlight && isCurrentSession(accountFlight.snapshot)) return accountFlight.promise;
+        clearTimeout(accountTimer);
+        renderRefreshing();
+        const flight = { snapshot, promise: null };
+        flight.promise = (async () => {
+            try {
+                const session = await currentSession(snapshot);
+                if (!isCurrentSession(snapshot)) return;
+                if (!session) {
+                    if (snapshot.stored) clearSession();
+                    slots.forEach((slot) => renderDisconnected(slot));
+                    return;
+                }
+                const account = await loadAccount(session.idToken, session.uid);
+                if (!isCurrentSession(snapshot)) return;
+                slots.forEach((slot) => renderConnected(slot, account));
+                scheduleAccountRefresh(session);
+            } catch {
+                if (!isCurrentSession(snapshot)) return;
+                clearSession();
+                slots.forEach((slot) => renderDisconnected(slot, '계정 연결이 만료되었습니다. 다시 연결해 주세요.'));
+            } finally {
+                if (accountFlight === flight) accountFlight = null;
+            }
+        })();
+        accountFlight = flight;
+        return flight.promise;
     }
 
     async function mountAll() {
         const found = [...document.querySelectorAll('[data-genesis-id-slot]')];
-        await Promise.all(found.map(updateSlot));
+        slots.forEach((slot) => { if (!slot.isConnected) slots.delete(slot); });
+        found.forEach((slot) => slots.add(slot));
+        // Callback-only documents own an authentication transition, not an account widget.
+        if (!slots.size) return;
+        await refreshAccount();
     }
 
     async function beginConnection(returnTo = `${global.location.pathname}${global.location.search}${global.location.hash}`) {
@@ -380,6 +483,7 @@
     }
 
     async function completeCallback() {
+        const snapshot = sessionSnapshot();
         const config = getConfig();
         const query = new URLSearchParams(global.location.search);
         const code = query.get('code') || '';
@@ -422,7 +526,7 @@
             throw new Error('Genesis ID returned an invalid application token.');
         }
         const session = await exchangeFirebaseCustomToken(grant.firebaseCustomToken);
-        writeJsonStorage(SESSION_KEY, session);
+        storeCurrentSession(snapshot, session);
         return safeReturnTo(pending.returnTo);
     }
 
@@ -436,8 +540,11 @@
         }
         const expiresAt = tokenExpiry(idToken, 0);
         if (expiresAt <= Date.now() + TOKEN_REFRESH_SKEW_MS) throw new Error('Managed Genesis ID token is expired.');
-        const account = await loadAccount(idToken);
-        writeJsonStorage(SESSION_KEY, {
+        clearSession();
+        renderRefreshing();
+        const snapshot = sessionSnapshot();
+        const account = await loadAccount(idToken, claims.sub);
+        storeCurrentSession(snapshot, {
             schemaVersion: 1,
             uid: account?.profile?.uid || '',
             idToken,
@@ -454,6 +561,20 @@
     document.addEventListener('keydown', (event) => {
         if (event.key === 'Escape') closeMenus();
     });
+    function refreshOnResume() {
+        clearTimeout(resumeTimer);
+        const canResume = () => !document.hidden
+            && [...slots].some((slot) => slot.isConnected)
+            && readJsonStorage(SESSION_KEY);
+        if (!canResume()) return;
+        if (accountFlight && isCurrentSession(accountFlight.snapshot)) return;
+        // Browsers commonly emit focus and visibilitychange together.
+        resumeTimer = setTimeout(() => {
+            if (canResume()) void refreshAccount();
+        }, 100);
+    }
+    global.addEventListener('focus', refreshOnResume);
+    document.addEventListener('visibilitychange', refreshOnResume);
 
     global.GenesisId = Object.freeze({
         appId: 'genesis-editor',
